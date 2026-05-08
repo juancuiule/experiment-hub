@@ -5,7 +5,7 @@ import { Context } from "@/lib/types";
 import { UseFormReturn } from "react-hook-form";
 import { twMerge } from "tailwind-merge";
 import { Label } from "../Label";
-import { FieldError, inputBase } from "../primitives";
+import { FieldError } from "../primitives";
 
 type Props = {
   component: TextAreaComponent;
@@ -31,8 +31,9 @@ export function TextArea({ component, form, context }: Props) {
         rows={component.props.lines ?? 4}
         placeholder={component.props.placeholder}
         className={twMerge(
-          "border-b border-gray-300 py-1 outline-none bg-transparent w-full placeholder:text-gray-500 focus:border-black transition-colors text-sm",
-          "resize-none",
+          "border-b border-border py-1 outline-none",
+          "bg-transparent w-full placeholder:text-muted-foreground focus:border-primary",
+          "transition-colors text-sm resize-none",
         )}
       />
       <FieldError message={errors[dataKey]?.message as string | undefined} />
