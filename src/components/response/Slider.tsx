@@ -47,18 +47,18 @@ export function Slider({ component, form, context }: Props) {
                 onValueChange={([val]) => field.onChange(val)}
                 className="relative flex items-center w-full h-5 select-none touch-none"
               >
-                <SliderPrimitive.Track className="relative h-px bg-gray-300 flex-1 rounded-full">
-                  <SliderPrimitive.Range className="absolute h-full bg-black rounded-full" />
+                <SliderPrimitive.Track className="relative h-px bg-border flex-1 rounded-full">
+                  <SliderPrimitive.Range className="absolute h-full bg-primary rounded-full" />
                 </SliderPrimitive.Track>
-                <SliderPrimitive.Thumb className="block w-4 h-4 bg-black rounded-full outline-none focus-visible:ring-2 focus-visible:ring-black/20 cursor-grab active:cursor-grabbing" />
+                <SliderPrimitive.Thumb className="block w-4 h-4 bg-primary rounded-full outline-none focus-visible:ring-2 focus-visible:ring-primary/20 cursor-grab active:cursor-grabbing" />
               </SliderPrimitive.Root>
             </div>
             {(component.props.minLabel || component.props.maxLabel) && (
               <div className="flex justify-between mt-1">
-                <span className="text-xs text-gray-500 uppercase tracking-wide">
+                <span className="text-xs text-muted-foreground uppercase tracking-wide">
                   {component.props.minLabel}
                 </span>
-                <span className="text-xs text-gray-500 uppercase tracking-wide">
+                <span className="text-xs text-muted-foreground uppercase tracking-wide">
                   {component.props.maxLabel}
                 </span>
               </div>
