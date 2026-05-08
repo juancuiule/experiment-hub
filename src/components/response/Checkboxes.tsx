@@ -48,9 +48,9 @@ export function Checkboxes({ component, form, context }: Props) {
                       );
                     }}
                     className={twMerge(
-                      "size-4 border border-gray-400 rounded-sm",
+                      "size-4 border border-border rounded-[var(--radius)]",
                       "flex items-center justify-center shrink-0",
-                      "data-[state=checked]:bg-black data-[state=checked]:border-black",
+                      "data-[state=checked]:bg-primary data-[state=checked]:border-primary",
                       "transition-colors duration-75",
                     )}
                   >
