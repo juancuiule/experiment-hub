@@ -67,7 +67,7 @@ export function Screen({ screen, isLoading, onNext, context }: ScreenProps) {
 
   return (
     <form
-      className="h-full flex-1 flex flex-col gap-4"
+      className="h-full flex-1 flex flex-col gap-[var(--field-gap)]"
       key={screen.slug}
       onSubmit={form.handleSubmit(onSubmit)}
     >
