@@ -1,11 +1,13 @@
 import { FrameworkEdge } from "./edges";
 import { FrameworkNode, PathNode, LoopNode } from "./nodes";
 import { FrameworkScreen } from "./screen";
+import { ExperimentTheme } from "./theme";
 
 export type ExperimentFlow = {
   nodes: FrameworkNode[];
   edges: FrameworkEdge[];
   screens?: FrameworkScreen[];
+  theme?: ExperimentTheme;
 };
 
 type IterativeItem = { value: any; index: number };
