@@ -22,6 +22,7 @@ import { TimeInput } from "./response/TimeInput";
 import { RenderProps } from "./primitives";
 import { deepMerge } from "@/lib/flow";
 import { resolveValuesInString } from "@/lib/resolve";
+import { useComponentRegistry } from "@/lib/registry";
 
 const renderChild = (props: RenderProps) => <RenderComponent {...props} />;
 
@@ -31,14 +32,18 @@ export function RenderComponent({
   context: propContext,
   isLoading,
 }: RenderProps) {
-  const screenData = form.watch(); // Watch all form values to have them available in context
-  const context = deepMerge(propContext, { screenData }); // Add form values to context for easier access in components
+  const screenData = form.watch();
+  const context = deepMerge(propContext, { screenData });
+  const registry = useComponentRegistry();
 
   switch (component.componentFamily) {
     case "content": {
       switch (component.template) {
-        case "rich-text":
-          return <RichText component={component} context={context} />;
+        case "rich-text": {
+          const Custom = registry["rich-text"];
+          const props = { component, context };
+          return Custom ? <Custom {...props} /> : <RichText {...props} />;
+        }
         case "image":
           return <Image component={component} />;
         case "video":
@@ -49,45 +54,68 @@ export function RenderComponent({
     }
 
     case "response": {
-      const props = {
-        form,
-        context,
-        component: deepMerge(component, {
-          props: {
-            dataKey: resolveValuesInString(component.props.dataKey, context),
-          },
-        }),
-      };
+      const resolvedComponent = deepMerge(component, {
+        props: {
+          dataKey: resolveValuesInString(component.props.dataKey, context),
+        },
+      });
+      const props = { form, context, component: resolvedComponent };
+
       switch (component.template) {
-        case "text-input":
-          return <TextInput {...props} />;
-        case "text-area":
-          return <TextArea {...props} />;
-        case "date-input":
-          return <DateInput {...props} />;
-        case "time-input":
-          return <TimeInput {...props} />;
-        case "numeric-input":
-          return <NumericInput {...props} />;
-        case "single-checkbox":
-          return <SingleCheckbox {...props} />;
-        case "checkboxes":
-          return <Checkboxes {...props} />;
-        case "radio":
-          return <Radio {...props} />;
-        case "dropdown":
-          return <Dropdown {...props} />;
-        case "slider":
-          return <Slider {...props} />;
-        case "likert-scale":
-          return <LikertScale {...props} />;
+        case "text-input": {
+          const Custom = registry["text-input"];
+          return Custom ? <Custom {...props} /> : <TextInput {...props} />;
+        }
+        case "text-area": {
+          const Custom = registry["text-area"];
+          return Custom ? <Custom {...props} /> : <TextArea {...props} />;
+        }
+        case "date-input": {
+          const Custom = registry["date-input"];
+          return Custom ? <Custom {...props} /> : <DateInput {...props} />;
+        }
+        case "time-input": {
+          const Custom = registry["time-input"];
+          return Custom ? <Custom {...props} /> : <TimeInput {...props} />;
+        }
+        case "numeric-input": {
+          const Custom = registry["numeric-input"];
+          return Custom ? <Custom {...props} /> : <NumericInput {...props} />;
+        }
+        case "single-checkbox": {
+          const Custom = registry["single-checkbox"];
+          return Custom ? <Custom {...props} /> : <SingleCheckbox {...props} />;
+        }
+        case "checkboxes": {
+          const Custom = registry["checkboxes"];
+          return Custom ? <Custom {...props} /> : <Checkboxes {...props} />;
+        }
+        case "radio": {
+          const Custom = registry["radio"];
+          return Custom ? <Custom {...props} /> : <Radio {...props} />;
+        }
+        case "dropdown": {
+          const Custom = registry["dropdown"];
+          return Custom ? <Custom {...props} /> : <Dropdown {...props} />;
+        }
+        case "slider": {
+          const Custom = registry["slider"];
+          return Custom ? <Custom {...props} /> : <Slider {...props} />;
+        }
+        case "likert-scale": {
+          const Custom = registry["likert-scale"];
+          return Custom ? <Custom {...props} /> : <LikertScale {...props} />;
+        }
       }
     }
 
     case "layout": {
       switch (component.template) {
-        case "button":
-          return <Button component={component} isLoading={isLoading} />;
+        case "button": {
+          const Custom = registry["button"];
+          const buttonProps = { component, isLoading };
+          return Custom ? <Custom {...buttonProps} /> : <Button {...buttonProps} />;
+        }
         case "group":
           return (
             <Group
