@@ -1,20 +1,45 @@
 @import "tailwindcss";
 
-@theme {
-  --color-warning: #fcc500;
-  --color-error: #fc1400;
-  --color-info: #60a6bc;
-  --color-black: #1d1d1d;
-  --color-light: #fafafa;
-  --color-success: #0cc084;
-  --color-primary: #60a6bc;
+/* Experiment design tokens — overridden per-experiment via wrapper inline style */
+:root {
+  --primary:            #60a6bc;
+  --primary-foreground: #ffffff;
+  --background:         #fafafa;
+  --surface:            #ffffff;
+  --surface-hover:      #f4f4f5;
+  --foreground:         #1d1d1d;
+  --muted-foreground:   #71717a;
+  --border:             #d4d4d8;
+  --error:              #fc1400;
+  --radius:             0.125rem;
+  --field-gap:          1rem;
+  --screen-padding:     1.5rem;
 
-  --font-sans: "Montserrat", sans-serif;
-  --font-mono: "Overpass Mono", monospace;
+  scroll-behavior: smooth;
 }
 
-:root {
-  scroll-behavior: smooth;
+/* Dynamic Tailwind utilities — resolved at runtime via CSS vars above */
+@theme inline {
+  --color-primary:            var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-background:         var(--background);
+  --color-surface:            var(--surface);
+  --color-surface-hover:      var(--surface-hover);
+  --color-foreground:         var(--foreground);
+  --color-muted-foreground:   var(--muted-foreground);
+  --color-border:             var(--border);
+  --color-error:              var(--error);
+}
+
+/* Static design tokens */
+@theme {
+  --color-warning: #fcc500;
+  --color-info:    #60a6bc;
+  --color-black:   #1d1d1d;
+  --color-light:   #fafafa;
+  --color-success: #0cc084;
+  --font-sans:     "Montserrat", sans-serif;
+  --font-mono:     "Overpass Mono", monospace;
 }
 
 .debug {
