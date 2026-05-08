@@ -46,7 +46,7 @@ export function CheckIcon() {
 
 export function ChevronDownIcon() {
   return (
-    <svg className="size-4 text-gray-400" viewBox="0 0 16 16" fill="none">
+    <svg className="size-4 text-muted-foreground" viewBox="0 0 16 16" fill="none">
       <path
         d="M4 6l4 4 4-4"
         stroke="currentColor"
