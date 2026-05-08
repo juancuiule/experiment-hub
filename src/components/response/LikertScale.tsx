@@ -21,7 +21,6 @@ export function LikertScale({ component, form, context }: Props) {
   } = form;
   const { dataKey } = component.props;
   const options = component.props.options;
-  const lastIndex = options.length - 1;
 
   return (
     <Controller
@@ -38,50 +37,44 @@ export function LikertScale({ component, form, context }: Props) {
             aria-labelledby={`${dataKey}-label`}
             className="flex justify-between mt-3 flex-row gap-4 items-start"
           >
-            {options.map((opt, i) => {
-              return (
-                <div
-                  key={opt.value}
-                  className={twMerge(
-                    "flex justify-center items-center flex-col flex-1 gap-1",
-                  )}
+            {options.map((opt, i) => (
+              <div
+                key={opt.value}
+                className="flex justify-center items-center flex-col flex-1 gap-1"
+              >
+                <RadioGroupPrimitive.Item
+                  id={`${dataKey}-${opt.value}`}
+                  value={opt.value}
+                  aria-label={
+                    opt.label
+                      ? `${opt.value} — ${opt.label}`
+                      : String(opt.value)
+                  }
+                  className="size-8 rounded-full relative border border-border flex items-center justify-center shrink-0 data-[state=checked]:border-primary transition-colors"
                 >
-                  <RadioGroupPrimitive.Item
-                    id={`${dataKey}-${opt.value}`}
-                    value={opt.value}
-                    aria-label={
-                      opt.label
-                        ? `${opt.value} — ${opt.label}`
-                        : String(opt.value)
-                    }
-                    className="size-8 rounded-full relative border border-gray-300 flex items-center justify-center shrink-0 data-[state=checked]:border-black transition-colors"
+                  <span className="text-xs absolute top-1/2 -translate-y-1/2 left-1/2 -translate-x-1/2 text-muted-foreground">
+                    <span className="ml-0.5">{i + 1}</span>
+                  </span>
+                  <RadioGroupPrimitive.Indicator
+                    className={twMerge(
+                      "size-6 flex items-center justify-center text-xs rounded-full",
+                      "bg-primary text-primary-foreground z-10 text-center",
+                    )}
                   >
-                    <span className="text-xs absolute top-1/2 -translate-y-1/2 left-1/2 -translate-x-1/2 text-gray-500">
-                      <span className="ml-0.5">{i + 1}</span>
-                    </span>
-                    <RadioGroupPrimitive.Indicator
-                      className={twMerge(
-                        "size-6 flex items-center justify-center text-xs rounded-full",
-                        "bg-black text-white z-10 text-center",
-                      )}
-                    >
-                      {i + 1}
-                    </RadioGroupPrimitive.Indicator>
-                  </RadioGroupPrimitive.Item>
-                  {opt.label && (
-                    <Label
-                      htmlFor={`${dataKey}-${opt.value}`}
-                      context={context}
-                      className={twMerge(
-                        "text-xs w-full text-center text-balance",
-                      )}
-                    >
-                      {opt.label}
-                    </Label>
-                  )}
-                </div>
-              );
-            })}
+                    {i + 1}
+                  </RadioGroupPrimitive.Indicator>
+                </RadioGroupPrimitive.Item>
+                {opt.label && (
+                  <Label
+                    htmlFor={`${dataKey}-${opt.value}`}
+                    context={context}
+                    className="text-xs w-full text-center text-balance"
+                  >
+                    {opt.label}
+                  </Label>
+                )}
+              </div>
+            ))}
           </RadioGroupPrimitive.Root>
           <FieldError
             message={errors[dataKey]?.message as string | undefined}
