@@ -6,33 +6,30 @@ type Props = {
   total: number;
 };
 
-export default function Stepper(props: Props) {
-  const { config, step, total } = props;
+export default function Stepper({ config, step, total }: Props) {
   return (
     <div className="w-full mb-6">
       {config.label ? (
-        <p className="text-sm text-zinc-400 mb-2">
+        <p className="text-sm text-muted-foreground mb-2">
           {config.label
             .replace("{index}", String(step + 1))
             .replace("{total}", String(total))}
         </p>
       ) : null}
-      <div className="h-1 w-full bg-zinc-200 dark:bg-zinc-700 rounded-full overflow-hidden">
+      <div className="h-1 w-full bg-border rounded-full overflow-hidden">
         {config.style === "dashed" ? (
           <div className="h-full flex gap-0.5">
             {Array.from({ length: total }, (_, index) => (
               <div
                 key={index}
-                className={`h-full flex-1 ${index < step + 1 ? "bg-black" : "bg-zinc-300"}`}
+                className={`h-full flex-1 ${index < step + 1 ? "bg-primary" : "bg-border"}`}
               />
             ))}
           </div>
         ) : (
           <div
-            className="h-full bg-black dark:bg-white"
-            style={{
-              width: `${((step + 1) / total) * 100}%`,
-            }}
+            className="h-full bg-primary"
+            style={{ width: `${((step + 1) / total) * 100}%` }}
           />
         )}
       </div>
