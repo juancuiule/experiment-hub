@@ -36,7 +36,7 @@ export function Dropdown({ component, form, context }: Props) {
           >
             <SelectPrimitive.Trigger
               id={dataKey}
-              className="flex items-center justify-between border-b border-gray-300 pb-1 pt-1 w-full outline-none focus:border-black transition-colors data-placeholder:text-gray-500 text-sm"
+              className="flex items-center justify-between border-b border-border pb-1 pt-1 w-full outline-none focus:border-primary transition-colors data-placeholder:text-muted-foreground text-sm"
             >
               <SelectPrimitive.Value placeholder="Select one" />
               <SelectPrimitive.Icon>
@@ -44,14 +44,14 @@ export function Dropdown({ component, form, context }: Props) {
               </SelectPrimitive.Icon>
             </SelectPrimitive.Trigger>
             <SelectPrimitive.Portal>
-              <SelectPrimitive.Content className="bg-white border border-gray-200 shadow-md rounded-sm z-50 overflow-hidden">
+              <SelectPrimitive.Content className="bg-surface border border-border shadow-md rounded-[var(--radius)] z-50 overflow-hidden">
                 <SelectPrimitive.Viewport className="p-1">
                   {resolveOptions(component.props.options, context).map(
                     (opt) => (
                       <SelectPrimitive.Item
                         key={opt.value}
                         value={opt.value}
-                        className="flex items-center px-3 py-2 text-sm cursor-pointer outline-none data-highlighted:bg-gray-100 rounded-sm"
+                        className="flex items-center px-3 py-2 text-sm cursor-pointer outline-none data-highlighted:bg-surface-hover rounded-[var(--radius)]"
                       >
                         <SelectPrimitive.ItemText>
                           {opt.label}
