@@ -208,6 +208,18 @@ type ComponentRegistry = Partial<{
 
 Each `*RenderProps` type exposes the same inputs the default component already receives: the component config, the form instance, and the context. Custom implementations are full replacements — they receive the form instance and can register fields and participate in validation.
 
+All render props types follow this pattern (example for `radio`):
+
+```typescript
+type RadioRenderProps = {
+  component: RadioComponent
+  form: UseFormReturn<Record<string, any>>
+  context: Context
+}
+```
+
+The same shape applies to all response and layout slots. Content slots (`rich-text`) omit `form` since they don't collect data.
+
 ### Usage
 
 ```typescript
