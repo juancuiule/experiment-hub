@@ -84,11 +84,6 @@ export function Screen({ screen, isLoading, onNext, context }: ScreenProps) {
           isLoading={isLoading}
         />
       ))}
-      <div className="absolute w-[calc(100vw-512px)] h-[20svh] overflow-y-scroll right-0 top-[80svh] p-2 bg-gray-100">
-        <pre className="text-xs">
-          <code>{JSON.stringify(values, null, 2)}</code>
-        </pre>
-      </div>
     </form>
   );
 }

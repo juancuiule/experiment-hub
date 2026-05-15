@@ -19,7 +19,6 @@ all of this between {{ and }} will be replaced with the value of the key in the 
 export function resolveValuesInString(text: string, context: Context): string {
   const regex = /\{\{(\$\$|\$|@|#)([a-zA-Z0-9_.\-]+)\}\}/g;
   return text.replace(regex, (match, prefix: Prefix, path: string) => {
-    console.log("Resolving:", match, "with prefix:", prefix, "and path:", path);
     const resolved = getValue(`${prefix}${path}`, context);
     return resolved != null ? String(resolved) : match;
   });
