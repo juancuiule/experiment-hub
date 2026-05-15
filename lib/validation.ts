@@ -195,9 +195,7 @@ function collectConditionals(components: ScreenComponent[]): ConditionalComponen
   return result;
 }
 
-export function buildSchema(
-  screen: FrameworkScreen,
-): z.ZodEffects<z.ZodObject<Record<string, z.ZodTypeAny>>> | z.ZodObject<Record<string, z.ZodTypeAny>> {
+export function buildSchema(screen: FrameworkScreen) {
   const shape = collectFields(screen.components);
   const baseSchema = z.object(shape);
 
@@ -238,5 +236,5 @@ export function buildSchema(
         }
       }
     }
-  });
+  }) as typeof baseSchema;
 }

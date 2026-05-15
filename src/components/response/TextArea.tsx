@@ -6,7 +6,7 @@ import { Context } from "@/lib/types";
 import { UseFormReturn } from "react-hook-form";
 import { twMerge } from "tailwind-merge";
 import { Label } from "../Label";
-import { FieldError, inputBase } from "../primitives";
+import { FieldError } from "../primitives";
 
 type Props = {
   component: TextAreaComponent;

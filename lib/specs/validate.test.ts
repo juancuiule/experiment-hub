@@ -361,6 +361,7 @@ describe("fork wiring", () => {
           id: "f",
           type: "fork",
           props: {
+            name: "Variant fork",
             forks: [
               { id: "a", name: "A" },
               { id: "b", name: "B" },
@@ -388,7 +389,7 @@ describe("fork wiring", () => {
     const flow: ExperimentFlow = {
       nodes: [
         start,
-        { id: "f", type: "fork", props: { forks: [{ id: "a", name: "A" }] } },
+        { id: "f", type: "fork", props: { name: "Variant fork", forks: [{ id: "a", name: "A" }] } },
         makeScreen("s-a", "variant-a"),
       ],
       edges: [
@@ -410,7 +411,7 @@ describe("fork wiring", () => {
         {
           id: "f",
           type: "fork",
-          props: { forks: [{ id: "a", name: "A" }, { id: "b", name: "B" }] },
+          props: { name: "Variant fork", forks: [{ id: "a", name: "A" }, { id: "b", name: "B" }] },
         },
         makeScreen("s-a", "variant-a"),
         makeScreen("s-b", "variant-b"),
@@ -434,7 +435,7 @@ describe("fork wiring", () => {
     const flow: ExperimentFlow = {
       nodes: [
         start,
-        { id: "f", type: "fork", props: { forks: [{ id: "a", name: "A" }] } },
+        { id: "f", type: "fork", props: { name: "Variant fork", forks: [{ id: "a", name: "A" }] } },
         makeScreen("s-a", "variant-a"),
         makeScreen("s-ghost", "ghost"),
       ],

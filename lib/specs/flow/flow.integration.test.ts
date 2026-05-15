@@ -62,6 +62,7 @@ const complexFlow: ExperimentFlow = {
       id: "fork-group",
       type: "fork",
       props: {
+        name: "Group assignment",
         forks: [
           { id: "control", name: "Control", weight: 1 },
           { id: "treatment", name: "Treatment", weight: 1 },
@@ -326,7 +327,7 @@ describe("error cases", () => {
         {
           id: "fork-bad",
           type: "fork",
-          props: { forks: [{ id: "x", name: "X", weight: 1 }] },
+          props: { name: "Bad fork", forks: [{ id: "x", name: "X", weight: 1 }] },
         },
       ],
       edges: [seq("start", "fork-bad")],

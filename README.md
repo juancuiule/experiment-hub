@@ -169,7 +169,7 @@ This project is an **early-stage working prototype**. The flow engine and compon
 
 **Back navigation** — Participants cannot go back to a previous screen. Spec: `specs/back-navigation.md`.
 
-**Answer piping coverage** — Interpolation works in `rich-text` content and component labels, but not yet in option labels, placeholders, or button text. Spec: `specs/answer-piping.md`.
+**Answer piping coverage** — Fully implemented. Interpolation works in `rich-text` content, component labels, placeholders (`text-input`, `text-area`, `numeric-input`), slider endpoint labels, option labels (radio, checkboxes, dropdown, likert-scale), and button text.
 
 **Debug artifacts** — The current UI renders raw JSON debug panels (flow state, form values) directly on screen. These exist for development only and must be removed before any participant-facing deployment.
 
