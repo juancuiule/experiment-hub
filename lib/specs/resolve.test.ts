@@ -77,6 +77,16 @@ describe("resolveValuesInString", () => {
       expect(resolveValuesInString("{{$$a.b.c}}", ctx)).toBe("deep");
     });
 
+    it("resolves hyphenated keys in the path", () => {
+      const ctx = { data: { "prayer-frequency": "daily" } };
+      expect(resolveValuesInString("Frequency: {{$$prayer-frequency}}", ctx)).toBe("Frequency: daily");
+    });
+
+    it("resolves hyphenated segments in a dotted path", () => {
+      const ctx = { data: { survey: { "follow-up": "yes" } } };
+      expect(resolveValuesInString("{{$$survey.follow-up}}", ctx)).toBe("yes");
+    });
+
     it("leaves the token as-is when the path does not resolve", () => {
       const ctx = { data: { welcome: {} } };
       expect(resolveValuesInString("Hi {{$$welcome.name}}", ctx)).toBe("Hi {{$$welcome.name}}");
@@ -112,6 +122,16 @@ describe("resolveValuesInString", () => {
       expect(
         resolveValuesInString("{{$$welcome.name}} likes {{@loop-sports.value}}", ctx),
       ).toBe("Juan likes soccer");
+    });
+
+    it("resolves both $$ and $ tokens in the same string", () => {
+      const ctx = {
+        data: { welcome: { name: "Juan" } },
+        screenData: { age: 30 },
+      };
+      expect(
+        resolveValuesInString("{{$$welcome.name}} is {{$age}}", ctx),
+      ).toBe("Juan is 30");
     });
   });
 

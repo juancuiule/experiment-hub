@@ -130,6 +130,69 @@ describe("label interpolation", () => {
     );
     expect(screen.getByRole("heading", { level: 2, name: "cooking" })).toBeInTheDocument();
   });
+
+  it("resolves @value in radio option labels", () => {
+    renderScreen(
+      [{
+        componentFamily: "response",
+        template: "radio",
+        props: {
+          dataKey: "rating",
+          label: "Rating",
+          options: [
+            { label: "I enjoy {{@loop-1.value}}", value: "yes" },
+            { label: "I don't enjoy {{@loop-1.value}}", value: "no" },
+          ],
+        },
+      }],
+      { loopData: { "loop-1": { value: "running", index: 0 } } }
+    );
+    expect(screen.getByLabelText("I enjoy running")).toBeInTheDocument();
+    expect(screen.getByLabelText("I don't enjoy running")).toBeInTheDocument();
+  });
+
+  it("resolves $$ references in checkboxes option labels", () => {
+    renderScreen(
+      [{
+        componentFamily: "response",
+        template: "checkboxes",
+        props: {
+          dataKey: "picks",
+          label: "Picks",
+          options: [
+            { label: "{{$$user.name}}'s pick", value: "a" },
+            { label: "Other", value: "b" },
+          ],
+        },
+      }],
+      { data: { user: { name: "Juan" } } }
+    );
+    expect(screen.getByLabelText("Juan's pick")).toBeInTheDocument();
+  });
+
+  it("resolves $$ references in text-input placeholder", () => {
+    renderScreen(
+      [{
+        componentFamily: "response",
+        template: "text-input",
+        props: {
+          dataKey: "note",
+          label: "Note",
+          placeholder: "e.g. describe {{$$welcome.name}}'s experience",
+        },
+      }],
+      { data: { welcome: { name: "Maria" } } }
+    );
+    expect(screen.getByPlaceholderText("e.g. describe Maria's experience")).toBeInTheDocument();
+  });
+
+  it("resolves @value in button text", () => {
+    renderScreen(
+      [{ componentFamily: "layout", template: "button", props: { text: "Continue to {{@loop-1.value}}" } }],
+      { loopData: { "loop-1": { value: "section 2", index: 1 } } }
+    );
+    expect(screen.getByRole("button", { name: "Continue to section 2" })).toBeInTheDocument();
+  });
 });
 
 // ---------------------------------------------------------------------------
