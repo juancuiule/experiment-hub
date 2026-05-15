@@ -24,7 +24,7 @@ An experiment is a directed graph of **nodes** connected by **edges**. The resea
 
 ```
 start → screen[welcome] → branch[age-check] → screen[adult-path]
-                                             ↘ screen[minor-path]
+                                            ↘ screen[minor-path]
 ```
 
 Nodes represent steps; edges define how the engine moves between them.
