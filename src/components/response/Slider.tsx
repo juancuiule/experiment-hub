@@ -1,6 +1,7 @@
 "use client";
 
 import { SliderComponent } from "@/lib/components/response";
+import { resolveValuesInString } from "@/lib/resolve";
 import { Context } from "@/lib/types";
 import * as SliderPrimitive from "@radix-ui/react-slider";
 import { Controller, UseFormReturn } from "react-hook-form";
@@ -56,10 +57,10 @@ export function Slider({ component, form, context }: Props) {
             {(component.props.minLabel || component.props.maxLabel) && (
               <div className="flex justify-between mt-1">
                 <span className="text-xs text-gray-500 uppercase tracking-wide">
-                  {component.props.minLabel}
+                  {component.props.minLabel ? resolveValuesInString(component.props.minLabel, context) : undefined}
                 </span>
                 <span className="text-xs text-gray-500 uppercase tracking-wide">
-                  {component.props.maxLabel}
+                  {component.props.maxLabel ? resolveValuesInString(component.props.maxLabel, context) : undefined}
                 </span>
               </div>
             )}

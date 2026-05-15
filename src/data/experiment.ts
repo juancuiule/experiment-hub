@@ -81,7 +81,7 @@ export const experiment: ExperimentFlow = {
           componentFamily: "response",
           template: "slider",
           props: {
-            label: "Drag the slider $mood indicate how you're feeling today",
+            label: "Drag the slider {{$mood}} indicate how you're feeling today",
             min: 0,
             max: 100,
             dataKey: "mood",
@@ -101,7 +101,7 @@ export const experiment: ExperimentFlow = {
           template: "text-input",
           props: {
             label: "What's on your mind?",
-            placeholder: "Type $mood something here...",
+            placeholder: "Type {{$mood}} something here...",
             dataKey: "thoughts",
           },
         },

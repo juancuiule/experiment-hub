@@ -14,7 +14,6 @@ export default function Experiment(props: Props) {
   const { startingNode } = props;
   const { step, isLoading, start, next } = useExperimentStore();
 
-  console.log("Algo", step);
   useEffect(() => {
     if (!step) {
       start(startingNode);
