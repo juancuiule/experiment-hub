@@ -20,6 +20,7 @@ export type Context = Partial<{
   // without requiring a separate key in resolveValuesInString / getValue / conditions.
   screenData: Record<string, any> & {
     foreachData?: { [foreachId: string]: IterativeItem };
+    shuffledOptions?: Record<string, Array<{ label: string; value: string }>>;
   };
   branches: Record<string, string>;
   forks: Record<string, string>;
