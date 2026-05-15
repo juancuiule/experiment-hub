@@ -3,14 +3,9 @@
     "allow": [
       "Bash(ls:*)",
       "Bash(npx tsc:*)",
-      "Bash(npm test:*)",
-      "Skill(code-review:code-review)",
-      "Bash(git add *)",
-      "Bash(git commit -m ' *)",
-      "Bash(git commit *)",
       "Bash(pnpm test *)",
-      "Bash(git checkout *)",
-      "Bash(pnpm test)",
+      "Bash(npx vitest *)",
+      "Skill(code-review:code-review)",
       "Edit",
       "Write"
     ]
