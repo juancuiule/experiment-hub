@@ -1,7 +1,6 @@
-# Experiment Config Validation Spec
+# Experiment Config Validation
 
-This document defines what `validateExperiment` should check, why each check matters,
-and what error code to emit. Checks are grouped by concern and ordered from broadest to most specific.
+Documents what `validateExperiment` checks, why each check matters, and what error code it emits. Checks are grouped by concern and ordered from broadest to most specific.
 
 ---
 
