@@ -4,6 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 
 import { FrameworkScreen } from "@/lib/screen";
+import { ScreenComponent } from "@/lib/components";
 import { Context } from "@/lib/types";
 import { buildSchema } from "@/lib/validation";
 import { RenderComponent } from "./components/RenderComponent";
@@ -23,10 +24,33 @@ type ScreenProps = {
 // Utilities
 // ---------------------------------------------------------------------------
 
-function buildDefaultValues(screen: FrameworkScreen): Record<string, any> {
-  const values: Record<string, any> = {};
-  for (const c of screen.components) {
-    if (c.componentFamily !== "response") continue;
+function collectDefaults(
+  components: ScreenComponent[],
+  values: Record<string, any> = {},
+): Record<string, any> {
+  for (const c of components) {
+    if (c.componentFamily !== "response") {
+      if (c.componentFamily === "layout" && c.template === "group") {
+        collectDefaults(c.props.components, values);
+      } else if (c.componentFamily === "control" && c.template === "conditional") {
+        collectDefaults([c.props.component], values);
+        if (c.props.else) collectDefaults([c.props.else], values);
+      } else if (c.componentFamily === "control" && c.template === "for-each" && c.props.type === "static") {
+        for (let i = 0; i < c.props.values.length; i++) {
+          const resolved = {
+            ...c.props.component,
+            props: {
+              ...c.props.component.props,
+              ...(c.props.component.componentFamily === "response"
+                ? { dataKey: (c.props.component.props as any).dataKey.replace("@index", String(i)) }
+                : {}),
+            },
+          };
+          collectDefaults([resolved], values);
+        }
+      }
+      continue;
+    }
     switch (c.template) {
       case "checkboxes":
         values[c.props.dataKey] = [];
@@ -47,6 +71,10 @@ function buildDefaultValues(screen: FrameworkScreen): Record<string, any> {
     }
   }
   return values;
+}
+
+function buildDefaultValues(screen: FrameworkScreen): Record<string, any> {
+  return collectDefaults(screen.components);
 }
 
 // ---------------------------------------------------------------------------

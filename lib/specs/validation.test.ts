@@ -619,3 +619,224 @@ describe("numeric-input", () => {
     expect(schema.safeParse({}).success).toBe(true);
   });
 });
+
+// ---------------------------------------------------------------------------
+// nested components — group
+// ---------------------------------------------------------------------------
+
+describe("group — nested fields included in schema", () => {
+  it("includes a required text-input nested inside a group", () => {
+    const schema = buildSchema(
+      screen([
+        {
+          componentFamily: "layout",
+          template: "group",
+          props: {
+            name: "personal",
+            components: [
+              { componentFamily: "response", template: "text-input", props: { dataKey: "fname", label: "First name", required: true } },
+            ],
+          },
+        },
+      ])
+    );
+    expect(schema.safeParse({ fname: "Alice" }).success).toBe(true);
+    expect(schema.safeParse({ fname: "" }).success).toBe(false);
+  });
+
+  it("includes multiple response fields from a group", () => {
+    const schema = buildSchema(
+      screen([
+        {
+          componentFamily: "layout",
+          template: "group",
+          props: {
+            name: "survey",
+            components: [
+              { componentFamily: "response", template: "text-input", props: { dataKey: "q1", label: "Q1", required: true } },
+              { componentFamily: "response", template: "text-input", props: { dataKey: "q2", label: "Q2", required: true } },
+            ],
+          },
+        },
+      ])
+    );
+    expect(schema.safeParse({ q1: "a", q2: "b" }).success).toBe(true);
+    expect(schema.safeParse({ q1: "", q2: "b" }).success).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// nested components — conditional
+// ---------------------------------------------------------------------------
+
+describe("conditional — nested field included as optional in base schema", () => {
+  it("conditional field is optional in the base schema (missing value passes)", () => {
+    const schema = buildSchema(
+      screen([
+        { componentFamily: "response", template: "radio", props: { dataKey: "answer", label: "Answer", options: [], required: true } },
+        {
+          componentFamily: "control",
+          template: "conditional",
+          props: {
+            if: { type: "simple", operator: "eq", dataKey: "$answer", value: "yes" },
+            component: {
+              componentFamily: "response",
+              template: "text-input",
+              props: { dataKey: "details", label: "Details", required: true },
+            },
+          },
+        },
+      ])
+    );
+    // The conditional field is absent — base schema is optional, so it passes
+    expect(schema.safeParse({ answer: "no" }).success).toBe(true);
+  });
+
+  it("superRefine enforces required on conditional field when condition is true", () => {
+    const schema = buildSchema(
+      screen([
+        { componentFamily: "response", template: "radio", props: { dataKey: "answer", label: "Answer", options: [], required: true } },
+        {
+          componentFamily: "control",
+          template: "conditional",
+          props: {
+            if: { type: "simple", operator: "eq", dataKey: "$answer", value: "yes" },
+            component: {
+              componentFamily: "response",
+              template: "text-input",
+              props: { dataKey: "details", label: "Details", required: true },
+            },
+          },
+        },
+      ])
+    );
+    // condition is true, details is empty — should fail
+    expect(schema.safeParse({ answer: "yes", details: "" }).success).toBe(false);
+  });
+
+  it("superRefine passes when condition is true and required conditional field is filled", () => {
+    const schema = buildSchema(
+      screen([
+        { componentFamily: "response", template: "radio", props: { dataKey: "answer", label: "Answer", options: [], required: true } },
+        {
+          componentFamily: "control",
+          template: "conditional",
+          props: {
+            if: { type: "simple", operator: "eq", dataKey: "$answer", value: "yes" },
+            component: {
+              componentFamily: "response",
+              template: "text-input",
+              props: { dataKey: "details", label: "Details", required: true },
+            },
+          },
+        },
+      ])
+    );
+    expect(schema.safeParse({ answer: "yes", details: "some detail" }).success).toBe(true);
+  });
+
+  it("superRefine skips required check when conditional field is not required", () => {
+    const schema = buildSchema(
+      screen([
+        { componentFamily: "response", template: "radio", props: { dataKey: "answer", label: "Answer", options: [], required: true } },
+        {
+          componentFamily: "control",
+          template: "conditional",
+          props: {
+            if: { type: "simple", operator: "eq", dataKey: "$answer", value: "yes" },
+            component: {
+              componentFamily: "response",
+              template: "text-input",
+              props: { dataKey: "details", label: "Details", required: false },
+            },
+          },
+        },
+      ])
+    );
+    // condition true but not required — should pass even when empty
+    expect(schema.safeParse({ answer: "yes", details: "" }).success).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// nested components — static for-each
+// ---------------------------------------------------------------------------
+
+describe("static for-each — generates N schema entries", () => {
+  it("creates one entry per static value with @index resolved", () => {
+    const schema = buildSchema(
+      screen([
+        {
+          componentFamily: "control",
+          template: "for-each",
+          props: {
+            type: "static",
+            id: "sports",
+            values: ["football", "tennis", "swimming"],
+            component: {
+              componentFamily: "response",
+              template: "text-input",
+              props: { dataKey: "sport_@index", label: "Sport", required: true },
+            },
+          },
+        },
+      ])
+    );
+    expect(schema.safeParse({ sport_0: "a", sport_1: "b", sport_2: "c" }).success).toBe(true);
+    expect(schema.safeParse({ sport_0: "", sport_1: "b", sport_2: "c" }).success).toBe(false);
+  });
+
+  it("generates exactly N keys matching values length", () => {
+    const schema = buildSchema(
+      screen([
+        {
+          componentFamily: "control",
+          template: "for-each",
+          props: {
+            type: "static",
+            id: "items",
+            values: ["a", "b"],
+            component: {
+              componentFamily: "response",
+              template: "text-input",
+              props: { dataKey: "item_@index", label: "Item", required: true },
+            },
+          },
+        },
+      ])
+    );
+    // only 2 values → keys item_0 and item_1
+    expect(schema.safeParse({ item_0: "x", item_1: "y" }).success).toBe(true);
+    // extra key item_2 is irrelevant (zod strips or passes unknowns)
+    expect(schema.safeParse({ item_0: "", item_1: "y" }).success).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// nested components — dynamic for-each (skipped)
+// ---------------------------------------------------------------------------
+
+describe("dynamic for-each — gracefully skipped", () => {
+  it("produces no entries for dynamic for-each", () => {
+    const schema = buildSchema(
+      screen([
+        {
+          componentFamily: "control",
+          template: "for-each",
+          props: {
+            type: "dynamic",
+            id: "items",
+            dataKey: "$$items",
+            component: {
+              componentFamily: "response",
+              template: "text-input",
+              props: { dataKey: "item_@index", label: "Item", required: true },
+            },
+          },
+        },
+      ])
+    );
+    // No fields registered — empty object passes
+    expect(schema.safeParse({}).success).toBe(true);
+  });
+});

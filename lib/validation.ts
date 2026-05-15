@@ -1,6 +1,9 @@
 import { z } from "zod";
 import { FrameworkScreen } from "./screen";
 import { ResponseComponent } from "./components/response";
+import { ScreenComponent } from "./components";
+import { evaluateCondition } from "./conditions";
+import { ConditionalComponent } from "./components/control";
 
 function buildFieldSchema(component: ResponseComponent): z.ZodTypeAny {
   const { required = true, errorMessage } = component.props;
@@ -129,15 +132,110 @@ function buildFieldSchema(component: ResponseComponent): z.ZodTypeAny {
   }
 }
 
+function collectFields(
+  components: ScreenComponent[],
+  acc: Record<string, z.ZodTypeAny> = {},
+): Record<string, z.ZodTypeAny> {
+  for (const component of components) {
+    if (component.componentFamily === "response") {
+      acc[component.props.dataKey] = buildFieldSchema(component);
+    } else if (component.componentFamily === "layout" && component.template === "group") {
+      collectFields(component.props.components, acc);
+    } else if (component.componentFamily === "control" && component.template === "conditional") {
+      // Nested response fields are optional in base schema;
+      // superRefine enforces required rules when condition is true at submit time.
+      const inner = component.props.component;
+      if (inner.componentFamily === "response") {
+        acc[inner.props.dataKey] = buildFieldSchema(inner).optional();
+      } else {
+        collectFields([inner], acc);
+      }
+      // Also handle else branch if present
+      if (component.props.else) {
+        const elseBranch = component.props.else;
+        if (elseBranch.componentFamily === "response") {
+          if (!(elseBranch.props.dataKey in acc)) {
+            acc[elseBranch.props.dataKey] = buildFieldSchema(elseBranch).optional();
+          }
+        } else {
+          collectFields([elseBranch], acc);
+        }
+      }
+    } else if (component.componentFamily === "control" && component.template === "for-each") {
+      if (component.props.type === "static") {
+        const template = component.props.component;
+        if (template.componentFamily === "response") {
+          for (let i = 0; i < component.props.values.length; i++) {
+            const resolvedKey = template.props.dataKey.replace("@index", String(i));
+            acc[resolvedKey] = buildFieldSchema(template);
+          }
+        }
+        // dynamic for-each: skip — dataKey is not statically resolvable
+      }
+    }
+  }
+  return acc;
+}
+
+function collectConditionals(components: ScreenComponent[]): ConditionalComponent[] {
+  const result: ConditionalComponent[] = [];
+  for (const component of components) {
+    if (component.componentFamily === "control" && component.template === "conditional") {
+      result.push(component);
+      // Recurse into nested conditionals
+      collectConditionals([component.props.component]).forEach((c) => result.push(c));
+      if (component.props.else) {
+        collectConditionals([component.props.else]).forEach((c) => result.push(c));
+      }
+    } else if (component.componentFamily === "layout" && component.template === "group") {
+      collectConditionals(component.props.components).forEach((c) => result.push(c));
+    }
+  }
+  return result;
+}
+
 export function buildSchema(
   screen: FrameworkScreen,
-): z.ZodObject<Record<string, z.ZodTypeAny>> {
-  const shape: Record<string, z.ZodTypeAny> = {};
+): z.ZodEffects<z.ZodObject<Record<string, z.ZodTypeAny>>> | z.ZodObject<Record<string, z.ZodTypeAny>> {
+  const shape = collectFields(screen.components);
+  const baseSchema = z.object(shape);
 
-  for (const component of screen.components) {
-    if (component.componentFamily !== "response") continue;
-    shape[component.props.dataKey] = buildFieldSchema(component);
+  const conditionals = collectConditionals(screen.components);
+  if (conditionals.length === 0) {
+    return baseSchema;
   }
 
-  return z.object(shape);
+  return baseSchema.superRefine((data, ctx) => {
+    for (const conditional of conditionals) {
+      const condition = conditional.props.if;
+      const conditionMet = evaluateCondition(condition, {
+        screenData: data as Record<string, any>,
+        data: {},
+        loopData: {},
+      });
+
+      if (!conditionMet) continue;
+
+      const inner = conditional.props.component;
+      if (inner.componentFamily === "response") {
+        const { required = true, errorMessage } = inner.props;
+        if (!required) continue;
+
+        const value = data[inner.props.dataKey];
+        const isEmpty =
+          value === undefined ||
+          value === null ||
+          value === "" ||
+          (Array.isArray(value) && value.length === 0);
+
+        if (isEmpty) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: errorMessage ?? "This field is required",
+            path: [inner.props.dataKey],
+          });
+        }
+      }
+    }
+  });
 }
