@@ -138,6 +138,14 @@ function collectFields(
   for (const component of components) {
     if (component.componentFamily === "response") {
       acc[component.props.dataKey] = buildFieldSchema(component);
+      if (
+        (component.template === "radio" ||
+          component.template === "dropdown" ||
+          component.template === "checkboxes") &&
+        component.props.randomize
+      ) {
+        acc[`${component.props.dataKey}__order`] = z.array(z.string()).optional();
+      }
     } else if (component.componentFamily === "layout" && component.template === "group") {
       collectFields(component.props.components, acc);
     } else if (component.componentFamily === "control" && component.template === "conditional") {
