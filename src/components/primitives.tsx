@@ -16,7 +16,11 @@ export type RenderProps = {
 export function resolveOptions(
   options: OptionsSource,
   context: Context,
+  dataKey?: string,
 ): Option[] {
+  if (dataKey && context.screenData?.shuffledOptions?.[dataKey]) {
+    return context.screenData.shuffledOptions[dataKey] as Option[];
+  }
   if (Array.isArray(options)) return options;
   const value = getValue(options, context);
   if (!Array.isArray(value)) return [];
