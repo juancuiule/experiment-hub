@@ -1,7 +1,9 @@
-import { startExperiment, traverse } from "@/lib/flow";
+import { getActiveState, startExperiment, traverse } from "@/lib/flow";
 import { FlowStep } from "@/lib/types";
+import { shuffle } from "@/lib/utils";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
+import { resolveOptions } from "../components/primitives";
 import { experiment } from "./experiment";
 
 type ExperimentStore = {
@@ -10,6 +12,33 @@ type ExperimentStore = {
   start: (startNodeId?: string) => Promise<void>;
   next: (data?: Record<string, any>) => Promise<void>;
 };
+
+export function computeShuffledOptions(
+  step: FlowStep,
+): Record<string, Array<{ label: string; value: string }>> {
+  const activeState = getActiveState(step.state);
+  if (activeState.type !== "in-node" || activeState.node.type !== "screen") {
+    return {};
+  }
+  const slug = activeState.node.props.slug;
+  const screen = step.experiment.screens?.find((s) => s.slug === slug);
+  if (!screen) return {};
+
+  const result: Record<string, Array<{ label: string; value: string }>> = {};
+  for (const component of screen.components) {
+    if (
+      component.componentFamily === "response" &&
+      (component.template === "radio" ||
+        component.template === "dropdown" ||
+        component.template === "checkboxes") &&
+      component.props.randomize
+    ) {
+      const resolved = resolveOptions(component.props.options, step.context);
+      result[component.props.dataKey] = shuffle([...resolved]);
+    }
+  }
+  return result;
+}
 
 export const useExperimentStore = create<ExperimentStore>()(
   (set, get) => ({
