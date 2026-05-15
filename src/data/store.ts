@@ -48,7 +48,18 @@ export const useExperimentStore = create<ExperimentStore>()(
       set({ isLoading: true });
       try {
         const step = await startExperiment(experiment, startNodeId);
-        set({ step });
+        const shuffledOptions = computeShuffledOptions(step);
+        const enrichedStep: FlowStep = {
+          ...step,
+          context: {
+            ...step.context,
+            screenData: {
+              ...step.context.screenData,
+              shuffledOptions,
+            },
+          },
+        };
+        set({ step: enrichedStep });
       } catch (err) {
         throw err;
       } finally {
@@ -61,7 +72,18 @@ export const useExperimentStore = create<ExperimentStore>()(
       set({ isLoading: true });
       try {
         const nextStep = await traverse(step, data);
-        set({ step: nextStep });
+        const shuffledOptions = computeShuffledOptions(nextStep);
+        const enrichedStep: FlowStep = {
+          ...nextStep,
+          context: {
+            ...nextStep.context,
+            screenData: {
+              ...nextStep.context.screenData,
+              shuffledOptions,
+            },
+          },
+        };
+        set({ step: enrichedStep });
       } catch (err) {
         throw err;
       } finally {
