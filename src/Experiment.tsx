@@ -45,9 +45,6 @@ export default function Experiment(props: Props) {
         <p className="text-zinc-500 mb-8">
           Thanks for completing the experiment.
         </p>
-        <pre className="text-xs bg-zinc-100 dark:bg-zinc-900 rounded-lg p-4 overflow-auto max-h-64 text-zinc-700 dark:text-zinc-300">
-          {JSON.stringify(step.context, null, 2)}
-        </pre>
       </>
     );
   }

@@ -40,7 +40,7 @@ export default function RootLayout({
               alt="Experiment Hub logo with text"
             />
           </nav>
-          <div className="flex-1 flex flex-col">{children}</div>
+          <div className="flex-1 flex flex-col w-full">{children}</div>
         </main>
       </body>
     </html>

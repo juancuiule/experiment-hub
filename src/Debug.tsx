@@ -154,7 +154,7 @@ function NodeCard({
   );
 }
 
-export function Debug() {
+export function StateDebug() {
   const { step } = useExperimentStore();
 
   if (!step) {
@@ -201,6 +201,109 @@ export function Debug() {
           />
         ))}
       </div>
+    </div>
+  );
+}
+
+function isPlainObject(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
+function isPrimitiveArray(v: unknown[]): boolean {
+  return v.every(item => typeof item !== 'object' || item === null);
+}
+
+function Leaf({ value }: { value: unknown }) {
+  if (value === null || value === undefined) return <span className="text-gray-300">null</span>;
+  if (typeof value === 'boolean') return <span className="text-purple-600">{value.toString()}</span>;
+  if (typeof value === 'number') return <span className="text-blue-600">{value}</span>;
+  if (typeof value === 'string') return <span className="text-green-700">"{value}"</span>;
+  if (Array.isArray(value)) {
+    return (
+      <span className="text-gray-500">
+        [{(value as unknown[]).map((item, i) => (
+          <span key={i}>{i > 0 && <span className="text-gray-300">, </span>}<Leaf value={item} /></span>
+        ))}]
+      </span>
+    );
+  }
+  return null;
+}
+
+function DataTree({ data, depth = 0 }: { data: Record<string, unknown>; depth?: number }) {
+  return (
+    <div className={`flex flex-col gap-0.5 font-mono text-xxs ${depth > 0 ? 'border-l border-gray-200 pl-2 ml-1' : ''}`}>
+      {Object.entries(data).map(([key, value]) => {
+        const isComplex = isPlainObject(value) || (Array.isArray(value) && !isPrimitiveArray(value as unknown[]));
+        if (isComplex) {
+          const children = isPlainObject(value)
+            ? value
+            : (value as unknown[]).reduce<Record<string, unknown>>((acc, v, i) => { acc[i] = v; return acc; }, {});
+          return (
+            <div key={key} className="flex flex-col gap-0.5">
+              <span className="text-gray-500">{key}</span>
+              <DataTree data={children} depth={depth + 1} />
+            </div>
+          );
+        }
+        return (
+          <div key={key} className="flex gap-1.5 items-baseline">
+            <span className="text-gray-400 shrink-0">{key}:</span>
+            <Leaf value={value} />
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function DataSection({ title, data }: { title: string; data: Record<string, unknown> }) {
+  return (
+    <div className="flex flex-col gap-1">
+      <span className="font-mono text-[9px] uppercase tracking-wider text-gray-400">{title}</span>
+      <div className="rounded border p-2">
+        <DataTree data={data} />
+      </div>
+    </div>
+  );
+}
+
+export function DataDebug() {
+  const { step } = useExperimentStore();
+
+  if (!step) {
+    return <div className="font-mono text-xxs text-gray-400 p-2">No experiment loaded.</div>;
+  }
+
+  const { context } = step;
+  const { data, branches, forks, checkpoints, loops, start } = context;
+
+  const hasData = data && Object.keys(data).length > 0;
+  const hasBranches = branches && Object.keys(branches).length > 0;
+  const hasForks = forks && Object.keys(forks).length > 0;
+  const hasCheckpoints = checkpoints && Object.keys(checkpoints).length > 0;
+  const hasLoops = loops && Object.keys(loops).length > 0;
+  const hasStart = start && Object.keys(start).length > 0;
+  const isEmpty = !hasData && !hasBranches && !hasForks && !hasCheckpoints && !hasLoops && !hasStart;
+
+  if (isEmpty) {
+    return (
+      <div className="my-5">
+        <div className="font-mono text-[9px] uppercase tracking-wider text-gray-400 mb-2">Data</div>
+        <div className="font-mono text-xxs text-gray-300 italic">No data collected yet.</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="my-5 flex flex-col gap-3">
+      <div className="font-mono text-[9px] uppercase tracking-wider text-gray-400">Data</div>
+      {hasStart && <DataSection title="start" data={start} />}
+      {hasData && <DataSection title="collected" data={data} />}
+      {hasBranches && <DataSection title="branches taken" data={branches} />}
+      {hasForks && <DataSection title="forks assigned" data={forks} />}
+      {hasCheckpoints && <DataSection title="checkpoints" data={checkpoints} />}
+      {hasLoops && <DataSection title="loops" data={loops} />}
     </div>
   );
 }
