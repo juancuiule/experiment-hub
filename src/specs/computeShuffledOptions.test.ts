@@ -89,4 +89,10 @@ describe("computeShuffledOptions", () => {
     expect(result.dd).toHaveLength(2);
     expect(result.cb).toHaveLength(2);
   });
+
+  it("returns {} when experiment.screens is undefined", () => {
+    const step = makeScreenStep("test", []);
+    step.experiment.screens = undefined;
+    expect(computeShuffledOptions(step)).toEqual({});
+  });
 });
