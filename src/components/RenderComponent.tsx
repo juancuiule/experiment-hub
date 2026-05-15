@@ -87,7 +87,7 @@ export function RenderComponent({
     case "layout": {
       switch (component.template) {
         case "button":
-          return <Button component={component} isLoading={isLoading} />;
+          return <Button component={component} isLoading={isLoading} context={context} />;
         case "group":
           return (
             <Group

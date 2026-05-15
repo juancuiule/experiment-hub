@@ -1,14 +1,20 @@
 "use client";
 
-import { twMerge } from "tailwind-merge";
 import { ButtonComponent } from "@/lib/components/layout";
+import { resolveValuesInString } from "@/lib/resolve";
+import { Context } from "@/lib/types";
+import { twMerge } from "tailwind-merge";
 
 type Props = {
   component: ButtonComponent;
   isLoading: boolean;
+  context: Context;
 };
 
-export function Button({ component, isLoading }: Props) {
+export function Button({ component, isLoading, context }: Props) {
+  const text = component.props.text
+    ? resolveValuesInString(component.props.text, context)
+    : "Continue";
   return (
     <div className={twMerge(component.props.alignBottom ? "mt-auto pt-5" : "")}>
       <button
@@ -16,7 +22,7 @@ export function Button({ component, isLoading }: Props) {
         disabled={component.props.disabled || isLoading}
         className="w-full h-10 bg-black text-white uppercase text-sm font-medium tracking-wide rounded-sm hover:bg-black/80 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-colors"
       >
-        {isLoading ? "…" : (component.props.text ?? "Continue")}
+        {isLoading ? "…" : text}
       </button>
     </div>
   );

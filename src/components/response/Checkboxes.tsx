@@ -61,6 +61,7 @@ export function Checkboxes({ component, form, context }: Props) {
                   <Label
                     className="text-sm"
                     htmlFor={`${dataKey}-${opt.value}`}
+                    context={context}
                   >
                     {opt.label}
                   </Label>

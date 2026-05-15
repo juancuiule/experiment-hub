@@ -54,7 +54,7 @@ export function Dropdown({ component, form, context }: Props) {
                         className="flex items-center px-3 py-2 text-sm cursor-pointer outline-none data-highlighted:bg-gray-100 rounded-sm"
                       >
                         <SelectPrimitive.ItemText>
-                          {opt.label}
+                          {resolveValuesInString(opt.label, context)}
                         </SelectPrimitive.ItemText>
                       </SelectPrimitive.Item>
                     ),
