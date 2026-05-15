@@ -35,7 +35,9 @@ function buildDefaultValues(screen: FrameworkScreen): Record<string, any> {
         values[c.props.dataKey] = c.props.defaultValue ?? false;
         break;
       case "slider":
-        values[c.props.dataKey] = c.props.defaultValue ?? c.props.min ?? 0;
+        values[c.props.dataKey] = c.props.requiresInteraction
+          ? null
+          : (c.props.defaultValue ?? c.props.min ?? 0);
         break;
       case "numeric-input":
         values[c.props.dataKey] = c.props.defaultValue ?? null;

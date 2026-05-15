@@ -290,6 +290,15 @@ describe("slider", () => {
     expect(schema.safeParse({ vol: 0 }).success).toBe(true);
   });
 
+  it("fails when requiresInteraction is set and form value is null (slider not touched)", () => {
+    const schema = buildSchema(
+      screen([
+        { componentFamily: "response", template: "slider", props: { dataKey: "vol", label: "Volume", requiresInteraction: {} } },
+      ])
+    );
+    expect(schema.safeParse({ vol: null }).success).toBe(false);
+  });
+
   it("uses custom requiresInteraction errorMessage", () => {
     const schema = buildSchema(
       screen([
