@@ -178,6 +178,8 @@ function collectFields(
 }
 
 function collectConditionals(components: ScreenComponent[]): ConditionalComponent[] {
+  // Known limitation: a for-each wrapping a conditional is not recursed here (deferred).
+  // Known limitation: the else branch of a conditional is not enforced in superRefine (deferred).
   const result: ConditionalComponent[] = [];
   for (const component of components) {
     if (component.componentFamily === "control" && component.template === "conditional") {

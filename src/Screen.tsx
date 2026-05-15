@@ -33,19 +33,26 @@ function collectDefaults(
       if (c.componentFamily === "layout" && c.template === "group") {
         collectDefaults(c.props.components, values);
       } else if (c.componentFamily === "control" && c.template === "conditional") {
+        // Known limitation: a for-each wrapping a conditional is not recursed here (deferred).
+        // Known limitation: the else branch of a conditional is not enforced in superRefine (deferred).
         collectDefaults([c.props.component], values);
         if (c.props.else) collectDefaults([c.props.else], values);
       } else if (c.componentFamily === "control" && c.template === "for-each" && c.props.type === "static") {
+        const inner = c.props.component;
         for (let i = 0; i < c.props.values.length; i++) {
-          const resolved = {
-            ...c.props.component,
-            props: {
-              ...c.props.component.props,
-              ...(c.props.component.componentFamily === "response"
-                ? { dataKey: (c.props.component.props as any).dataKey.replace("@index", String(i)) }
-                : {}),
-            },
-          };
+          let resolved: ScreenComponent;
+          if (inner.componentFamily === "response") {
+            // `inner` is narrowed to ResponseComponent here; spread is type-safe.
+            // The explicit cast is needed because spreading a union-typed `props`
+            // with an overridden `dataKey` cannot be unified back to the specific
+            // variant by TypeScript without a widening assertion.
+            resolved = {
+              ...inner,
+              props: { ...inner.props, dataKey: inner.props.dataKey.replace("@index", String(i)) },
+            } as typeof inner;
+          } else {
+            resolved = inner;
+          }
           collectDefaults([resolved], values);
         }
       }
