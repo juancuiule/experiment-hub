@@ -1,6 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useEffect, useMemo } from "react";
 import { useForm } from "react-hook-form";
 
 import { ScreenComponent } from "@/lib/components";
@@ -106,10 +107,19 @@ function buildDefaultValues(
 // ---------------------------------------------------------------------------
 
 export function Screen({ screen, isLoading, onNext, context }: ScreenProps) {
+  const defaultValues = useMemo(
+    () => buildDefaultValues(screen, context),
+    [screen, context.screenData?.shuffledOptions],
+  );
+
   const form = useForm<Record<string, any>>({
     resolver: zodResolver(buildSchema(screen)),
-    defaultValues: buildDefaultValues(screen, context),
+    defaultValues,
   });
+
+  useEffect(() => {
+    form.reset(defaultValues);
+  }, [defaultValues, form]);
 
   const onSubmit = (data: Record<string, any>) => {
     onNext(data).then(() => {

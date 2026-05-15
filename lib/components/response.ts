@@ -96,6 +96,7 @@ export interface DropdownComponent extends BaseResponseComponent<
     label: string;
     options: OptionsSource;
     randomize?: boolean;
+    reshuffleInLoop?: boolean;
   }
 > {}
 
@@ -105,6 +106,7 @@ export interface RadioComponent extends BaseResponseComponent<
     label: string;
     options: OptionsSource;
     randomize?: boolean;
+    reshuffleInLoop?: boolean;
   }
 > {}
 
@@ -116,6 +118,7 @@ export interface CheckboxesComponent extends BaseResponseComponent<
     min?: number;
     max?: number;
     randomize?: boolean;
+    reshuffleInLoop?: boolean;
   }
 > {}
 

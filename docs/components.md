@@ -130,6 +130,7 @@ Collects a single selection from a dropdown list.
 - `label: string`
 - `options: Option[]` — array of `{ label: string; value: string }` objects
 - `randomize?: boolean` — if true, the order of options is shuffled for each participant.
+- `reshuffleInLoop?: boolean` — when used inside a loop and `randomize: true`, controls whether the options are reshuffled on each loop iteration (`true`, default) or keep the first shuffled order (`false`).
 
 Collected value: `{ value: string }` always. When `randomize: true`, an `order: string[]` field is added containing the shuffled option sequence. Reference `$$screen.dataKey.value` in branch conditions and answer piping.
 
@@ -140,6 +141,7 @@ Collects a single selection displayed as a radio button list.
 - `label: string`
 - `options: Option[]` — array of `{ label: string; value: string }` objects
 - `randomize?: boolean` — if true, the order of options is shuffled for each participant.
+- `reshuffleInLoop?: boolean` — when used inside a loop and `randomize: true`, controls whether the options are reshuffled on each loop iteration (`true`, default) or keep the first shuffled order (`false`).
 
 Collected value: `{ value: string }` always. When `randomize: true`, an `order: string[]` field is added. Reference `$$screen.dataKey.value` in branch conditions and answer piping.
 
@@ -152,6 +154,7 @@ Collects one or more selections from a list of checkboxes.
 - `min?: number` — minimum number of options that must be selected
 - `max?: number` — maximum number of options that can be selected
 - `randomize?: boolean` — if true, the order of options is shuffled for each participant.
+- `reshuffleInLoop?: boolean` — when used inside a loop and `randomize: true`, controls whether the options are reshuffled on each loop iteration (`true`, default) or keep the first shuffled order (`false`).
 
 Collected value: `{ value: string[] }` always. When `randomize: true`, an `order: string[]` field is added. Reference `$$screen.dataKey.value` in branch conditions and answer piping.
 

@@ -13,8 +13,15 @@ type ExperimentStore = {
   next: (data?: Record<string, any>) => Promise<void>;
 };
 
+function isInLoop(state: FlowStep["state"]): boolean {
+  if (state.type === "in-loop") return true;
+  if (state.type === "in-path") return isInLoop(state.innerState);
+  return false;
+}
+
 export function computeShuffledOptions(
   step: FlowStep,
+  previousShuffledOptions: Record<string, Array<{ label: string; value: string }>> = {},
 ): Record<string, Array<{ label: string; value: string }>> {
   const activeState = getActiveState(step.state);
   if (activeState.type !== "in-node" || activeState.node.type !== "screen") {
@@ -25,6 +32,7 @@ export function computeShuffledOptions(
   if (!screen) return {};
 
   const result: Record<string, Array<{ label: string; value: string }>> = {};
+  const inLoop = isInLoop(step.state);
   for (const component of screen.components) {
     if (
       component.componentFamily === "response" &&
@@ -33,6 +41,14 @@ export function computeShuffledOptions(
         component.template === "checkboxes") &&
       component.props.randomize
     ) {
+      if (
+        inLoop &&
+        component.props.reshuffleInLoop === false &&
+        previousShuffledOptions[component.props.dataKey]
+      ) {
+        result[component.props.dataKey] = previousShuffledOptions[component.props.dataKey];
+        continue;
+      }
       const resolved = resolveOptions(component.props.options, step.context);
       result[component.props.dataKey] = shuffle([...resolved]);
     }
@@ -72,7 +88,10 @@ export const useExperimentStore = create<ExperimentStore>()(
       set({ isLoading: true });
       try {
         const nextStep = await traverse(step, data);
-        const shuffledOptions = computeShuffledOptions(nextStep);
+        const shuffledOptions = computeShuffledOptions(
+          nextStep,
+          step.context.screenData?.shuffledOptions ?? {},
+        );
         const enrichedStep: FlowStep = {
           ...nextStep,
           context: {

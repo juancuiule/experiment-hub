@@ -495,4 +495,59 @@ describe("randomize options", () => {
       picks__order: ["b", "a"],
     });
   });
+
+  it("resets __order defaults when context shuffledOptions changes on same screen slug", async () => {
+    const onNext = vi.fn().mockResolvedValue(undefined);
+    const components: FrameworkScreen["components"] = [
+      {
+        componentFamily: "response",
+        template: "radio",
+        props: {
+          dataKey: "choice",
+          label: "Choice",
+          options: [{ label: "A", value: "a" }, { label: "B", value: "b" }],
+          randomize: true,
+        },
+      },
+      { componentFamily: "layout", template: "button", props: { text: "Submit" } },
+    ];
+
+    const { rerender } = render(
+      <Screen
+        screen={{ slug: "test", components }}
+        isLoading={false}
+        onNext={onNext}
+        context={shuffledContext("choice", [
+          { label: "B", value: "b" },
+          { label: "A", value: "a" },
+        ])}
+      />,
+    );
+
+    await userEvent.click(screen.getByLabelText("A"));
+    await userEvent.click(screen.getByRole("button", { name: "Submit" }));
+    expect(onNext).toHaveBeenNthCalledWith(1, {
+      choice: "a",
+      choice__order: ["b", "a"],
+    });
+
+    rerender(
+      <Screen
+        screen={{ slug: "test", components }}
+        isLoading={false}
+        onNext={onNext}
+        context={shuffledContext("choice", [
+          { label: "A", value: "a" },
+          { label: "B", value: "b" },
+        ])}
+      />,
+    );
+
+    await userEvent.click(screen.getByLabelText("A"));
+    await userEvent.click(screen.getByRole("button", { name: "Submit" }));
+    expect(onNext).toHaveBeenNthCalledWith(2, {
+      choice: "a",
+      choice__order: ["a", "b"],
+    });
+  });
 });
