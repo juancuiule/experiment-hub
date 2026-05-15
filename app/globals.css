@@ -11,6 +11,9 @@
 
   --font-sans: "Montserrat", sans-serif;
   --font-mono: "Overpass Mono", monospace;
+
+  /* adds xxs text-size */
+  --text-xxs: 0.625rem;
 }
 
 :root {

@@ -3,8 +3,8 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 
-import { FrameworkScreen } from "@/lib/screen";
 import { ScreenComponent } from "@/lib/components";
+import { FrameworkScreen } from "@/lib/screen";
 import { Context } from "@/lib/types";
 import { buildSchema } from "@/lib/validation";
 import { RenderComponent } from "./components/RenderComponent";
@@ -93,12 +93,14 @@ export function Screen({ screen, isLoading, onNext, context }: ScreenProps) {
   });
 
   const onSubmit = (data: Record<string, any>) => {
-    onNext(data).catch((err) =>
+    onNext(data).then(() => {
+      // Handle successful submission if needed
+      // reset the form
+      form.reset();
+    }).catch((err) =>
       console.error("Failed to advance experiment:", err),
     );
   };
-
-  const values = form.watch();
 
   return (
     <form

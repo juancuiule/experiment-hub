@@ -1,6 +1,7 @@
 import { ExperimentFlow } from "@/lib/types";
 import { validateExperiment } from "@/lib/validate";
 import { experiment } from "@/src/data/experiment";
+import { Debug } from "@/src/Debug";
 import Experiment from "@/src/Experiment";
 
 type Props = {
@@ -63,5 +64,8 @@ export default async function Home(props: Props) {
     );
   }
 
-  return <Experiment startingNode={startingNode} />;
+  return <div>
+    <Debug />
+    <Experiment startingNode={startingNode} />
+  </div>
 }

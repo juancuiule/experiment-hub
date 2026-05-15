@@ -32,18 +32,16 @@ export default function RootLayout({
           "antialiased h-svh",
         )}
       >
-        <div className="flex min-h-screen items-center justify-start relative">
-          <main className="w-full max-w-lg p-6 flex flex-col mx-auto">
-            <nav className="flex flex-row items-center justify-center gap-3">
-              <img
-                src="https://avatars.githubusercontent.com/u/132835276?s=200&v=4"
-                className="h-12 w-auto"
-                alt="Experiment Hub logo with text"
-              />
-            </nav>
-            <div className="flex-1 flex flex-col">{children}</div>
-          </main>
-        </div>
+        <main className="flex min-h-screen items-center justify-start relative w-full max-w-lg p-6 flex-col mx-auto">
+          <nav className="flex flex-row items-center justify-center w-full gap-3">
+            <img
+              src="https://avatars.githubusercontent.com/u/132835276?s=200&v=4"
+              className="h-12 w-auto"
+              alt="Experiment Hub logo with text"
+            />
+          </nav>
+          <div className="flex-1 flex flex-col">{children}</div>
+        </main>
       </body>
     </html>
   );
