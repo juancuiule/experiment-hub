@@ -33,15 +33,15 @@ export default function RootLayout({
         )}
       >
         <div className="flex min-h-screen items-center justify-start relative">
-          <main className="w-full max-w-lg h-svh overflow-y-scroll outline p-6 flex flex-col">
-            <nav className="flex flex-row items-center justify-center">
+          <main className="w-full max-w-lg p-6 flex flex-col mx-auto">
+            <nav className="flex flex-row items-center justify-center gap-3">
               <img
                 src="https://avatars.githubusercontent.com/u/132835276?s=200&v=4"
                 className="h-12 w-auto"
                 alt="Experiment Hub logo with text"
               />
             </nav>
-            <div className="flex-1 flex flex-col pt-3">{children}</div>
+            <div className="flex-1 flex flex-col">{children}</div>
           </main>
         </div>
       </body>
