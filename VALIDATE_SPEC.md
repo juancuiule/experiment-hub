@@ -14,12 +14,13 @@ Every node in `nodes[]` must have a unique `id`.
 - **Code:** `duplicate-node-id`
 - **Why:** The flow engine looks up nodes by ID. A duplicate means one node silently shadows the other; edges that reference the shadowed ID route to the wrong node.
 
-### 1.2 Exactly one start node
+### 1.2 At least one start node
 
-`nodes[]` must contain exactly one node with `type: "start"`.
+`nodes[]` must contain at least one node with `type: "start"`.
 
-- **Code:** `missing-start` / `multiple-start`
-- **Why:** `traverse` with an `"initial"` state searches for the single start node. Zero means the flow can never start. Two means the one selected is arbitrary (currently the first found by `Array.find`).
+- **Code:** `missing-start`
+- **Why:** `traverse` with an `"initial"` state and no `startName` searches for a start node. Zero means the flow can never start. Multiple start nodes are intentionally valid: they support multi-entry-point experiments where the active start node is selected at runtime (e.g. based on URL parameters).
+- **Note:** The `multiple-start` error code does not exist. Two or more start nodes is a valid configuration.
 
 ---
 
