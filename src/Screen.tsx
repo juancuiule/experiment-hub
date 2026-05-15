@@ -26,41 +26,57 @@ type ScreenProps = {
 
 function collectDefaults(
   components: ScreenComponent[],
+  context: Context,
   values: Record<string, any> = {},
 ): Record<string, any> {
   for (const c of components) {
     if (c.componentFamily !== "response") {
       if (c.componentFamily === "layout" && c.template === "group") {
-        collectDefaults(c.props.components, values);
+        collectDefaults(c.props.components, context, values);
       } else if (c.componentFamily === "control" && c.template === "conditional") {
-        // Known limitation: a for-each wrapping a conditional is not recursed here (deferred).
-        // Known limitation: the else branch of a conditional is not enforced in superRefine (deferred).
-        collectDefaults([c.props.component], values);
-        if (c.props.else) collectDefaults([c.props.else], values);
-      } else if (c.componentFamily === "control" && c.template === "for-each" && c.props.type === "static") {
+        collectDefaults([c.props.component], context, values);
+        if (c.props.else) collectDefaults([c.props.else], context, values);
+      } else if (
+        c.componentFamily === "control" &&
+        c.template === "for-each" &&
+        c.props.type === "static"
+      ) {
         const inner = c.props.component;
         for (let i = 0; i < c.props.values.length; i++) {
           let resolved: ScreenComponent;
           if (inner.componentFamily === "response") {
-            // `inner` is narrowed to ResponseComponent here; spread is type-safe.
-            // The explicit cast is needed because spreading a union-typed `props`
-            // with an overridden `dataKey` cannot be unified back to the specific
-            // variant by TypeScript without a widening assertion.
             resolved = {
               ...inner,
-              props: { ...inner.props, dataKey: inner.props.dataKey.replace("@index", String(i)) },
+              props: {
+                ...inner.props,
+                dataKey: inner.props.dataKey.replace("@index", String(i)),
+              },
             } as typeof inner;
           } else {
             resolved = inner;
           }
-          collectDefaults([resolved], values);
+          collectDefaults([resolved], context, values);
         }
       }
       continue;
     }
     switch (c.template) {
+      case "radio":
+      case "dropdown":
+        values[c.props.dataKey] = "";
+        if (context.screenData?.shuffledOptions?.[c.props.dataKey]) {
+          values[`${c.props.dataKey}__order`] = context.screenData.shuffledOptions[
+            c.props.dataKey
+          ].map((o) => o.value);
+        }
+        break;
       case "checkboxes":
         values[c.props.dataKey] = [];
+        if (context.screenData?.shuffledOptions?.[c.props.dataKey]) {
+          values[`${c.props.dataKey}__order`] = context.screenData.shuffledOptions[
+            c.props.dataKey
+          ].map((o) => o.value);
+        }
         break;
       case "single-checkbox":
         values[c.props.dataKey] = c.props.defaultValue ?? false;
@@ -78,8 +94,11 @@ function collectDefaults(
   return values;
 }
 
-function buildDefaultValues(screen: FrameworkScreen): Record<string, any> {
-  return collectDefaults(screen.components);
+function buildDefaultValues(
+  screen: FrameworkScreen,
+  context: Context,
+): Record<string, any> {
+  return collectDefaults(screen.components, context);
 }
 
 // ---------------------------------------------------------------------------
@@ -89,7 +108,7 @@ function buildDefaultValues(screen: FrameworkScreen): Record<string, any> {
 export function Screen({ screen, isLoading, onNext, context }: ScreenProps) {
   const form = useForm<Record<string, any>>({
     resolver: zodResolver(buildSchema(screen)),
-    defaultValues: buildDefaultValues(screen),
+    defaultValues: buildDefaultValues(screen, context),
   });
 
   const onSubmit = (data: Record<string, any>) => {

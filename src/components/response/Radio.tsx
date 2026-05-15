@@ -32,7 +32,7 @@ export function Radio({ component, form, context }: Props) {
             onValueChange={field.onChange}
             className="flex flex-col gap-2 mt-2"
           >
-            {resolveOptions(component.props.options, context).map((opt) => (
+            {resolveOptions(component.props.options, context, component.props.dataKey).map((opt) => (
               <div key={opt.value} className="flex items-center gap-2">
                 <RadioGroupPrimitive.Item
                   id={`${dataKey}-${opt.value}`}

@@ -46,7 +46,7 @@ export function Dropdown({ component, form, context }: Props) {
             <SelectPrimitive.Portal>
               <SelectPrimitive.Content className="bg-white border border-gray-200 shadow-md rounded-sm z-50 overflow-hidden">
                 <SelectPrimitive.Viewport className="p-1">
-                  {resolveOptions(component.props.options, context).map(
+                  {resolveOptions(component.props.options, context, component.props.dataKey).map(
                     (opt) => (
                       <SelectPrimitive.Item
                         key={opt.value}
