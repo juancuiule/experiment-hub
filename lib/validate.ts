@@ -162,6 +162,12 @@ function checkEdgeWiring(flow: ExperimentFlow): ValidationError[] {
       }
 
       case "fork": {
+        if (node.props.forks.length < 2) {
+          errors.push({
+            code: "missing-edge",
+            message: `Fork "${node.id}" must have at least two arms; found ${node.props.forks.length}`,
+          });
+        }
         for (const fork of node.props.forks) {
           const hasForkEdge = flow.edges.some(
             (e) => e.type === "fork-edge" && e.from === `${node.id}.${fork.id}`,
@@ -184,6 +190,20 @@ function checkEdgeWiring(flow: ExperimentFlow): ValidationError[] {
           errors.push({
             code: "missing-edge",
             message: `Path "${node.id}" has no path-contains edges`,
+          });
+        }
+        const seqCount = flow.edges.filter(
+          (e) => e.type === "sequential" && e.from === node.id,
+        ).length;
+        if (seqCount === 0) {
+          errors.push({
+            code: "missing-edge",
+            message: `Path "${node.id}" has no sequential exit edge`,
+          });
+        } else if (seqCount > 1) {
+          errors.push({
+            code: "ambiguous-edge",
+            message: `Path "${node.id}" has ${seqCount} sequential exit edges; exactly one is required`,
           });
         }
         break;

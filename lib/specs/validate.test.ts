@@ -384,6 +384,52 @@ describe("fork wiring", () => {
     expect(messages(flow).some((m) => m.includes('"b"'))).toBe(true);
   });
 
+  it("reports missing-edge when fork has only 1 arm", () => {
+    const flow: ExperimentFlow = {
+      nodes: [
+        start,
+        { id: "f", type: "fork", props: { forks: [{ id: "a", name: "A" }] } },
+        makeScreen("s-a", "variant-a"),
+      ],
+      edges: [
+        seq("start", "f"),
+        { type: "fork-edge", from: "f.a", to: "s-a" },
+      ],
+      screens: [{ slug: "variant-a", components: [] }],
+    };
+    expect(codes(flow)).toContain("missing-edge");
+    expect(
+      messages(flow).some((m) => m.includes("at least two arms")),
+    ).toBe(true);
+  });
+
+  it("does not report missing-edge for arm count when fork has 2 arms", () => {
+    const flow: ExperimentFlow = {
+      nodes: [
+        start,
+        {
+          id: "f",
+          type: "fork",
+          props: { forks: [{ id: "a", name: "A" }, { id: "b", name: "B" }] },
+        },
+        makeScreen("s-a", "variant-a"),
+        makeScreen("s-b", "variant-b"),
+      ],
+      edges: [
+        seq("start", "f"),
+        { type: "fork-edge", from: "f.a", to: "s-a" },
+        { type: "fork-edge", from: "f.b", to: "s-b" },
+      ],
+      screens: [
+        { slug: "variant-a", components: [] },
+        { slug: "variant-b", components: [] },
+      ],
+    };
+    expect(
+      messages(flow).some((m) => m.includes("at least two arms")),
+    ).toBe(false);
+  });
+
   it("reports invalid-edge when fork-edge references a non-existent fork id", () => {
     const flow: ExperimentFlow = {
       nodes: [
@@ -418,6 +464,53 @@ describe("path wiring", () => {
       edges: [seq("start", "p")],
     };
     expect(codes(flow)).toContain("missing-edge");
+  });
+
+  it("reports missing-edge when path has no sequential exit edge", () => {
+    const flow: ExperimentFlow = {
+      nodes: [
+        start,
+        { id: "p", type: "path", props: { name: "P" } },
+        makeScreen("s1", "step-a"),
+      ],
+      edges: [
+        seq("start", "p"),
+        { type: "path-contains", from: "p", to: "s1", order: 0 },
+        // no sequential edge from "p"
+      ],
+      screens: [{ slug: "step-a", components: [] }],
+    };
+    expect(codes(flow)).toContain("missing-edge");
+    expect(
+      messages(flow).some((m) => m.includes("no sequential exit edge")),
+    ).toBe(true);
+  });
+
+  it("reports ambiguous-edge when path has more than one sequential exit edge", () => {
+    const flow: ExperimentFlow = {
+      nodes: [
+        start,
+        { id: "p", type: "path", props: { name: "P" } },
+        makeScreen("s1", "step-a"),
+        makeScreen("s-after1", "after1"),
+        makeScreen("s-after2", "after2"),
+      ],
+      edges: [
+        seq("start", "p"),
+        { type: "path-contains", from: "p", to: "s1", order: 0 },
+        seq("p", "s-after1"),
+        seq("p", "s-after2"),
+      ],
+      screens: [
+        { slug: "step-a", components: [] },
+        { slug: "after1", components: [] },
+        { slug: "after2", components: [] },
+      ],
+    };
+    expect(codes(flow)).toContain("ambiguous-edge");
+    expect(
+      messages(flow).some((m) => m.includes("sequential exit edges; exactly one is required")),
+    ).toBe(true);
   });
 
   it("reports invalid-edge when path-contains edge does not source from a path node", () => {

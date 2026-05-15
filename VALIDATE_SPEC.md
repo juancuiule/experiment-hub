@@ -192,7 +192,6 @@ Same rule as component references — `@`-keyed conditions only make sense insid
 | ----------------------- | ----------------------------------------------------------------------------------------- |
 | `duplicate-node-id`     | Two nodes share the same `id`                                                             |
 | `missing-start`         | No start node in the flow                                                                 |
-| `multiple-start`        | More than one start node                                                                  |
 | `unknown-node`          | An edge references a node ID that does not exist                                          |
 | `missing-edge`          | A node is missing a required outgoing edge                                                |
 | `duplicate-edge`        | A node has more than one edge where exactly one is required (e.g. loop-template)          |
