@@ -30,7 +30,7 @@ There are some rules or validations that can ensure that the experiment is well 
 - There should be at least one start node.
 - All the start nodes should be connected to at least one other node through a sequential edge.
 - Every branch node should have at least one branch-condition edge connecting it to a branch, and one branch-default edge connecting it to the default branch.
-- Every fork node should have at least two fork-edge connecting it to different nodes.
+- Every fork node should have at least two fork-edge connecting it to different nodes, and exactly one fork-edge per fork ID declared in `props.forks`. A fork with only one arm is semantically meaningless.
 - Every path node should have at least one path-contains edge connecting it to a node that is contained in that path.
 - Every path node should have exactly one sequential edge connecting it to the next node in the flow after the path.
 - Every loop node should have only one loop-template edge connecting it to a node that serves as a template for the different iterations of the loop.

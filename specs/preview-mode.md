@@ -53,7 +53,7 @@ A researcher opens `/preview` (the index) and sees all screens listed as cards w
 - [ ] Invalid JSON in the seed panel shows an inline parse error; the last valid context is retained.
 - [ ] `onNext` is a no-op in preview mode — the continue button triggers a toast notification `"Form submitted — preview only"` instead of advancing.
 - [ ] The screen is surrounded by a visual "Preview" banner or badge so it is clearly distinguishable from the live experiment.
-- [ ] The preview route is dev-only (same guard as the editor route).
+- [ ] The preview route is currently accessible without an environment guard. Future iterations will add role-based access control.
 - [ ] Navigation between screens via `/preview/[slug]` uses the Next.js app router; slug is part of the URL so it is bookmarkable.
 
 ---
@@ -227,7 +227,7 @@ No `validateExperiment` changes.
 | # | Question | Owner | Resolution |
 |---|---|---|---|
 | 1 | Should the seed panel be pre-populated with a skeleton of the context shape for the current screen (based on `dataKey`s)? | — | Open — proposed: yes, a "Generate skeleton" button that auto-fills the seed with all `dataKey`s set to `null`. |
-| 2 | Should the preview route be accessible in production for authorized researchers, or always dev-only? | — | Open — same decision as the visual builder (Gap 1). |
+| 2 | Should the preview route be accessible in production for authorized researchers, or always dev-only? | — | **Resolved:** Always accessible for now (no environment guard). Future: gated by user roles. |
 | 3 | Should `/preview` show screens from the current experiment only, or support loading an arbitrary JSON file? | — | Open — proposed: current experiment only for simplicity; arbitrary JSON import is a follow-up. |
 
 ---

@@ -50,7 +50,7 @@ The researcher clicks "Export JSON". A JSON file is downloaded. They (or a devel
 
 ## 4. Acceptance Criteria
 
-- [ ] An `/editor` route exists, protected behind a dev-only flag (e.g., `process.env.NODE_ENV === "development"` or a `?editor=1` query param).
+- [ ] An `/editor` route exists, accessible without an environment guard. Future iterations will add role-based access control.
 - [ ] The canvas renders using `@xyflow/react` (react-flow v12+).
 - [ ] All 7 node types are represented as distinct custom react-flow nodes with correct visual handles (see Technical Notes).
 - [ ] All 6 edge types are represented as distinct styled connections.
@@ -253,7 +253,7 @@ The editor runs `validateExperiment(serializedFlow)` on every change (debounced)
 
 | # | Question | Owner | Resolution |
 |---|---|---|---|
-| 1 | Should the editor be dev-only or available in production for authorized researchers? | — | Open — proposed: dev-only initially, gated behind `NODE_ENV` or a feature flag. |
+| 1 | Should the editor be dev-only or available in production for authorized researchers? | — | **Resolved:** Always accessible for now (no environment guard). Future: gated by user roles. |
 | 2 | Should path children be visually embedded inside the path node (react-flow parent-child grouping) or shown as free nodes with labeled edges? | — | Open — embedded grouping is more intuitive but complex to implement; labeled edges are simpler. |
 | 3 | Which auto-layout library to use: `dagre` (simpler, widely used with react-flow) or `elkjs` (more powerful, handles grouped nodes better)? | — | Open — proposed: `dagre` for the initial version, upgrade to `elkjs` when path/loop grouping is implemented. |
 | 4 | Where are editor node positions stored? In `localStorage`? In a sidecar file? | — | Open — proposed: `localStorage` keyed by a hash of the experiment's node IDs. |

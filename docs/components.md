@@ -129,9 +129,9 @@ Collects a single selection from a dropdown list.
 
 - `label: string`
 - `options: Option[]` — array of `{ label: string; value: string }` objects
-- `randomize?: boolean` — if true, the order of options is shuffled for each participant. The presented order is saved alongside the collected value.
+- `randomize?: boolean` — if true, the order of options is shuffled for each participant.
 
-Collected value: `string` (the `value` of the selected option)
+Collected value: `{ value: string }` always. When `randomize: true`, an `order: string[]` field is added containing the shuffled option sequence. Reference `$$screen.dataKey.value` in branch conditions and answer piping.
 
 ### `radio`
 
@@ -139,9 +139,9 @@ Collects a single selection displayed as a radio button list.
 
 - `label: string`
 - `options: Option[]` — array of `{ label: string; value: string }` objects
-- `randomize?: boolean` — if true, the order of options is shuffled for each participant. The presented order is saved alongside the collected value.
+- `randomize?: boolean` — if true, the order of options is shuffled for each participant.
 
-Collected value: `string` (the `value` of the selected option)
+Collected value: `{ value: string }` always. When `randomize: true`, an `order: string[]` field is added. Reference `$$screen.dataKey.value` in branch conditions and answer piping.
 
 ### `checkboxes`
 
@@ -151,9 +151,9 @@ Collects one or more selections from a list of checkboxes.
 - `options: Option[]` — array of `{ label: string; value: string }` objects
 - `min?: number` — minimum number of options that must be selected
 - `max?: number` — maximum number of options that can be selected
-- `randomize?: boolean` — if true, the order of options is shuffled for each participant. The presented order is saved alongside the collected value.
+- `randomize?: boolean` — if true, the order of options is shuffled for each participant.
 
-Collected value: `string[]` (array of selected option `value`s)
+Collected value: `{ value: string[] }` always. When `randomize: true`, an `order: string[]` field is added. Reference `$$screen.dataKey.value` in branch conditions and answer piping.
 
 ### `numeric-input`
 
@@ -210,6 +210,8 @@ Renders a single component only when a condition is met. Uses `ConditionConfig` 
 - `dataKey` — a `$$`, `@` or `$` reference to the value to evaluate (see Data Keys)
 - `value: string | number | boolean` — the value to compare against
 - `component: ScreenComponent` — the component to render if the condition is true
+
+> **Note:** The flat `{ operator, dataKey, value }` shape here will eventually be unified with the `ConditionConfig` nested structure used by `branch` nodes for consistency.
 
 ### `for-each`
 

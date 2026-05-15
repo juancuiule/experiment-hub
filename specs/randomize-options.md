@@ -51,10 +51,10 @@ A participant goes back and forth within a path. The option order should remain 
 - [ ] When `randomize: true` is set on a `radio`, `dropdown`, or `checkboxes` component, options are shuffled when the component mounts.
 - [ ] The shuffle uses the existing `lib/utils.ts:shuffle` utility.
 - [ ] The shuffled order is computed once on mount and does not change on re-renders.
-- [ ] The presented option order is saved alongside the collected value in the submitted form data under a reserved key: `[dataKey]__order` (an array of option `value` strings in the order they were shown).
-- [ ] When `randomize` is `false` or omitted, options are rendered in their original declaration order and no `__order` key is written.
-- [ ] The `__order` field is not validated by `buildSchema` (it is metadata, not a user-entered value).
-- [ ] `validateExperiment` does not flag `[dataKey]__order` as an unknown data key.
+- [ ] The submitted value for `radio`, `dropdown`, and `checkboxes` is always a nested object `{ value: selectedValue }` — never a plain scalar.
+- [ ] When `randomize: true`, an additional `order: string[]` field is included: `{ value: selectedValue, order: string[] }`. When `randomize` is false or omitted, the object contains only `value`.
+- [ ] This consistent shape means callers never need to branch on value type when reading results.
+- [ ] `buildSchema` validates the `value` sub-key of the nested object; the `order` sub-key is metadata and not validated.
 - [ ] The feature is covered by unit tests.
 
 ---
@@ -115,19 +115,21 @@ const [displayedOptions, setDisplayedOptions] = useState(() =>
 
 **Recording the order:**
 
-The `__order` value should be written via a hidden `<input>` registered with `react-hook-form`:
+The field's submitted value is always `{ value: selectedValue }`. When `randomize: true`, `order` is added. The `order` array is set once on mount via `form.setValue`:
 
 ```tsx
+// Always initialise with a { value } wrapper
 useEffect(() => {
-  if (component.props.randomize) {
-    form.setValue(`${dataKey}__order`, displayedOptions.map(o => o.value));
-  }
+  const current = form.getValues(dataKey);
+  const base = { value: current?.value ?? undefined };
+  form.setValue(dataKey, component.props.randomize
+    ? { ...base, order: displayedOptions.map(o => o.value) }
+    : base
+  );
 }, [displayedOptions]);
 ```
 
-Alternatively, a single `setValue` call inside the `useState` initializer callback (during mount) avoids the `useEffect`.
-
-**Why `[dataKey]__order`:** Double underscores are a common convention for metadata fields (Python dunder, SQL system columns). It is unlikely to conflict with a researcher-chosen `dataKey` and is easy to filter in analysis scripts.
+Downstream consumers (branch conditions, score variables) always reference `$$screen.dataKey.value` — the shape is consistent regardless of whether `randomize` is set.
 
 ### 6.3 Validation
 
@@ -178,9 +180,9 @@ The `checkReferences` function in `lib/validate.ts` walks branch condition `data
 
 | # | Question | Owner | Resolution |
 |---|---|---|---|
-| 1 | Should `[dataKey]__order` be a first-class documented output key (in `docs/components.md`) or an internal implementation detail? | — | Open — proposed: document it, since researchers need to know it exists to use it in analysis. |
+| 1 | Should the order metadata be documented in `docs/components.md` so researchers know about the `{ value, order }` shape? | — | **Resolved:** Yes — document the consistent `{ value }` wrapper shape. Since the shape is always `{ value }` (with optional `order`), researchers always reference `$$screen.dataKey.value` regardless of `randomize`. |
 | 2 | Should the shuffle be stable across a full session (e.g. if a path loops back to the same screen twice), or should it re-shuffle on each mount? | — | Open — proposed: re-shuffle on each mount. Same-screen revisits within a path are rare and the `__order` key captures the order each time. |
-| 3 | Is the `__order` key naming convention acceptable, or should it use a nested object (e.g. `{ value: "...", order: [...] }`)? A nested object would change the data shape. | — | Open |
+| 3 | Is the `__order` key naming convention acceptable, or should it use a nested object (e.g. `{ value: "...", order: [...] }`)? A nested object would change the data shape. | — | **Resolved:** Always use a nested `{ value }` wrapper (with or without `randomize`). When `randomize: true`, `order` is added. This keeps the type consistent — callers always read `$$screen.dataKey.value` and never branch on value type. |
 
 ---
 

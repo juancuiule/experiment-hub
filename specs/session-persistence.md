@@ -48,6 +48,8 @@ A participant opens the experiment URL on a different device with no `?session` 
 
 - [ ] A unique `sessionId` (UUID v4) is generated at `startExperiment()` time and stored in `Context`.
 - [ ] The Zustand `persist` middleware is re-enabled, scoped to `{ step }` via `partialize` — the `experiment` graph is **not** persisted (too large; re-loaded from the static import).
+- [ ] Default storage is `sessionStorage`; when `ExperimentFlow.persistence.storage === "local"`, `localStorage` is used instead.
+- [ ] `ExperimentFlow` has an optional `version?: string` field. When the saved session's version does not match the current experiment's version, the session is discarded and a clean start is triggered with a warning message.
 - [ ] The persisted `step` stores only the minimal resume payload: `{ context, state }` without the `experiment` field.
 - [ ] On page load, if a persisted `step` is found in `sessionStorage`, the app offers to resume rather than starting fresh.
 - [ ] `startExperiment()` in `lib/flow.ts` accepts an optional `resume?: { context: Context; state: State }` parameter. When provided, it returns a `FlowStep` at the saved state instead of `initial`.
@@ -193,8 +195,8 @@ No `validateExperiment` changes.
 
 | # | Question | Owner | Resolution |
 |---|---|---|---|
-| 1 | Should `sessionStorage` (tab-scoped) or `localStorage` (persistent across tab closes) be used? | — | Proposed: `sessionStorage` for same-tab refresh; add opt-in `localStorage` for cross-session recovery. |
-| 2 | Should the experiment config be versioned? What constitutes a breaking change that invalidates a saved session? | — | Open — a hash of `nodes` + `edges` arrays is a reasonable proxy. |
+| 1 | Should `sessionStorage` (tab-scoped) or `localStorage` (persistent across tab closes) be used? | — | **Resolved:** Default is `sessionStorage`; researchers can opt in to `localStorage` via a `persistence?: { storage: "session" \| "local" }` field in `ExperimentFlow`. |
+| 2 | Should the experiment config be versioned? What constitutes a breaking change that invalidates a saved session? | — | **Resolved:** Add an explicit `version` field to `ExperimentFlow`. Tooling (a CLI command or helper) will be provided to bump the version when researchers make structural changes — researchers should not manually construct version strings. A mismatch between the saved version and the current config triggers a clean restart with a warning. |
 | 3 | Should participants be able to disable persistence (e.g., privacy-conscious users on shared devices)? | — | Open |
 | 4 | What is the session TTL? After how long should a saved session be considered stale? | — | Open — proposed: 24 hours. |
 

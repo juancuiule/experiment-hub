@@ -165,7 +165,7 @@ function evaluateScore(variable: ScoreVariable, context: Context): number {
 
 | # | Question | Owner | Resolution |
 |---|---|---|---|
-| 1 | Should scores be re-evaluated automatically when the participant goes back and changes a source value? | — | Proposed: yes — if back navigation is enabled, the score node should be re-traversed when the participant advances past it again. |
+| 1 | Should scores be re-evaluated automatically when the participant goes back and changes a source value? | — | **Resolved:** Yes — when the participant re-traverses the score node after back navigation, the score is recomputed with the current source values. |
 | 2 | Should `$$scores.*` be in the always-available set for `validateExperiment`, or should the reference walker track which score names are defined at each point? | — | Proposed: track per-score-node, consistent with how `$$` data paths are tracked. |
 | 3 | Should scores be writable via a `setScore` mechanism (manually overriding a computed value)? | — | Out of scope. |
 

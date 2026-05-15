@@ -116,7 +116,7 @@ The `$$` alternative must precede `$` to prevent a `$$foo` token being captured 
 ### 6.4 Constraints & Risks
 
 - **Hyphen support**: `lib/resolve.ts` uses `[\w.-]+` (allows hyphens). `src/components/primitives.tsx` uses `[\w.]+` (does not). The live experiment config uses hyphenated `dataKey`s like `"prayer-frequency"`. The unified regex must use `[\w.-]+` to support these keys. This is a bugfix as well as a unification.
-- **`$` in button text**: The `ButtonComponent` receives only `text?: string` — it does not receive a `context` prop today. Context must be threaded through `RenderComponent` → `Button`. Check whether `ButtonComponent` already receives context via `RenderProps` — if not, add it.
+- **`$` in button text**: The `ButtonComponent` receives only `text?: string` — it does not receive a `context` prop today. Context must be threaded through `RenderComponent` → `Button`. Add `context` to `ButtonComponent`'s props.
 - **Performance**: `resolveString` is called on every render. For option arrays with many items, it is called once per option label. This is a tiny string operation and not a performance concern.
 - **Fallback for unresolved tokens**: The existing behavior — leave the token literal if it cannot be resolved — is preserved. This is the correct fallback since it makes typos visible to the researcher during testing.
 
@@ -156,8 +156,8 @@ The `$$` alternative must precede `$` to prevent a `$$foo` token being captured 
 
 | # | Question | Owner | Resolution |
 |---|---|---|---|
-| 1 | Should `$` tokens in option labels resolve from the live `screenData` (requiring `useWatch` in every option-bearing component)? Or should they only resolve from the static `context` prop? | — | Proposed: static `context` only for option labels; live `$` resolution requires `useWatch` which adds complexity for rare use cases. |
-| 2 | Should the `ButtonComponent` receive `context` as a prop? It currently does not. | — | Proposed: yes — thread `context` from `RenderComponent` to `Button`, consistent with all other components. |
+| 1 | Should `$` tokens in option labels resolve from the live `screenData` (requiring `useWatch` in every option-bearing component)? Or should they only resolve from the static `context` prop? | — | **Resolved:** Use live form values via `useWatch` in every option-bearing component (`Radio`, `Dropdown`, `Checkboxes`, `LikertScale`). |
+| 2 | Should the `ButtonComponent` receive `context` as a prop? It currently does not. | — | **Resolved:** Yes — thread `context` from `RenderComponent` to `Button`, consistent with all other components. |
 
 ---
 

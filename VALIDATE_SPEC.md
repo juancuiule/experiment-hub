@@ -76,11 +76,16 @@ A `branch-condition` edge whose `from` is `"nodeId.branchId"` where `branchId` i
 
 - **Code:** `invalid-edge`
 
-### 3.6 `fork` — must have at least one `fork-edge` out, one per fork ID in `props.forks`
+### 3.6 `fork` — must have at least two `fork-edge`s out, one per fork ID in `props.forks`
+
+A fork with a single arm is semantically meaningless — the outcome is deterministic. Two rules apply independently:
+
+1. The fork node must have **at least two** `fork-edge`s total.
+2. Each fork ID in `props.forks` must have **exactly one** corresponding `fork-edge`.
 
 `getForkEdgeNode` returns `null` when there is no edge for the selected fork. `traverseInNode` then throws `"Fork node must have a next node for the winning fork"`.
 
-- **Code:** `missing-edge` if any fork ID has no corresponding `fork-edge`.
+- **Code:** `missing-edge` if any fork ID has no corresponding `fork-edge`, or if the total number of fork-edges is fewer than two.
 - **Code:** `invalid-edge` if a `fork-edge` references a fork ID not in `props.forks`.
 
 ### 3.7 `path` — must have at least one `path-contains` edge
@@ -88,6 +93,13 @@ A `branch-condition` edge whose `from` is `"nodeId.branchId"` where `branchId` i
 `getChildNodes` returns `null` for a path with no children. `initialState` throws `"Path node must have child nodes"`.
 
 - **Code:** `missing-edge`
+
+### 3.7a `path` — must have exactly one `sequential` exit edge
+
+After all child nodes are visited, the flow engine follows the sequential edge out of the path node to continue the flow. A path with no sequential exit edge has no way to continue after the path completes.
+
+- **Code:** `missing-edge` if the path node has no outgoing `sequential` edge.
+- **Code:** `ambiguous-edge` if the path node has more than one outgoing `sequential` edge.
 
 ### 3.8 `path-contains` edge — `from` must reference a `path` node
 
@@ -183,7 +195,7 @@ Same rule as component references — `@`-keyed conditions only make sense insid
 | `unknown-node`          | An edge references a node ID that does not exist                                          |
 | `missing-edge`          | A node is missing a required outgoing edge                                                |
 | `duplicate-edge`        | A node has more than one edge where exactly one is required (e.g. loop-template)          |
-| `ambiguous-edge`        | A node has multiple edges where at most one is expected (e.g. sequential from checkpoint) |
+| `ambiguous-edge`        | A node has multiple edges where at most one is expected (e.g. sequential from checkpoint, sequential exit from path) |
 | `invalid-edge`          | An edge references a branch/fork ID that does not exist on the node                       |
 | `unrouted-branch`       | A branch ID in `props.branches` has no corresponding `branch-condition` edge              |
 | `missing-screen`        | A screen node references a slug with no screen definition                                 |

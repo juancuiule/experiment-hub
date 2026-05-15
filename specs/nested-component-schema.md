@@ -55,7 +55,7 @@ A `for-each` component generates one `text-input` per item in a list, with a dyn
 - [ ] `buildSchema` recursively descends into `ForEachComponent.props.component` for **static** `for-each` (where `values` is known at config time), generating one schema entry per item using the resolved `dataKey`.
 - [ ] For **dynamic** `for-each` (where `dataKey` drives the list from runtime data), schema generation is skipped for the template component and a note is added to this spec as a known limitation.
 - [ ] `buildDefaultValues` in `Screen.tsx` is updated with the same recursive logic to ensure default values are registered for all nested response components.
-- [ ] A response component inside a `ConditionalComponent` whose condition is false is **not required** at submit time — its schema entry uses `.optional()` when the condition evaluates to false at load time, or the schema uses `superRefine` to skip it dynamically.
+- [ ] A response component inside a `ConditionalComponent` is enforced correctly: required when its condition is true at submit time, not required when the condition is false. This is implemented via a `z.superRefine` pass that reads the live form values at submit time.
 - [ ] All existing tests continue to pass.
 - [ ] New tests cover nested group, conditional (shown), conditional (hidden), and static for-each validation.
 
@@ -113,16 +113,12 @@ function collectFields(
     } else if (component.template === "group") {
       collectFields(component.props.components, acc);
     } else if (component.template === "conditional") {
-      // Include nested field but mark optional — the conditional may hide it
+      // Include nested field as optional in the base schema.
+      // A superRefine pass (added after collectFields) enforces required rules
+      // dynamically at submit time based on the condition's runtime evaluation.
       const inner = component.props.component;
       if (inner.componentFamily === "response") {
-        const fieldSchema = buildFieldSchema(inner);
-        // Wrap as optional: if the condition is false at submit time, the field
-        // should not be required. The superRefine approach (see open questions)
-        // is the correct long-term solution; for now, wrapping in .optional()
-        // prevents hard failures while still allowing the field to validate
-        // if a value is present.
-        acc[inner.props.dataKey] = fieldSchema.optional();
+        acc[inner.props.dataKey] = buildFieldSchema(inner).optional();
       } else {
         collectFields([inner], acc);
       }
@@ -150,7 +146,7 @@ No new `validateExperiment` checks introduced by this feature. The nested compon
 ### 6.4 Constraints & Risks
 
 - **Dynamic `for-each`**: When `type === "dynamic"`, the list of items is not known until the screen renders (it comes from collected form data). The number of generated fields is unknown at schema-build time. Proper validation of dynamic for-each fields requires either a `superRefine` that reads the live array length at submit time, or a separate schema built after the form mounts. This is deferred.
-- **Conditional field optionality**: Making a conditional field's schema `.optional()` means a required rule on the component will not be enforced when the condition is false. But it also means it won't be enforced when the condition IS true — to get that right, the schema needs to know the condition's current evaluation. This requires either `superRefine` (run at submit time against full form values) or dynamic schema rebuilding when the condition changes. See Open Questions.
+- **Conditional field enforcement**: A `superRefine` pass is added to the schema to evaluate conditional field requirements dynamically at submit time. For each `ConditionalComponent`, the refine evaluates the condition against the submitted form values: if the condition is true and the nested field is required and empty, an issue is added for that field's key.
 - **`react-hook-form` field registration**: Fields registered dynamically (inside `ForEach` at render time) are registered by the leaf component via `form.register(resolvedDataKey)`. Static for-each fields will now also have `defaultValues` entries, which prevents the controlled/uncontrolled warning.
 
 ---
@@ -182,7 +178,7 @@ No new `validateExperiment` checks introduced by this feature. The nested compon
 ## 8. Out of Scope
 
 - Dynamic `for-each` schema (item count unknown at build time) — deferred to a follow-up.
-- Fully correct conditional field enforcement (required when shown, not required when hidden) without `superRefine` — the `.optional()` approach is a safe intermediate step; full correctness is a follow-up.
+- Fully correct enforcement for `ConditionalComponent` nested inside another `ConditionalComponent` (double-nested conditions) — the `superRefine` approach handles single nesting; deeply nested conditional required enforcement is a follow-up.
 - Nested `ConditionalComponent` inside `ConditionalComponent` — the recursive traversal handles the component collection correctly, but the optionality logic becomes complex. Treat all conditionally-nested response fields as `.optional()` for now.
 
 ---
@@ -191,7 +187,7 @@ No new `validateExperiment` checks introduced by this feature. The nested compon
 
 | # | Question | Owner | Resolution |
 |---|---|---|---|
-| 1 | Should we use `superRefine` at the schema level to dynamically enforce conditional field requirements based on live form values at submit time? This would close the "required when shown" gap cleanly. | — | Open — `superRefine` is the correct long-term approach; deferred to a follow-up to keep this PR focused on the collection gap. |
+| 1 | Should we use `superRefine` at the schema level to dynamically enforce conditional field requirements based on live form values at submit time? This would close the "required when shown" gap cleanly. | — | **Resolved:** Implement `superRefine` in this feature — not deferred. The base schema marks conditional fields as `.optional()`; the `superRefine` pass re-enforces required constraints when the condition evaluates to true at submit time. |
 | 2 | For static `for-each`, should `@index` be the only supported placeholder in `dataKey`, or should `@value` also be resolved statically (it is the string value at that index)? | — | Open |
 | 3 | If a `GroupComponent` is inside a `ConditionalComponent`, are all of its children marked `.optional()`? | — | Proposed: yes — the whole group is conditionally shown, so all its children should be treated as optional. |
 

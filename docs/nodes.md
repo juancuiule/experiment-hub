@@ -52,6 +52,8 @@ The `path` node is used to create a path in the experiment flow. It has a `name`
 
 The only required props is the `name` prop. The stepper configuration is an object with the `StepperConfig` type that has two properties: `label?` and `style`. The `label` property is a string that defines the label to be shown in the stepper, and the `style` property is a string that defines the style of the stepper (e.g. `continuous` or `dashed`). In the label prop `{index}` will be replaced by the current step index, and `{total}` will be replaced by the total number of steps in that path.
 
+> **Note:** The `{index}` / `{total}` substitution syntax in stepper labels is an accidental divergence from the `{{ }}` double-brace syntax used by answer piping. These will be unified in a future cleanup — stepper labels will use `{{index}}` and `{{total}}` instead.
+
 ## Fork Node
 
 The `fork` node is used to create a fork in the experiment flow. It has a `name` prop that is used to identify the fork, a `description` prop that is used to provide a description of the fork, and a `forks` props that is an array of objects that define the different paths that can be taken from this point. Each fork object is of type `Fork`.

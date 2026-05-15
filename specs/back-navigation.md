@@ -56,7 +56,9 @@ A participant is on step 3 of a randomized path. They go back to step 2. The opt
 - [ ] The back button is hidden or disabled when the most recent history entry is at or behind a `checkpoint` node boundary.
 - [ ] Restoring a `FlowStep` restores the exact `InPathState.children` order, so randomized paths remain stable.
 - [ ] Previously entered form values are restored when returning to a screen (see Technical Notes).
-- [ ] Unit tests cover: back from a simple screen, back skipping auto-traverse nodes, back blocked at checkpoint boundary.
+- [ ] An optional `allowBack: false` prop on `PathNode` and `ScreenNode` prevents back navigation past that node; the back button is hidden once the participant has passed such a node.
+- [ ] An optional `backButton?: { label?: string }` field on `ExperimentFlow` configures the back button label; defaults to `"Back"`.
+- [ ] Unit tests cover: back from a simple screen, back skipping auto-traverse nodes, back blocked at checkpoint boundary, back blocked by `allowBack: false`.
 
 ---
 
@@ -167,9 +169,9 @@ No `validateExperiment` changes.
 
 | # | Question | Owner | Resolution |
 |---|---|---|---|
-| 1 | Should researchers be able to disable back navigation per-screen or per-path (e.g. `allowBack: false` on a `PathNode`)? | — | Open |
-| 2 | Should going back past a fork re-run the fork selection (potentially landing the participant in a different arm) or always restore the original fork result? | — | Proposed: always restore from history — back navigation must be deterministic. |
-| 3 | Should the back button label be configurable in the experiment config? | — | Open |
+| 1 | Should researchers be able to disable back navigation per-screen or per-path (e.g. `allowBack: false` on a `PathNode`)? | — | **Resolved:** Yes — add an optional `allowBack: false` prop to `PathNode` and `ScreenNode` props to disable back navigation for that node. When any node in history has `allowBack: false`, the back button is hidden after the participant passes it. |
+| 2 | Should going back past a fork re-run the fork selection (potentially landing the participant in a different arm) or always restore the original fork result? | — | **Resolved:** Always restore from history — back navigation must be deterministic. |
+| 3 | Should the back button label be configurable in the experiment config? | — | **Resolved:** Yes — add a top-level `backButton?: { label?: string }` field to `ExperimentFlow`. Defaults to `"Back"`. |
 
 ---
 
