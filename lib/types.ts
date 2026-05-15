@@ -14,6 +14,10 @@ export type Context = Partial<{
   start: { group: string };
   checkpoints: { [checkpointName: string]: string };
   data: Record<string, any>;
+  // In the store this only holds foreachData from the engine.
+  // RenderComponent merges live form values (form.watch()) into this key at render time
+  // so that $ prefix references ({{$fieldName}}) resolve correctly inside components
+  // without requiring a separate key in resolveValuesInString / getValue / conditions.
   screenData: Record<string, any> & {
     foreachData?: { [foreachId: string]: IterativeItem };
   };
