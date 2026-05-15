@@ -34,7 +34,6 @@ export interface SliderComponent extends BaseResponseComponent<
     minLabel?: string;
     maxLabel?: string;
     showValue?: boolean;
-    requiresInteraction?: ValidationRule;
     minValue?: ValidationRule<number>;
     maxValue?: ValidationRule<number>;
   }

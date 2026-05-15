@@ -263,49 +263,49 @@ describe("slider", () => {
     expect(schema.safeParse({ vol: "75" }).success).toBe(true);
   });
 
-  it("fails when requiresInteraction is set and value is absent", () => {
+  it("fails when required is true and value is absent", () => {
     const schema = buildSchema(
       screen([
-        { componentFamily: "response", template: "slider", props: { dataKey: "vol", label: "Volume", requiresInteraction: {} } },
+        { componentFamily: "response", template: "slider", props: { dataKey: "vol", label: "Volume", required: true } },
       ])
     );
     expect(schema.safeParse({}).success).toBe(false);
   });
 
-  it("passes when requiresInteraction is set and a value is provided", () => {
+  it("passes when required is true and a value is provided", () => {
     const schema = buildSchema(
       screen([
-        { componentFamily: "response", template: "slider", props: { dataKey: "vol", label: "Volume", requiresInteraction: {} } },
+        { componentFamily: "response", template: "slider", props: { dataKey: "vol", label: "Volume", required: true } },
       ])
     );
     expect(schema.safeParse({ vol: 50 }).success).toBe(true);
   });
 
-  it("passes when requiresInteraction is set and value is 0", () => {
+  it("passes when required is true and value is 0", () => {
     const schema = buildSchema(
       screen([
-        { componentFamily: "response", template: "slider", props: { dataKey: "vol", label: "Volume", requiresInteraction: {} } },
+        { componentFamily: "response", template: "slider", props: { dataKey: "vol", label: "Volume", required: true } },
       ])
     );
     expect(schema.safeParse({ vol: 0 }).success).toBe(true);
   });
 
-  it("fails when requiresInteraction is set and form value is null (slider not touched)", () => {
+  it("fails when required is true and form value is null (slider not touched)", () => {
     const schema = buildSchema(
       screen([
-        { componentFamily: "response", template: "slider", props: { dataKey: "vol", label: "Volume", requiresInteraction: {} } },
+        { componentFamily: "response", template: "slider", props: { dataKey: "vol", label: "Volume", required: true } },
       ])
     );
     expect(schema.safeParse({ vol: null }).success).toBe(false);
   });
 
-  it("uses custom requiresInteraction errorMessage", () => {
+  it("uses custom errorMessage when required fails", () => {
     const schema = buildSchema(
       screen([
         {
           componentFamily: "response",
           template: "slider",
-          props: { dataKey: "vol", label: "Volume", requiresInteraction: { errorMessage: "Please move the slider" } },
+          props: { dataKey: "vol", label: "Volume", required: true, errorMessage: "Please move the slider" },
         },
       ])
     );
@@ -314,6 +314,15 @@ describe("slider", () => {
     if (!result.success) {
       expect(result.error.flatten().fieldErrors.vol).toContain("Please move the slider");
     }
+  });
+
+  it("accepts null when required is false (slider not touched)", () => {
+    const schema = buildSchema(
+      screen([
+        { componentFamily: "response", template: "slider", props: { dataKey: "vol", label: "Volume", required: false } },
+      ])
+    );
+    expect(schema.safeParse({ vol: null }).success).toBe(true);
   });
 
   it("enforces minValue constraint", () => {

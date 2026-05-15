@@ -81,41 +81,40 @@ function buildFieldSchema(component: ResponseComponent): z.ZodTypeAny {
     }
 
     case "slider": {
-      const {
-        min = 0,
-        max = 100,
-        requiresInteraction,
-        minValue,
-        maxValue,
-      } = component.props;
-      let base = z.coerce.number().min(min).max(max);
-      if (minValue)
-        base = base.min(
-          minValue.value,
-          minValue.errorMessage ?? `Must be at least ${minValue.value}`,
-        );
-      if (maxValue)
-        base = base.max(
-          maxValue.value,
-          maxValue.errorMessage ?? `Must be at most ${maxValue.value}`,
-        );
-      if (requiresInteraction) {
-        // Validate raw value first: z.coerce.number() silences NaN with its own message.
-        return z
-          .any()
-          .refine(
-            (v) =>
-              component.template !== "slider" ||
-              (v !== undefined && v !== null && Number.isFinite(Number(v))),
-            {
-              message:
-                requiresInteraction.errorMessage ??
-                "Please interact with the slider",
-            },
-          )
-          .transform(Number);
+      const { min = 0, max = 100, minValue, maxValue } = component.props;
+
+      const buildCoerceBase = () => {
+        let base = z.coerce.number().min(min).max(max);
+        if (minValue)
+          base = base.min(
+            minValue.value,
+            minValue.errorMessage ?? `Must be at least ${minValue.value}`,
+          );
+        if (maxValue)
+          base = base.max(
+            maxValue.value,
+            maxValue.errorMessage ?? `Must be at most ${maxValue.value}`,
+          );
+        return base;
+      };
+
+      if (required) {
+        // required on a slider means: user must have interacted (value must not be null)
+        // First gate on null/undefined, then delegate to the coerce chain for range checks.
+        return z.preprocess(
+          (v) => v,
+          z
+            .any()
+            .refine(
+              (v) => v !== undefined && v !== null && Number.isFinite(Number(v)),
+              { message: msg },
+            )
+        ).pipe(buildCoerceBase() as z.ZodTypeAny) as z.ZodTypeAny;
       }
-      return base;
+
+      // not required: null is accepted (user didn't interact),
+      // but if a value is present it must be valid
+      return z.union([z.null(), buildCoerceBase()]);
     }
 
     case "single-checkbox": {

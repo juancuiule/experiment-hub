@@ -56,17 +56,17 @@ Collects a numeric value within a range.
 - `min?: number`
 - `max?: number`
 - `step?: number`
-- `defaultValue?: number`
+- `defaultValue?: number` — sets the visual starting position of the thumb; does **not** pre-fill the form value. The participant must still move the slider for a value to be submitted.
 - `minLabel?: string` — label shown at the minimum end
 - `maxLabel?: string` — label shown at the maximum end
-- `showValue?: boolean` — whether to display the current numeric value to the participant as they drag
+- `showValue?: boolean` — whether to display the current numeric value once the participant has interacted
 
 Validation (each with its own `errorMessage`):
-- `requiresInteraction?: { errorMessage?: string }` — the participant must actively move the slider before advancing, even if a `defaultValue` is set
+- `required?: boolean` — when `true`, the participant must actively move the slider before advancing (null check). This is the standard `required` behaviour: "filled" for a slider means "interacted with".
 - `minValue?: { value: number; errorMessage?: string }` — the selected value must be at or above this threshold
 - `maxValue?: { value: number; errorMessage?: string }` — the selected value must be at or below this threshold
 
-Collected value: `number`
+Collected value: `number | null` (null when the participant has not yet moved the slider)
 
 ### `single-checkbox`
 

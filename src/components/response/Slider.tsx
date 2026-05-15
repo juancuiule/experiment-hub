@@ -28,20 +28,32 @@ export function Slider({ component, form, context }: Props) {
       control={control}
       name={dataKey}
       render={({ field }) => {
-        const value = field.value ?? min;
+        const hasInteracted = field.value !== null && field.value !== undefined;
+        const defaultValue = component.props.defaultValue;
+        const showThumb = hasInteracted || defaultValue !== undefined;
+        const thumbPosition = hasInteracted
+          ? (field.value as number)
+          : (defaultValue ?? min);
+
+        const thumbClass = hasInteracted
+          ? "block w-4 h-4 bg-black rounded-full outline-none focus-visible:ring-2 focus-visible:ring-black/20 cursor-grab active:cursor-grabbing"
+          : showThumb
+            ? "block w-4 h-4 bg-gray-400 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-black/20 cursor-grab active:cursor-grabbing opacity-60"
+            : "block w-4 h-4 rounded-full outline-none cursor-pointer opacity-0";
+
         return (
           <div className="flex flex-col gap-1">
             <div className="flex items-center justify-between">
               <Label context={context}>{component.props.label}</Label>
-              {component.props.showValue && (
+              {component.props.showValue && hasInteracted && (
                 <span className="text-sm font-medium tabular-nums">
-                  {value}
+                  {field.value}
                 </span>
               )}
             </div>
             <div>
               <SliderPrimitive.Root
-                value={[value]}
+                value={[thumbPosition]}
                 min={min}
                 max={max}
                 step={component.props.step ?? 1}
@@ -49,9 +61,9 @@ export function Slider({ component, form, context }: Props) {
                 className="relative flex items-center w-full h-5 select-none touch-none"
               >
                 <SliderPrimitive.Track className="relative h-px bg-gray-300 flex-1 rounded-full">
-                  <SliderPrimitive.Range className="absolute h-full bg-black rounded-full" />
+                  <SliderPrimitive.Range className={`absolute h-full rounded-full ${hasInteracted ? "bg-black" : "bg-transparent"}`} />
                 </SliderPrimitive.Track>
-                <SliderPrimitive.Thumb className="block w-4 h-4 bg-black rounded-full outline-none focus-visible:ring-2 focus-visible:ring-black/20 cursor-grab active:cursor-grabbing" />
+                <SliderPrimitive.Thumb className={thumbClass} />
               </SliderPrimitive.Root>
             </div>
             {(component.props.minLabel || component.props.maxLabel) && (
