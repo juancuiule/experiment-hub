@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { evaluateCondition, getValue } from "../conditions";
+import { evaluateCondition } from "../conditions";
+import { getValue } from "../resolve";
 
 // ---------------------------------------------------------------------------
 // getValue
@@ -8,45 +9,44 @@ import { evaluateCondition, getValue } from "../conditions";
 describe("getValue", () => {
   it("resolves a top-level key", async () => {
     const ctx = { data: { profile: { age: 30 } } };
-    expect(getValue(ctx, "$$profile")).toEqual({ age: 30 });
+    expect(getValue("$$profile", ctx)).toEqual({ age: 30 });
   });
 
   it("resolves a nested key via dot notation", async () => {
     const ctx = { data: { profile: { age: 30 } } };
-    expect(getValue(ctx, "$$profile.age")).toBe(30);
+    expect(getValue("$$profile.age", ctx)).toBe(30);
   });
 
   it("returns undefined for a missing key", async () => {
     const ctx = { data: {} };
-    expect(getValue(ctx, "$$missing.field")).toBeUndefined();
+    expect(getValue("$$missing.field", ctx)).toBeUndefined();
   });
 
   it("returns undefined when context.data is absent", async () => {
-    expect(getValue({}, "$$profile.age")).toBeUndefined();
+    expect(getValue("$$profile.age", {})).toBeUndefined();
   });
 
   it("throws when the key does not start with $$ or @", async () => {
-    expect(() => getValue({}, "profile.age" as any)).toThrow("Invalid key");
+    expect(() => getValue("profile.age" as any, {})).toThrow("Invalid key");
   });
 
   it("resolves fields from currentItem using @ prefix", async () => {
-    const ctx = { currentItem: { value: "football", index: 0, loopId: "loop-sports" } };
-    expect(getValue(ctx, "@value")).toBe("football");
-    expect(getValue(ctx, "@index")).toBe(0);
-    expect(getValue(ctx, "@loopId")).toBe("loop-sports");
+    const ctx = { loopData: { "loop-sports": { value: "football", index: 0 } } };
+    expect(getValue("@loop-sports.value", ctx)).toBe("football");
+    expect(getValue("@loop-sports.index", ctx)).toBe(0);
   });
 
   it("returns undefined when currentItem is absent and @ prefix is used", async () => {
-    expect(getValue({}, "@value")).toBeUndefined();
+    expect(getValue("@loop-sports.value", {})).toBeUndefined();
   });
 
   it("resolves a field from screenData using $ prefix", async () => {
     const ctx = { screenData: { sport: "tennis" } };
-    expect(getValue(ctx, "$sport")).toBe("tennis");
+    expect(getValue("$sport", ctx)).toBe("tennis");
   });
 
   it("returns undefined when screenData is absent and $ prefix is used", async () => {
-    expect(getValue({}, "$field")).toBeUndefined();
+    expect(getValue("$field", {})).toBeUndefined();
   });
 });
 

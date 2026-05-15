@@ -74,8 +74,7 @@ describe("rendering", () => {
         },
       },
     ]);
-    // LikertScale renders option buttons (not radio inputs)
-    expect(screen.getAllByRole("button", { name: /^[1-5]$/ })).toHaveLength(5);
+    expect(screen.getAllByRole("radio")).toHaveLength(5);
   });
 
   it("renders rich-text markdown as HTML", () => {
@@ -106,19 +105,19 @@ describe("label interpolation", () => {
           template: "likert-scale",
           props: {
             dataKey: "enjoyment",
-            label: "How much do you enjoy @value?",
+            label: "How much do you enjoy {{@loop-1.value}}?",
             options: [{ label: "A lot", value: "1" }, { label: "A little", value: "2" }],
           },
         },
       ],
-      { currentItem: { value: "soccer", index: 0, loopId: "loop-1" } }
+      { loopData: { "loop-1": { value: "soccer", index: 0 } } }
     );
     expect(screen.getByText("How much do you enjoy soccer?")).toBeInTheDocument();
   });
 
   it("replaces $$ references in labels with context.data values", () => {
     renderScreen(
-      [{ componentFamily: "response", template: "text-input", props: { dataKey: "note", label: "Hi $$welcome.name!" } }],
+      [{ componentFamily: "response", template: "text-input", props: { dataKey: "note", label: "Hi {{$$welcome.name}}!" } }],
       { data: { welcome: { name: "Juan" } } }
     );
     expect(screen.getByLabelText("Hi Juan!")).toBeInTheDocument();
@@ -126,8 +125,8 @@ describe("label interpolation", () => {
 
   it("replaces @value in rich-text content", () => {
     renderScreen(
-      [{ componentFamily: "content", template: "rich-text", props: { content: "## @value" } }],
-      { currentItem: { value: "cooking", index: 1, loopId: "loop-1" } }
+      [{ componentFamily: "content", template: "rich-text", props: { content: "## {{@loop-1.value}}" } }],
+      { loopData: { "loop-1": { value: "cooking", index: 1 } } }
     );
     expect(screen.getByRole("heading", { level: 2, name: "cooking" })).toBeInTheDocument();
   });
@@ -302,8 +301,7 @@ describe("data collection", () => {
       onNext
     );
 
-    // LikertScale renders option buttons; click the button whose label is "3"
-    await userEvent.click(screen.getByRole("button", { name: "3" }));
+    await userEvent.click(screen.getByRole("radio", { name: "3 — Neutral" }));
     await userEvent.click(screen.getByRole("button", { name: "Submit" }));
 
     expect(onNext).toHaveBeenCalledWith({ score: "3" });
