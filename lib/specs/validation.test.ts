@@ -899,6 +899,28 @@ describe("randomize __order key", () => {
     expect(result.data?.picks__order).toEqual(["b", "a"]);
   });
 
+  it("does not strip __order from validated data for randomize:true dropdown", () => {
+    const screen: FrameworkScreen = {
+      slug: "test",
+      components: [
+        {
+          componentFamily: "response",
+          template: "dropdown",
+          props: {
+            dataKey: "selected",
+            label: "Selected",
+            options: [{ label: "A", value: "a" }, { label: "B", value: "b" }],
+            randomize: true,
+          },
+        },
+      ],
+    };
+    const schema = buildSchema(screen);
+    const result = schema.safeParse({ selected: "a", selected__order: ["b", "a"] });
+    expect(result.success).toBe(true);
+    expect(result.data?.selected__order).toEqual(["b", "a"]);
+  });
+
   it("strips __order for non-randomized fields (Zod default strip behaviour)", () => {
     const screen: FrameworkScreen = {
       slug: "test",
