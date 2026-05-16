@@ -49,14 +49,14 @@ export function Checkboxes({ component, form, context }: Props) {
                       );
                     }}
                     className={twMerge(
-                      "size-4 border border-gray-400 rounded-sm",
+                      "size-4 border border-border-default rounded-sm",
                       "flex items-center justify-center shrink-0",
                       "data-[state=checked]:bg-content-active data-[state=checked]:border-content-active",
                       "transition-colors duration-75",
                     )}
                   >
                     <CheckboxPrimitive.Indicator>
-                      <Check className="size-4 text-white" />
+                      <Check className="size-4 text-content-inverted" />
                     </CheckboxPrimitive.Indicator>
                   </CheckboxPrimitive.Root>
                   <Label

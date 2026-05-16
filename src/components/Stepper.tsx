@@ -17,7 +17,7 @@ export default function Stepper(props: Props) {
             .replace("{total}", String(total))}
         </p>
       ) : null}
-      <div className="h-1 w-full bg-background rounded-full overflow-hidden">
+      <div className="h-1 w-full bg-foreground rounded-full overflow-hidden">
         {config.style === "dashed" ? (
           <div className="h-full flex gap-2">
             {Array.from({ length: total }, (_, index) => (
@@ -29,7 +29,7 @@ export default function Stepper(props: Props) {
           </div>
         ) : (
           <div
-            className="h-full bg-content-active dark:bg-content-active"
+            className="h-full bg-content-active"
             style={{
               width: `${((step + 1) / total) * 100}%`,
             }}

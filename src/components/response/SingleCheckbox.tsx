@@ -6,7 +6,7 @@ import * as CheckboxPrimitive from "@radix-ui/react-checkbox";
 import { Controller, UseFormReturn } from "react-hook-form";
 import { twMerge } from "tailwind-merge";
 import { Label } from "../Label";
-import { CheckIcon, FieldError } from "../primitives";
+import { FieldError } from "../primitives";
 import { Check } from "lucide-react";
 
 type Props = {
@@ -42,7 +42,7 @@ export function SingleCheckbox({ component, form, context }: Props) {
               )}
             >
               <CheckboxPrimitive.Indicator>
-                <Check className="size-4 text-white" />
+                <Check className="size-4 text-content-inverted" />
               </CheckboxPrimitive.Indicator>
             </CheckboxPrimitive.Root>
             <Label

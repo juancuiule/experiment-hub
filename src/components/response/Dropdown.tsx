@@ -45,14 +45,14 @@ export function Dropdown({ component, form, context }: Props) {
               </SelectPrimitive.Icon>
             </SelectPrimitive.Trigger>
             <SelectPrimitive.Portal>
-              <SelectPrimitive.Content className="bg-foreground border border-border-default shadow-md rounded-sm z-50 overflow-hidden">
+              <SelectPrimitive.Content className="bg-background-surface border border-border-default shadow-md rounded-sm z-50 overflow-hidden">
                 <SelectPrimitive.Viewport className="p-1">
                   {resolveOptions(component.props.options, context, component.props.dataKey).map(
                     (opt) => (
                       <SelectPrimitive.Item
                         key={opt.value}
                         value={opt.value}
-                        className="flex items-center px-3 py-2 text-sm cursor-pointer outline-none data-highlighted:bg-content-active data-highlighted:text-foreground rounded-sm"
+                        className="flex items-center px-3 py-2 text-sm cursor-pointer outline-none data-highlighted:bg-content-active data-highlighted:text-content-inverted rounded-sm"
                       >
                         <SelectPrimitive.ItemText>
                           {resolveValuesInString(opt.label, context)}
