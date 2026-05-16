@@ -12,7 +12,8 @@
     "plan": "tsx scripts/plan.ts",
     "plan:prompts": "tsx scripts/gen-prompts.ts",
     "launch": "bash scripts/launch.sh",
-    "review-merge": "tsx scripts/review-merge.ts"
+    "review-merge": "tsx scripts/review-merge.ts",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.90.0",
@@ -32,6 +33,7 @@
     "zustand": "^5.0.11"
   },
   "devDependencies": {
+    "@playwright/test": "^1.60.0",
     "@tailwindcss/postcss": "^4",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
