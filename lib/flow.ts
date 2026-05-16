@@ -645,3 +645,22 @@ export function buildTimingKey(step: FlowStep): string | null {
   const prefix = (step.dataPath ?? []).join("/");
   return prefix ? `${prefix}/${active.node.props.slug}` : active.node.props.slug;
 }
+
+export async function traverseWithTiming(
+  step: FlowStep,
+  data?: Record<string, any>,
+): Promise<FlowStep> {
+  const key = buildTimingKey(step);
+  const submittedAt = new Date().toISOString();
+  const contextWithSubmit = key
+    ? mergeContext(step.context, {
+        timings: {
+          [key]: {
+            ...(step.context.timings?.[key] ?? {}),
+            submittedAt,
+          } as { enteredAt: string; submittedAt: string },
+        },
+      })
+    : step.context;
+  return traverse({ ...step, context: contextWithSubmit }, data);
+}
