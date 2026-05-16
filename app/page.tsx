@@ -18,19 +18,10 @@ function determineStartingNode(
   const startNodes = experiment.nodes.filter((node) => node.type === "start");
 
   for (const node of startNodes) {
-    console.log("Start node:", node);
     if (node.props && keys.includes(node.props.param.key)) {
-      console.log(
-        "Found matching query param for start node:",
-        node.props.param.key,
-      );
       if (node.props.param.value) {
-        console.log("Node has value:", node.props.param.value);
         const paramValue = searchParams[node.props.param.key];
         if (paramValue === node.props.param.value) {
-          console.log(
-            "Query param value matches node value, starting experiment",
-          );
           return node.id; // Return the ID of the starting node
         }
       }
@@ -45,9 +36,6 @@ export default async function Home(props: Props) {
   const startingNode = determineStartingNode(searchParams, experiment);
 
   const errors = validateExperiment(experiment);
-
-  console.log(startingNode);
-  console.log(errors);
 
   if (errors.length > 0) {
     return (
