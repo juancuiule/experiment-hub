@@ -17,6 +17,7 @@ type Props = {
 export function NumericInput({ component, form, context }: Props) {
   const {
     register,
+
     formState: { errors },
   } = form;
   const { dataKey, placeholder } = component.props;
@@ -28,6 +29,7 @@ export function NumericInput({ component, form, context }: Props) {
         id={dataKey}
         {...register(dataKey, { valueAsNumber: true })}
         type="number"
+        onWheel={(e) => e.currentTarget.blur()}
         placeholder={placeholder ? resolveValuesInString(placeholder, context) : undefined}
         min={component.props.min}
         max={component.props.max}
