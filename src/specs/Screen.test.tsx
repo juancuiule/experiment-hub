@@ -193,6 +193,45 @@ describe("label interpolation", () => {
     );
     expect(screen.getByRole("button", { name: "Continue to section 2" })).toBeInTheDocument();
   });
+
+  it("resolves interpolation in image alt text", () => {
+    renderScreen(
+      [{
+        componentFamily: "content",
+        template: "image",
+        props: { url: "https://example.com/cat.png", alt: "Photo of {{$$user.name}}" },
+      }],
+      { data: { user: { name: "Juan" } } },
+    );
+    expect(screen.getByRole("img", { name: "Photo of Juan" })).toBeInTheDocument();
+  });
+
+  it("resolves interpolation in image src when URL is safe", () => {
+    renderScreen(
+      [{
+        componentFamily: "content",
+        template: "image",
+        props: { url: "https://cdn.example.com/{{@loop-1.value}}.png", alt: "Loop image" },
+      }],
+      { loopData: { "loop-1": { value: "cat", index: 0 } } },
+    );
+    expect(screen.getByRole("img", { name: "Loop image" })).toHaveAttribute(
+      "src",
+      "https://cdn.example.com/cat.png",
+    );
+  });
+
+  it("blocks interpolation in image src for unsafe URL schemes", () => {
+    renderScreen(
+      [{
+        componentFamily: "content",
+        template: "image",
+        props: { url: "{{$$image.url}}", alt: "Unsafe image" },
+      }],
+      { data: { image: { url: "javascript:alert(1)" } } },
+    );
+    expect(screen.getByRole("img", { name: "Unsafe image" })).not.toHaveAttribute("src");
+  });
 });
 
 // ---------------------------------------------------------------------------

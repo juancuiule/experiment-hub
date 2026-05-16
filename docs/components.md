@@ -25,6 +25,8 @@ Content components display information to the participant. They have no data col
 - `url: string` — URL of the image
 - `alt: string` — alternative text for the image
 
+Both `url` and `alt` support answer piping interpolation. For security, interpolated `url` values are only allowed when they resolve to `http(s)` URLs or relative paths (`/`, `./`, `../`).
+
 ### `video`
 
 - `url: string` — URL of the video
