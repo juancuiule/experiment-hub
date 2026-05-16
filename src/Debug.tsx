@@ -71,7 +71,7 @@ function LoopDetail({ node, state }: { node: LoopNode; state: State }) {
           {resolvedValues.map((v, i) => (
             <span key={i}>
               {i > 0 && <span className="text-content-secondary">, </span>}
-              <span className={loopState && i === loopState.index ? "text-black font-bold" : "text-content-secondary"}>
+              <span className={loopState && i === loopState.index ? "text-content-primary font-bold" : "text-content-secondary"}>
                 {v}
               </span>
             </span>
@@ -107,10 +107,10 @@ function NodeCard({
         "opacity-50";
 
   return (
-    <div className={`rounded border p-2 font-mono text-xxs flex flex-col gap-1 transition-all ${wrapperClass}`}>
+    <div className={`rounded border p-2 font-mono text-xxs flex flex-col gap-1 transition-[box-shadow,opacity] duration-150 ${wrapperClass}`}>
       <div className="flex items-center gap-2">
         {role === "leaf" && <span className="w-2 h-2 rounded-full bg-background-inverted shrink-0" />}
-        {role === "container" && <span className="w-2 h-2 rounded-full border border-black shrink-0" />}
+        {role === "container" && <span className="w-2 h-2 rounded-full border border-content-primary shrink-0" />}
         <NodeTypeBadge type={node.type} />
         <span className="text-content-secondary truncate">{node.id}</span>
       </div>
@@ -119,7 +119,7 @@ function NodeCard({
         <div className="flex flex-wrap gap-1 pl-4">
           {connections.map((c, i) => (
             <span key={i} className="text-content-secondary">
-              <span className="text-content-tertiary">{c.label}</span>{" "}
+              <span className="text-content-secondary">{c.label}</span>{" "}
               <span className="text-content-primary">{c.toId}</span>
             </span>
           ))}
@@ -158,7 +158,7 @@ export function StateDebug() {
               {currentPath.map((id, i) => (
                 <span key={id} className="flex items-center gap-1">
                   {i > 0 && <span className="text-content-secondary">›</span>}
-                  <span className={i === currentPath.length - 1 ? "text-black" : "text-content-secondary"}>{id}</span>
+                  <span className={i === currentPath.length - 1 ? "text-content-primary" : "text-content-secondary"}>{id}</span>
                 </span>
               ))}
             </>
@@ -207,7 +207,7 @@ function Leaf({ value }: { value: unknown }) {
 
 function DataTree({ data, depth = 0 }: { data: Record<string, unknown>; depth?: number }) {
   return (
-    <div className={`flex flex-col gap-0.5 font-mono text-xxs ${depth > 0 ? 'border-l border-gray-200 pl-2 ml-1' : ''}`}>
+    <div className={`flex flex-col gap-0.5 font-mono text-xxs ${depth > 0 ? 'border-l border-border-default pl-2 ml-1' : ''}`}>
       {Object.entries(data).map(([key, value]) => {
         const isComplex = isPlainObject(value) || (Array.isArray(value) && !isPrimitiveArray(value as unknown[]));
         if (isComplex) {

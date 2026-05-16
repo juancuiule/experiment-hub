@@ -38,7 +38,7 @@ export function Radio({ component, form, context }: Props) {
                 <RadioGroupPrimitive.Item
                   id={`${dataKey}-${opt.value}`}
                   value={opt.value}
-                  className="w-4 h-4 rounded-full border border-content-secondary flex items-center justify-center shrink-0 data-[state=checked]:border-content-active transition-colors outline-content-active/50 focus-visible:ring-2 focus-visible:ring-content-active/50 cursor-pointer"
+                  className="w-4 h-4 rounded-full border border-content-secondary flex items-center justify-center shrink-0 data-[state=checked]:border-content-active active:scale-90 transition duration-150 ease-out focus-visible:ring-2 focus-visible:ring-ring/50 cursor-pointer"
                 >
                   <RadioGroupPrimitive.Indicator className="w-2 h-2 rounded-full bg-content-active" />
                 </RadioGroupPrimitive.Item>

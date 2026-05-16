@@ -46,7 +46,7 @@ function ErrorCard({ error }: { error: ValidationError }) {
   return (
     <div className="rounded border p-2 font-mono text-xxs flex flex-col gap-1">
       <div className="flex items-center gap-2">
-        <AlertTriangle size={10} className="text-red-500 shrink-0" />
+        <AlertTriangle size={10} className="text-error shrink-0" />
         <span className={`px-1.5 py-0.5 rounded border text-xxs font-semibold flex items-center gap-1 ${colorClass}`}>
           <Icon size={10} />
           {category}
@@ -62,7 +62,7 @@ function ErrorCard({ error }: { error: ValidationError }) {
 export function ValidationErrors({ errors }: { errors: ValidationError[] }) {
   return (
     <div className="p-4 flex flex-col gap-3">
-      <span className="font-mono text-[9px] uppercase tracking-wider text-gray-400">
+      <span className="font-mono text-[9px] uppercase tracking-wider text-content-secondary">
         Validation Errors
       </span>
       <div className="flex flex-col gap-2">
