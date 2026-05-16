@@ -78,6 +78,7 @@ export const testExperiment: ExperimentFlow = {
           props: {
             label: 'Do you have children?',
             dataKey: 'has-children',
+            required: true,
             options: [
               { label: 'Yes', value: 'yes' },
               { label: 'No', value: 'no' },
@@ -100,6 +101,7 @@ export const testExperiment: ExperimentFlow = {
               props: {
                 label: 'How many children?',
                 dataKey: 'num-children',
+                required: true,
               },
             },
           },
@@ -120,6 +122,7 @@ export const testExperiment: ExperimentFlow = {
           props: {
             label: "Children's names",
             dataKey: 'children-names',
+            required: true,
           },
         },
         {
