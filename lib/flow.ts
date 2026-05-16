@@ -105,13 +105,17 @@ function computeShuffledOptions(
   const result: Record<string, Array<Option>> = {};
 
   for (const component of screen.components) {
-    if (component.componentFamily === "response" && hasRandomizedOptions(component)) {
+    if (
+      component.componentFamily === "response" &&
+      hasRandomizedOptions(component)
+    ) {
       const { dataKey } = component.props;
-      const reshuffleInLoop = component.props.reshuffleInLoop ?? true;
-      if (inLoop && !reshuffleInLoop && previous[dataKey]) {
+      if (inLoop && !component.props.reshuffleInLoop && previous[dataKey]) {
         result[dataKey] = previous[dataKey];
       } else {
-        result[dataKey] = shuffle(resolveOptionsSource(component.props.options, context));
+        result[dataKey] = shuffle(
+          resolveOptionsSource(component.props.options, context),
+        );
       }
     }
   }
@@ -188,7 +192,9 @@ async function enterStep(step: FlowStep): Promise<FlowStep> {
     if (Object.keys(shuffledOptions).length > 0) {
       return {
         ...step,
-        context: mergeContext(step.context, { screenData: { shuffledOptions } }),
+        context: mergeContext(step.context, {
+          screenData: { shuffledOptions },
+        }),
       };
     }
   }

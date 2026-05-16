@@ -9,7 +9,7 @@ export const experiment: ExperimentFlow = {
       type: "loop",
       props: {
         type: "static",
-        values: ["apple", "banana", "orange"],
+        values: ["apple", "banana", "kiwi"],
       },
     },
     {
@@ -32,6 +32,15 @@ export const experiment: ExperimentFlow = {
       components: [
         {
           componentFamily: "content",
+          template: "image",
+          props: {
+            url: "/fruits/{{@loop-test.value}}.png",
+            alt: "{{@loop-test.value}} image",
+            className: "w-16 mx-auto",
+          },
+        },
+        {
+          componentFamily: "content",
           template: "rich-text",
           props: {
             content:
@@ -44,6 +53,7 @@ export const experiment: ExperimentFlow = {
           props: {
             label: "Select **your** `favorite` {{@loop-test.value}} varieties",
             dataKey: "favorite-varieties",
+            randomize: true,
             options: [
               { label: "Variety 1", value: "variety-1" },
               { label: "Variety 2", value: "variety-2" },

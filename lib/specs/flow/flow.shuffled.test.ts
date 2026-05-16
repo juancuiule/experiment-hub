@@ -111,7 +111,7 @@ describe("shuffled options injected by enterStep", () => {
     expect(order2).toBe(order1);
   });
 
-  it("reshuffles on each loop iteration by default", async () => {
+  it("preserves order across loop iterations by default (reshuffleInLoop not set)", async () => {
     const flow = makeFlow(
       [
         {
@@ -122,6 +122,33 @@ describe("shuffled options injected by enterStep", () => {
             label: "Choice",
             options: OPTIONS,
             randomize: true,
+          },
+        },
+      ],
+      ["first", "second"],
+    );
+
+    const step1 = await startExperiment(flow, "start");
+    const order1 = step1.context.screenData?.shuffledOptions?.["choice"];
+
+    const step2 = await traverse(step1, { choice: "a" });
+    const order2 = step2.context.screenData?.shuffledOptions?.["choice"];
+
+    expect(order2).toBe(order1);
+  });
+
+  it("reshuffles across loop iterations when reshuffleInLoop:true", async () => {
+    const flow = makeFlow(
+      [
+        {
+          componentFamily: "response",
+          template: "radio",
+          props: {
+            dataKey: "choice",
+            label: "Choice",
+            options: OPTIONS,
+            randomize: true,
+            reshuffleInLoop: true,
           },
         },
       ],

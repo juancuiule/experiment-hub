@@ -3,6 +3,7 @@
 import { ImageComponent } from "@/lib/components/content";
 import { resolveInterpolatedImageUrl, resolveValuesInString } from "@/lib/resolve";
 import { Context } from "@/lib/types";
+import { twMerge } from "tailwind-merge";
 
 type Props = {
   component: ImageComponent;
@@ -17,7 +18,10 @@ export function Image({ component, context }: Props) {
 
   return (
     <div className="my-3">
-      <img src={src ?? undefined} alt={alt} className="w-full" />
+      <img src={src ?? undefined} alt={alt} className={twMerge(
+        "w-full",
+        component.props.className
+      )} />
     </div>
   );
 }

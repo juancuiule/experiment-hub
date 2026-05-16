@@ -19,6 +19,6 @@ export async function send(context: Context, ms?: number) {
   return new Promise((resolve) => {
     setTimeout(() => {
       resolve(context);
-    }, ms || 1000); // Minimal delay — replace with a real API call in production
+    }, ms || 100); // Minimal delay — replace with a real API call in production
   });
 }
