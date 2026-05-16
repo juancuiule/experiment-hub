@@ -1,4 +1,4 @@
-import { evaluateCondition } from "./conditions";
+import { evaluateCondition } from './conditions';
 
 import {
   isBranchConditionEdge,
@@ -7,10 +7,10 @@ import {
   isLoopEdge,
   isPathEdge,
   isSequentialEdge,
-} from "./edges";
-import { hasRandomizedOptions, Option } from "./components/response";
-import { BranchNode, Fork, ForkNode, FrameworkNode } from "./nodes";
-import { getValue, resolveOptionsSource } from "./resolve";
+} from './edges';
+import { hasRandomizedOptions, Option } from './components/response';
+import { BranchNode, Fork, ForkNode, FrameworkNode } from './nodes';
+import { getValue, resolveOptionsSource } from './resolve';
 import {
   Context,
   ExperimentFlow,
@@ -19,8 +19,8 @@ import {
   InNodeState,
   InPathState,
   State,
-} from "./types";
-import { isDefined, send, shuffle } from "./utils";
+} from './types';
+import { isDefined, send, shuffle } from './utils';
 
 // This function determines if we should auto-traverse from
 // the current step without waiting for external input.
@@ -28,8 +28,8 @@ function shouldAutoTraverse(step: FlowStep): boolean {
   const { state } = step;
 
   const isAutoNode =
-    state.type === "in-node" &&
-    ["start", "checkpoint", "branch", "fork"].includes(state.node.type);
+    state.type === 'in-node' &&
+    ['start', 'checkpoint', 'branch', 'fork'].includes(state.node.type);
 
   return isAutoNode;
 }
@@ -42,27 +42,27 @@ function initialState(
   node: FrameworkNode,
 ): State {
   switch (node.type) {
-    case "start":
-    case "checkpoint":
-    case "screen":
-    case "branch":
-    case "fork": {
-      return { type: "in-node" as const, node };
+    case 'start':
+    case 'checkpoint':
+    case 'screen':
+    case 'branch':
+    case 'fork': {
+      return { type: 'in-node' as const, node };
     }
-    case "loop": {
+    case 'loop': {
       const template = getTemplateNode(experiment, node.id);
 
       if (!template) {
-        throw new Error("Loop node must have a template node");
+        throw new Error('Loop node must have a template node');
       }
 
       const values =
-        node.props.type === "static"
+        node.props.type === 'static'
           ? node.props.values
           : ((getValue(node.props.dataKey, context) as string[]) ?? []);
 
       return {
-        type: "in-loop" as const,
+        type: 'in-loop' as const,
         node,
         values,
         template,
@@ -70,11 +70,11 @@ function initialState(
         innerState: initialState(experiment, context, template),
       };
     }
-    case "path": {
+    case 'path': {
       const children = getChildNodes(experiment, node.id);
 
       if (!children || children.length === 0) {
-        throw new Error("Path node must have child nodes");
+        throw new Error('Path node must have child nodes');
       }
 
       const childrenInOrder = node.props.randomized
@@ -82,7 +82,7 @@ function initialState(
         : children;
 
       return {
-        type: "in-path" as const,
+        type: 'in-path' as const,
         node,
         children: childrenInOrder,
         step: 0,
@@ -106,7 +106,7 @@ function computeShuffledOptions(
 
   for (const component of screen.components) {
     if (
-      component.componentFamily === "response" &&
+      component.componentFamily === 'response' &&
       hasRandomizedOptions(component)
     ) {
       const { dataKey } = component.props;
@@ -124,14 +124,14 @@ function computeShuffledOptions(
 
 // This function handles entering a step, applying any auto-traversal logic if needed.
 async function enterStep(step: FlowStep): Promise<FlowStep> {
-  if (step.state.type === "in-loop") {
+  if (step.state.type === 'in-loop') {
     const { index, node, template } = step.state;
 
     // Recompute values using the current context — critical for nested loops
     // where the dataKey references a parent loop's item via @, since the parent's
     // loopData is only available in context at enterStep time, not at initialState time.
     const values =
-      node.props.type === "static"
+      node.props.type === 'static'
         ? node.props.values
         : ((getValue(node.props.dataKey, step.context) as string[]) ?? []);
 
@@ -170,7 +170,7 @@ async function enterStep(step: FlowStep): Promise<FlowStep> {
       context: innerStep.context,
     };
   }
-  if (step.state.type === "in-path") {
+  if (step.state.type === 'in-path') {
     const { node, children } = step.state;
     return {
       ...step,
@@ -183,7 +183,7 @@ async function enterStep(step: FlowStep): Promise<FlowStep> {
   }
   if (shouldAutoTraverse(step)) return await traverse(step);
 
-  if (step.state.type === "in-node" && step.state.node.type === "screen") {
+  if (step.state.type === 'in-node' && step.state.node.type === 'screen') {
     const shuffledOptions = computeShuffledOptions(
       step.experiment,
       step.context,
@@ -209,20 +209,20 @@ export async function traverse(
   const { state, experiment, context } = step;
 
   switch (state.type) {
-    case "end": {
+    case 'end': {
       return step; // no-op, already at the end
     }
-    case "initial": {
+    case 'initial': {
       const startNodeId = data?.startNodeId as string | undefined;
       const startNode = startNodeId
         ? getNode(experiment, startNodeId)
-        : experiment.nodes.find((n) => n.type === "start");
+        : experiment.nodes.find((n) => n.type === 'start');
 
-      if (!startNode || startNode.type !== "start") {
+      if (!startNode || startNode.type !== 'start') {
         throw new Error(
           startNodeId
             ? `Start node not found: ${startNodeId}`
-            : "No start node found in experiment",
+            : 'No start node found in experiment',
         );
       }
 
@@ -232,13 +232,13 @@ export async function traverse(
         context,
       });
     }
-    case "in-node": {
+    case 'in-node': {
       return await traverseInNode({ ...step, state }, data ?? {});
     }
-    case "in-path": {
+    case 'in-path': {
       return await traverseInPath({ ...step, state }, data ?? {});
     }
-    case "in-loop": {
+    case 'in-loop': {
       return await traverseInLoop({ ...step, state }, data ?? {});
     }
   }
@@ -314,7 +314,7 @@ export function deepMerge(target: any, source: any): any {
   const result = { ...target };
   for (const key of Object.keys(source)) {
     const val = source[key];
-    if (typeof val === "object" && val !== null && !Array.isArray(val)) {
+    if (typeof val === 'object' && val !== null && !Array.isArray(val)) {
       result[key] = deepMerge(target[key] ?? {}, val);
     } else {
       result[key] = val;
@@ -348,7 +348,7 @@ async function exitToNextNode(
 ): Promise<FlowStep> {
   const nNode = getNextSequentialNode(experiment, nodeId);
   if (!nNode) {
-    return { experiment, state: { type: "end" }, context, dataPath };
+    return { experiment, state: { type: 'end' }, context, dataPath };
   }
   const nState = initialState(experiment, context, nNode);
   return enterStep({ state: nState, experiment, context, dataPath });
@@ -374,7 +374,7 @@ export async function startExperiment(
   startNodeId?: string,
 ): Promise<FlowStep> {
   return await traverse(
-    { state: { type: "initial" }, experiment, context: {} },
+    { state: { type: 'initial' }, experiment, context: {} },
     startNodeId ? { startNodeId } : undefined,
   );
 }
@@ -385,10 +385,10 @@ export async function traverseInNode(
 ): Promise<FlowStep> {
   const { state, experiment, context } = step;
   switch (state.node.type) {
-    case "start": {
+    case 'start': {
       const nNode = getNextSequentialNode(experiment, state.node.id);
       if (!nNode) {
-        throw new Error("Start node must have a next node");
+        throw new Error('Start node must have a next node');
       }
 
       const nState = initialState(experiment, context, nNode);
@@ -396,13 +396,13 @@ export async function traverseInNode(
         start: {
           group: state.node.props
             ? `${state.node.props.param.key}=${state.node.props.param.value}`
-            : "default",
+            : 'default',
         },
       });
 
       return await enterStep({ state: nState, experiment, context: nContext });
     }
-    case "checkpoint": {
+    case 'checkpoint': {
       await send(context); // retried on failure in a real implementation
       const nNode = getNextSequentialNode(experiment, state.node.id);
 
@@ -412,12 +412,12 @@ export async function traverseInNode(
         },
       });
 
-      if (!nNode) return { ...step, context: nContext, state: { type: "end" } };
+      if (!nNode) return { ...step, context: nContext, state: { type: 'end' } };
 
       const nState = initialState(experiment, nContext, nNode);
       return await enterStep({ state: nState, experiment, context: nContext });
     }
-    case "branch": {
+    case 'branch': {
       const { nNode, winnerId } = getWinnerNode(
         experiment,
         state.node,
@@ -426,7 +426,7 @@ export async function traverseInNode(
 
       if (!nNode) {
         throw new Error(
-          "Branch node must have a next node for the winning branch",
+          'Branch node must have a next node for the winning branch',
         );
       }
 
@@ -440,11 +440,11 @@ export async function traverseInNode(
         }),
       });
     }
-    case "fork": {
+    case 'fork': {
       const { nNode, winnerId } = await getWinnerFork(experiment, state.node);
 
       if (!nNode) {
-        throw new Error("Fork node must have a next node for the winning fork");
+        throw new Error('Fork node must have a next node for the winning fork');
       }
 
       return await enterStep({
@@ -457,7 +457,7 @@ export async function traverseInNode(
         }),
       });
     }
-    case "screen": {
+    case 'screen': {
       const keys = [...(step.dataPath ?? []), state.node.props.slug];
       const nestedData = keys.reduceRight<Record<string, any>>(
         (acc, key) => ({ [key]: acc }),
@@ -465,7 +465,7 @@ export async function traverseInNode(
       );
       const nContext = mergeContext(context, { data: nestedData });
       const nNode = getNextSequentialNode(experiment, state.node.id);
-      if (!nNode) return { ...step, context: nContext, state: { type: "end" } };
+      if (!nNode) return { ...step, context: nContext, state: { type: 'end' } };
 
       const nState = initialState(experiment, nContext, nNode);
       return await enterStep({
@@ -498,7 +498,7 @@ export async function traverseInPath(
 
   // If the inner state returns "end" it means we completed the current
   // child node and should move to the next one in the path
-  if (nInnerState.type === "end") {
+  if (nInnerState.type === 'end') {
     const nextStep = state.step + 1;
     if (nextStep < state.children.length) {
       const nextNode = state.children[nextStep];
@@ -556,7 +556,7 @@ export async function traverseInLoop(
   );
 
   // Same signal mechanism as in-path: end inner → advance iteration.
-  if (nInnerState.type === "end") {
+  if (nInnerState.type === 'end') {
     const nextIteration = state.index + 1;
     if (nextIteration < state.values.length) {
       const contextWithNextItem = withCurrentItem(
@@ -617,7 +617,7 @@ function getWinnerNode(
     ? getBranchNode(experiment, branchNode.id, winner.id)
     : getDefaultBranchNode(experiment, branchNode.id);
 
-  return { nNode, winnerId: winner?.id ?? "default" };
+  return { nNode, winnerId: winner?.id ?? 'default' };
 }
 
 async function getWinnerFork(experiment: ExperimentFlow, forkNode: ForkNode) {
@@ -631,8 +631,8 @@ async function getWinnerFork(experiment: ExperimentFlow, forkNode: ForkNode) {
 
 // Resolves the innermost active state by unwrapping in-path / in-loop wrappers.
 export function getActiveState(state: State): State {
-  if (state.type === "in-path") return getActiveState(state.innerState);
-  if (state.type === "in-loop") return getActiveState(state.innerState);
+  if (state.type === 'in-path') return getActiveState(state.innerState);
+  if (state.type === 'in-loop') return getActiveState(state.innerState);
   return state;
 }
 
@@ -644,11 +644,11 @@ export function buildTimingKey(step: FlowStep): string | null {
   const segments: string[] = [...(step.dataPath ?? [])];
 
   function walkState(state: State): State {
-    if (state.type === "in-path") {
+    if (state.type === 'in-path') {
       segments.push(state.node.id);
       return walkState(state.innerState);
     }
-    if (state.type === "in-loop") {
+    if (state.type === 'in-loop') {
       segments.push(state.node.id, state.values[state.index]);
       return walkState(state.innerState);
     }
@@ -656,10 +656,10 @@ export function buildTimingKey(step: FlowStep): string | null {
   }
 
   const leaf = walkState(step.state);
-  if (leaf.type !== "in-node") return null;
-  if (leaf.node.type !== "screen") return null;
+  if (leaf.type !== 'in-node') return null;
+  if (leaf.node.type !== 'screen') return null;
   segments.push(leaf.node.props.slug);
-  return segments.join("/");
+  return segments.join('/');
 }
 
 export async function traverseWithTiming(

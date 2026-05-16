@@ -1,7 +1,7 @@
-import { Option } from "./components/response";
-import { FrameworkEdge } from "./edges";
-import { FrameworkNode, PathNode, LoopNode } from "./nodes";
-import { FrameworkScreen } from "./screen";
+import { Option } from './components/response';
+import { FrameworkEdge } from './edges';
+import { FrameworkNode, PathNode, LoopNode } from './nodes';
+import { FrameworkScreen } from './screen';
 
 export type ExperimentFlow = {
   nodes: FrameworkNode[];
@@ -34,27 +34,27 @@ export type Context = Partial<{
   timings: Record<string, Partial<TimingEntry>>;
 }>;
 
-export type InitialState = { type: "initial" };
+export type InitialState = { type: 'initial' };
 export type InNodeState = {
-  type: "in-node";
+  type: 'in-node';
   node: Exclude<FrameworkNode, PathNode | LoopNode>;
 };
 export type InPathState = {
-  type: "in-path";
+  type: 'in-path';
   node: PathNode;
   children: FrameworkNode[];
   step: number;
   innerState: State;
 };
 export type InLoopState = {
-  type: "in-loop";
+  type: 'in-loop';
   node: LoopNode;
   values: string[];
   template: FrameworkNode;
   index: number;
   innerState: State;
 };
-export type EndState = { type: "end" };
+export type EndState = { type: 'end' };
 
 export type State =
   | InitialState
