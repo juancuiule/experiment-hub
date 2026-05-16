@@ -559,6 +559,9 @@ function collectScreenDataKeys(components: ScreenComponent[]): Set<string> {
         collectScreenDataKeys([c.props.else]).forEach((k) => keys.add(k));
       }
     }
+    // Known limitation: for-each children are not recursed here. Static for-each response
+    // fields are not included in screenDataKeys; crossValidation rules referencing them via $key
+    // will produce a false invalid-reference error (same gap as collectConditionals).
   }
   return keys;
 }
