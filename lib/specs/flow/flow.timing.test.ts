@@ -1,8 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildTimingKey } from "@/lib/flow";
-import { ExperimentFlow, FlowStep } from "@/lib/types";
-import { makeScreen, seq } from "../test-helpers";
-import { startExperiment, traverse } from "@/lib/flow";
+import { FlowStep } from "@/lib/types";
 
 function makeStep(overrides: Partial<FlowStep>): FlowStep {
   return {
@@ -12,14 +10,6 @@ function makeStep(overrides: Partial<FlowStep>): FlowStep {
     ...overrides,
   };
 }
-
-const flow: ExperimentFlow = {
-  nodes: [
-    { id: "start", type: "start" },
-    makeScreen("screen-a", "slug-a"),
-  ],
-  edges: [seq("start", "screen-a")],
-};
 
 describe("buildTimingKey", () => {
   it("returns null for non-screen states (end)", () => {
