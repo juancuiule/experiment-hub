@@ -1,4 +1,4 @@
-import { Context } from "./types";
+import { Context } from './types';
 
 export function shuffle<T>(array: T[]): T[] {
   const arr = [...array];

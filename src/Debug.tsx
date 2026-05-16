@@ -276,7 +276,7 @@ export function DataDebug() {
   }
 
   const { context } = step;
-  const { data, branches, screenData, forks, checkpoints, loops, start } = context;
+  const { data, branches, screenData, timings, forks, checkpoints, loops, start } = context;
 
   const hasScreenData = screenData && Object.keys(screenData).length > 0;
   const hasData = data && Object.keys(data).length > 0;
@@ -285,7 +285,8 @@ export function DataDebug() {
   const hasCheckpoints = checkpoints && Object.keys(checkpoints).length > 0;
   const hasLoops = loops && Object.keys(loops).length > 0;
   const hasStart = start && Object.keys(start).length > 0;
-  const isEmpty = !hasData && !hasBranches && !hasForks && !hasCheckpoints && !hasLoops && !hasStart && !hasScreenData;
+  const hasTimings = timings && Object.keys(timings).length > 0;
+  const isEmpty = !hasData && !hasBranches && !hasForks && !hasCheckpoints && !hasLoops && !hasStart && !hasScreenData && !hasTimings;
 
   if (isEmpty) {
     return (
@@ -305,6 +306,7 @@ export function DataDebug() {
       {hasForks && <DataSection title="forks assigned" data={forks} />}
       {hasCheckpoints && <DataSection title="checkpoints" data={checkpoints} />}
       {hasLoops && <DataSection title="loops" data={loops} />}
+      {hasTimings && <DataSection title="timings" data={timings} />}
     </div>
   );
 }
