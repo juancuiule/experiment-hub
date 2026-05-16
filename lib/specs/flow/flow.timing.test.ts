@@ -167,12 +167,13 @@ describe("full-flow timing integration", () => {
     const timings = step.context.timings ?? {};
     expect(Object.keys(timings)).toHaveLength(3);
     for (const entry of Object.values(timings)) {
+      expect(entry.enteredAt).toBeDefined();
       expect(entry.submittedAt).toBeDefined();
       expect(new Date(entry.submittedAt!).toISOString()).toBe(entry.submittedAt);
     }
   });
 
-  it("submittedAt >= enteredAt for all entries", async () => {
+  it("submittedAt >= enteredAt for all entries including the last screen", async () => {
     const flow3: ExperimentFlow = {
       nodes: [
         { id: "start", type: "start" },
@@ -189,9 +190,9 @@ describe("full-flow timing integration", () => {
     step = recordEnteredAt(await traverseWithTiming(step, {}));
 
     for (const entry of Object.values(step.context.timings ?? {})) {
-      if (entry.enteredAt && entry.submittedAt) {
-        expect(entry.submittedAt >= entry.enteredAt).toBe(true);
-      }
+      expect(entry.enteredAt).toBeDefined();
+      expect(entry.submittedAt).toBeDefined();
+      expect(entry.submittedAt! >= entry.enteredAt!).toBe(true);
     }
   });
 
