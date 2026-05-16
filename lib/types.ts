@@ -12,7 +12,7 @@ export type ExperimentFlow = {
 type IterativeItem = { value: any; index: number };
 type ScreenData = Record<string, any> & {
   foreachData?: { [foreachId: string]: IterativeItem };
-  shuffledOptions: { [dataKey: string]: Array<Option> };
+  shuffledOptions?: { [dataKey: string]: Array<Option> };
 };
 
 export type Context = Partial<{
