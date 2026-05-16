@@ -10,6 +10,13 @@ export const experiment: ExperimentFlow = {
       props: { slug: 'first-questions' },
     },
     {
+      id: 'checkpoint-first-questions',
+      type: 'checkpoint',
+      props: {
+        name: 'first-questions-completed',
+      },
+    },
+    {
       id: 'screen-psychedelics-options',
       type: 'screen',
       props: { slug: 'psychedelics-options' },
@@ -78,11 +85,19 @@ export const experiment: ExperimentFlow = {
   edges: [
     { type: 'sequential', from: 'start', to: 'screen-terms' },
     { type: 'sequential', from: 'screen-terms', to: 'screen-first-questions' },
+
     {
       type: 'sequential',
       from: 'screen-first-questions',
+      to: 'checkpoint-first-questions',
+    },
+
+    {
+      type: 'sequential',
+      from: 'checkpoint-first-questions',
       to: 'screen-psychedelics-options',
     },
+
     {
       type: 'sequential',
       from: 'screen-psychedelics-options',
@@ -466,6 +481,7 @@ export const experiment: ExperimentFlow = {
                   'Mi consumo disminuyó por factores externos. (Ej. no tengo, me queda poco, vivo con otra gente, etc.)',
                 dataKey: 'psychedelic-use-decrease-external',
                 defaultValue: false,
+                required: false,
               },
             },
           },
@@ -643,6 +659,7 @@ export const experiment: ExperimentFlow = {
               { label: 'MDMD / éxtasis', value: 'mdma' },
               { label: 'Otro', value: 'otro' },
             ],
+            required: false,
           },
         },
         {
