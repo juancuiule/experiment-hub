@@ -5,8 +5,12 @@ import { ScreenComponent } from "./components";
 import { Condition, evaluateCondition } from "./conditions";
 import { ConditionalComponent } from "./components/control";
 
-function buildFieldSchema(component: ResponseComponent): z.ZodTypeAny {
-  const { required = true, errorMessage } = component.props;
+function buildFieldSchema(component: ResponseComponent, forConditional = false): z.ZodTypeAny {
+  const { required: componentRequired = true, errorMessage } = component.props;
+  // When building schema for a field inside a ConditionalComponent the base schema must
+  // be permissive — superRefine enforces required rules at submit time. Forcing required:false
+  // prevents z.coerce.number() from converting null→0 before isEmpty can catch it.
+  const required = forConditional ? false : componentRequired;
   const msg = errorMessage ?? "This field is required";
 
   switch (component.template) {
@@ -78,8 +82,13 @@ function buildFieldSchema(component: ResponseComponent): z.ZodTypeAny {
       if (max !== undefined)
         base = base.max(max, errorMessage ?? `Must be at most ${max}`);
       if (required) return base;
-      // Use a union so "" survives Zod coercion and reaches superRefine's isEmpty check
-      return z.union([z.literal(""), z.null(), z.undefined(), base]);
+      // Preprocess NaN (from react-hook-form's valueAsNumber on a cleared input) to null
+      // so it falls into the isEmpty check in superRefine rather than failing schema validation.
+      // Also preserves null and "" so they reach isEmpty unchanged (not coerced to 0).
+      return z.preprocess(
+        (v) => (typeof v === "number" && isNaN(v) ? null : v),
+        z.union([z.literal(""), z.null(), z.undefined(), base]),
+      );
     }
 
     case "slider": {
@@ -159,9 +168,11 @@ function collectFields(
     ) {
       // Nested response fields are optional in base schema;
       // superRefine enforces required rules when condition is true at submit time.
+      // forConditional=true forces required:false so coercive schemas (e.g. numeric-input)
+      // don't convert null→0 before superRefine's isEmpty check can run.
       const inner = component.props.component;
       if (inner.componentFamily === "response") {
-        acc[inner.props.dataKey] = buildFieldSchema(inner).optional();
+        acc[inner.props.dataKey] = buildFieldSchema(inner, true).optional();
       } else {
         collectFields([inner], acc);
       }
@@ -171,7 +182,7 @@ function collectFields(
         if (elseBranch.componentFamily === "response") {
           if (!(elseBranch.props.dataKey in acc)) {
             acc[elseBranch.props.dataKey] =
-              buildFieldSchema(elseBranch).optional();
+              buildFieldSchema(elseBranch, true).optional();
           }
         } else {
           collectFields([elseBranch], acc);

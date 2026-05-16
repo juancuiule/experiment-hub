@@ -765,6 +765,50 @@ describe("conditional — nested field included as optional in base schema", () 
     // condition true but not required — should pass even when empty
     expect(schema.safeParse({ answer: "yes", details: "" }).success).toBe(true);
   });
+
+  it("superRefine catches null on a required numeric-input inside a conditional (null not coerced to 0)", () => {
+    // Regression: z.coerce.number().optional() was converting null→0 before superRefine,
+    // so a never-touched numeric field with null default silently passed as 0.
+    const schema = buildSchema(
+      screen([
+        { componentFamily: "response", template: "radio", props: { dataKey: "has-children", label: "Has children", options: [], required: true } },
+        {
+          componentFamily: "control",
+          template: "conditional",
+          props: {
+            if: { type: "simple", operator: "eq", dataKey: "$has-children", value: "yes" },
+            component: {
+              componentFamily: "response",
+              template: "numeric-input",
+              props: { dataKey: "number-of-children", label: "How many?", required: true },
+            },
+          },
+        },
+      ])
+    );
+    expect(schema.safeParse({ "has-children": "yes", "number-of-children": null }).success).toBe(false);
+  });
+
+  it("superRefine catches NaN on a required numeric-input inside a conditional (NaN from valueAsNumber on cleared input)", () => {
+    const schema = buildSchema(
+      screen([
+        { componentFamily: "response", template: "radio", props: { dataKey: "has-children", label: "Has children", options: [], required: true } },
+        {
+          componentFamily: "control",
+          template: "conditional",
+          props: {
+            if: { type: "simple", operator: "eq", dataKey: "$has-children", value: "yes" },
+            component: {
+              componentFamily: "response",
+              template: "numeric-input",
+              props: { dataKey: "number-of-children", label: "How many?", required: true },
+            },
+          },
+        },
+      ])
+    );
+    expect(schema.safeParse({ "has-children": "yes", "number-of-children": NaN }).success).toBe(false);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -1180,6 +1224,41 @@ describe("crossValidation — required-if", () => {
     expect(result.success).toBe(false);
     if (!result.success) {
       expect(result.error.flatten().fieldErrors.answer).toContain("This field is required");
+    }
+  });
+
+  it("fails when condition is met and numeric-input dependent field is NaN (cleared valueAsNumber input)", () => {
+    // Regression: the non-required numeric union had no NaN branch — z.coerce.number() rejects NaN
+    // so a cleared number input would fail schema validation rather than reaching isEmpty in superRefine.
+    const schema = buildSchema(
+      screen([
+        {
+          componentFamily: "response",
+          template: "radio",
+          props: { dataKey: "hasChildren", label: "Do you have children?", options: [], required: false },
+        },
+        {
+          componentFamily: "response",
+          template: "numeric-input",
+          props: {
+            dataKey: "numberOfChildren",
+            label: "How many?",
+            required: false,
+            crossValidation: [
+              {
+                operator: "required-if",
+                condition: { type: "simple", operator: "eq", dataKey: "$hasChildren", value: "yes" },
+                errorMessage: "Please enter the number of children.",
+              },
+            ],
+          },
+        },
+      ])
+    );
+    const result = schema.safeParse({ hasChildren: "yes", numberOfChildren: NaN });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.flatten().fieldErrors.numberOfChildren).toContain("Please enter the number of children.");
     }
   });
 
