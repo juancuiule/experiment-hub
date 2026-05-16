@@ -635,3 +635,13 @@ export function getActiveState(state: State): State {
   if (state.type === "in-loop") return getActiveState(state.innerState);
   return state;
 }
+
+// Builds a timing key from a FlowStep for tracking screen response times.
+// Returns null for non-screen states, otherwise returns the slug or dataPath/slug.
+export function buildTimingKey(step: FlowStep): string | null {
+  const active = getActiveState(step.state);
+  if (active.type !== "in-node") return null;
+  if (active.node.type !== "screen") return null;
+  const prefix = (step.dataPath ?? []).join("/");
+  return prefix ? `${prefix}/${active.node.props.slug}` : active.node.props.slug;
+}
