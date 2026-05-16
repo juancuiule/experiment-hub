@@ -15,9 +15,7 @@ type ExperimentStore = {
 };
 
 function isInLoop(state: FlowStep["state"]): boolean {
-  if (state.type === "in-loop") return true;
-  if (state.type === "in-path") return isInLoop(state.innerState);
-  return false;
+  return state.type === "in-loop" || (state.type === "in-path" && isInLoop(state.innerState));
 }
 
 export function computeShuffledOptions(
