@@ -52,7 +52,7 @@ export function Checkboxes({ component, form, context }: Props) {
                       "size-4 border border-border-default rounded-sm",
                       "flex items-center justify-center shrink-0",
                       "data-[state=checked]:bg-content-active data-[state=checked]:border-content-active",
-                      "transition-colors duration-75",
+                      "transition duration-75 ease-out cursor-pointer active:scale-95",
                     )}
                   >
                     <CheckboxPrimitive.Indicator>

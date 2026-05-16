@@ -32,7 +32,7 @@ export function TextArea({ component, form, context }: Props) {
         rows={component.props.lines ?? 4}
         placeholder={placeholder ? resolveValuesInString(placeholder, context) : undefined}
         className={twMerge(
-          "border-b border-border-default py-1 outline-none bg-transparent w-full placeholder:text-content-secondary focus:border-content-active transition-colors text-sm",
+          "border-b border-border-default py-1 outline-none bg-transparent w-full placeholder:text-content-secondary focus:border-content-active transition-[border-color,color] duration-150 ease-out text-sm",
           "resize-none",
         )}
       />

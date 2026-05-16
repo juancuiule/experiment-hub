@@ -9,7 +9,7 @@ export function ThemeToggle() {
   return (
     <button
       onClick={() => setTheme(resolvedTheme === 'light' ? 'dark' : 'light')}
-      className="flex items-center justify-center size-8 rounded-sm text-content-secondary hover:text-content-primary transition-colors"
+      className="flex items-center justify-center size-8 rounded-sm text-content-secondary hover:text-content-primary transition-[color] duration-150 ease-out"
       aria-label={resolvedTheme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
     >
       {resolvedTheme === 'light' ? <Moon className="size-4" /> : <Sun className="size-4" />}

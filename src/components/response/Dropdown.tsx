@@ -37,7 +37,7 @@ export function Dropdown({ component, form, context }: Props) {
           >
             <SelectPrimitive.Trigger
               id={dataKey}
-              className="flex items-center justify-between border-b border-border-default pb-1 pt-1 w-full outline-none focus:border-content-active transition-colors data-placeholder:text-content-secondary text-sm"
+              className="flex items-center justify-between border-b border-border-default pb-1 pt-1 w-full outline-none focus:border-content-active transition-[border-color] duration-150 ease-out data-placeholder:text-content-secondary text-sm"
             >
               <SelectPrimitive.Value placeholder="Select one" />
               <SelectPrimitive.Icon>
@@ -45,7 +45,12 @@ export function Dropdown({ component, form, context }: Props) {
               </SelectPrimitive.Icon>
             </SelectPrimitive.Trigger>
             <SelectPrimitive.Portal>
-              <SelectPrimitive.Content className="bg-background-surface border border-border-default shadow-md rounded-sm z-50 overflow-hidden">
+              <SelectPrimitive.Content
+                position="popper"
+                sideOffset={4}
+                className="bg-background-surface border border-border-default shadow-md rounded-sm z-50 overflow-hidden"
+                style={{ minWidth: 'var(--radix-select-trigger-width)' }}
+              >
                 <SelectPrimitive.Viewport className="p-1">
                   {resolveOptions(component.props.options, context, component.props.dataKey).map(
                     (opt) => (

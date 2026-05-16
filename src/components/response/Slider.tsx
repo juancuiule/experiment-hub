@@ -62,7 +62,7 @@ export function Slider({ component, form, context }: Props) {
                 </SliderPrimitive.Track>
                 <SliderPrimitive.Thumb className={twMerge(
                   'block w-4 h-4 rounded-full outline-none',
-                  hasInteracted || showThumb ? 'focus-visible:ring-4 focus-visible:ring-content-active/50 cursor-grab active:cursor-grabbing' : '',
+                  hasInteracted || showThumb ? 'focus-visible:ring-4 focus-visible:ring-ring/50 cursor-grab active:cursor-grabbing active:scale-125 transition-transform duration-100 ease-out' : '',
                   thumbClass
                 )} />
               </SliderPrimitive.Root>

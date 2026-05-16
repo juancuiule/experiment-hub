@@ -9,7 +9,7 @@ export function Input(props: Props) {
       className={twMerge(
         "border-b border-border-default py-1 outline-none",
         "bg-transparent w-full placeholder:text-content-secondary focus:border-content-active",
-        "transition-colors text-sm",
+        "transition-[border-color,color] duration-150 ease-out text-sm",
       )}
     />
   );

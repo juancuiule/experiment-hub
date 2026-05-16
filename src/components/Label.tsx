@@ -34,7 +34,7 @@ export function Label({ children, context, ...props }: Props) {
             return (
               <code
                 className={twMerge(
-                  "bg-black/10 px-1 rounded text-sm",
+                  "bg-content-primary/10 px-1 rounded text-sm",
                   className,
                 )}
                 {...props}

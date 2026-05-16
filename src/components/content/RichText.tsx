@@ -17,13 +17,13 @@ export function RichText({ component, context }: Props) {
       <Markdown
         components={{
           h1: ({ node, ...props }) => (
-            <h1 {...props} className="text-5xl font-bold mb-4" />
+            <h1 {...props} className="text-5xl font-bold mb-4 text-content-primary" />
           ),
           h2: ({ node, ...props }) => (
-            <h2 {...props} className="text-3xl font-bold mb-3" />
+            <h2 {...props} className="text-3xl font-bold mb-3 text-content-primary" />
           ),
           h3: ({ node, ...props }) => (
-            <h3 {...props} className="text-xl font-bold mb-2" />
+            <h3 {...props} className="text-xl font-bold mb-2 text-content-primary" />
           ),
           p: ({ node, ...props }) => (
             <p {...props} className="text-content-primary mb-[1lh]" />
@@ -49,13 +49,13 @@ export function RichText({ component, context }: Props) {
           code: ({ node, ...props }) => (
             <code
               {...props}
-              className="bg-gray-100 text-gray-800 rounded p-1 text-sm whitespace-break-spaces"
+              className="bg-background-surface text-content-primary rounded p-1 text-sm whitespace-break-spaces"
             />
           ),
           pre: ({ node, ...props }) => (
             <pre
               {...props}
-              className="bg-gray-100 text-gray-800 rounded text-sm [&>code]:block [&>code]:bg-transparent"
+              className="bg-background-surface text-content-primary rounded text-sm [&>code]:block [&>code]:bg-transparent"
             />
           ),
         }}
