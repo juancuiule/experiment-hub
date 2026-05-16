@@ -592,3 +592,143 @@ describe("randomize options", () => {
     });
   });
 });
+
+// ---------------------------------------------------------------------------
+// Cross-field validation — required-if
+// ---------------------------------------------------------------------------
+
+describe("cross-field validation — required-if", () => {
+  it("shows required-if error on dependent field when trigger condition is met and field is empty", async () => {
+    const onNext = vi.fn().mockResolvedValue(undefined);
+    renderScreen(
+      [
+        {
+          componentFamily: "response",
+          template: "radio",
+          props: {
+            dataKey: "hasChildren",
+            label: "Do you have children?",
+            options: [
+              { label: "Yes", value: "yes" },
+              { label: "No", value: "no" },
+            ],
+            required: false,
+          },
+        },
+        {
+          componentFamily: "response",
+          template: "text-input",
+          props: {
+            dataKey: "numberOfChildren",
+            label: "How many children?",
+            required: false,
+            crossValidation: [
+              {
+                operator: "required-if",
+                condition: { type: "simple", operator: "eq", dataKey: "$hasChildren", value: "yes" },
+                errorMessage: "Please enter the number of children.",
+              },
+            ],
+          },
+        },
+        { componentFamily: "layout", template: "button", props: { text: "Next" } },
+      ],
+      {},
+      onNext
+    );
+
+    await userEvent.click(screen.getByLabelText("Yes"));
+    await userEvent.click(screen.getByRole("button", { name: "Next" }));
+
+    expect(onNext).not.toHaveBeenCalled();
+    expect(screen.getByText("Please enter the number of children.")).toBeInTheDocument();
+  });
+
+  it("does not block submit when trigger condition is not met and dependent field is empty", async () => {
+    const onNext = vi.fn().mockResolvedValue(undefined);
+    renderScreen(
+      [
+        {
+          componentFamily: "response",
+          template: "radio",
+          props: {
+            dataKey: "hasChildren",
+            label: "Do you have children?",
+            options: [
+              { label: "Yes", value: "yes" },
+              { label: "No", value: "no" },
+            ],
+            required: false,
+          },
+        },
+        {
+          componentFamily: "response",
+          template: "text-input",
+          props: {
+            dataKey: "numberOfChildren",
+            label: "How many children?",
+            required: false,
+            crossValidation: [
+              {
+                operator: "required-if",
+                condition: { type: "simple", operator: "eq", dataKey: "$hasChildren", value: "yes" },
+                errorMessage: "Please enter the number of children.",
+              },
+            ],
+          },
+        },
+        { componentFamily: "layout", template: "button", props: { text: "Next" } },
+      ],
+      {},
+      onNext
+    );
+
+    await userEvent.click(screen.getByLabelText("No"));
+    await userEvent.click(screen.getByRole("button", { name: "Next" }));
+
+    expect(onNext).toHaveBeenCalledOnce();
+    expect(screen.queryByText("Please enter the number of children.")).not.toBeInTheDocument();
+  });
+
+  it("shows default error message when errorMessage is omitted from the rule", async () => {
+    const onNext = vi.fn().mockResolvedValue(undefined);
+    renderScreen(
+      [
+        {
+          componentFamily: "response",
+          template: "radio",
+          props: {
+            dataKey: "trigger",
+            label: "Trigger",
+            options: [{ label: "Yes", value: "yes" }],
+            required: false,
+          },
+        },
+        {
+          componentFamily: "response",
+          template: "text-input",
+          props: {
+            dataKey: "answer",
+            label: "Your answer",
+            required: false,
+            crossValidation: [
+              {
+                operator: "required-if",
+                condition: { type: "simple", operator: "eq", dataKey: "$trigger", value: "yes" },
+              },
+            ],
+          },
+        },
+        { componentFamily: "layout", template: "button", props: { text: "Next" } },
+      ],
+      {},
+      onNext
+    );
+
+    await userEvent.click(screen.getByLabelText("Yes"));
+    await userEvent.click(screen.getByRole("button", { name: "Next" }));
+
+    expect(onNext).not.toHaveBeenCalled();
+    expect(screen.getByText("This field is required")).toBeInTheDocument();
+  });
+});
