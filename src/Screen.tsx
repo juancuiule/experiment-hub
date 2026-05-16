@@ -8,6 +8,7 @@ import { FrameworkScreen } from "@/lib/screen";
 import { Context } from "@/lib/types";
 import { buildSchema } from "@/lib/validation";
 import { RenderComponent } from "./components/RenderComponent";
+import { DataSection } from "./Debug";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -64,19 +65,9 @@ function collectDefaults(
       case "radio":
       case "dropdown":
         values[c.props.dataKey] = "";
-        if (context.screenData?.shuffledOptions?.[c.props.dataKey]) {
-          values[`${c.props.dataKey}__order`] = context.screenData.shuffledOptions[
-            c.props.dataKey
-          ].map((o) => o.value);
-        }
         break;
       case "checkboxes":
         values[c.props.dataKey] = [];
-        if (context.screenData?.shuffledOptions?.[c.props.dataKey]) {
-          values[`${c.props.dataKey}__order`] = context.screenData.shuffledOptions[
-            c.props.dataKey
-          ].map((o) => o.value);
-        }
         break;
       case "single-checkbox":
         values[c.props.dataKey] = c.props.defaultValue ?? false;
@@ -101,6 +92,7 @@ function buildDefaultValues(
   return collectDefaults(screen.components, context);
 }
 
+
 // ---------------------------------------------------------------------------
 // Screen
 // ---------------------------------------------------------------------------
@@ -108,11 +100,22 @@ function buildDefaultValues(
 export function Screen({ screen, isLoading, onNext, context }: ScreenProps) {
   const form = useForm<Record<string, any>>({
     resolver: zodResolver(buildSchema(screen)),
+    // TODO: this defaultValues are only valid at initial render
+    // if a component is added/removed during the screen, the defaultValues won't be updated
+    // because we are using shouldUnregister: true, when a component is removed, its value will be removed from the form state
+    // and we should move the defaultValues logic in the "register" of each component, so when a component is added, its default value will be set in the form state
     defaultValues: buildDefaultValues(screen, context),
+    shouldUnregister: true,
   });
 
   const onSubmit = (data: Record<string, any>) => {
-    onNext(data).catch((err) =>
+    const shuffledOptions = context.screenData?.shuffledOptions ?? {};
+    const orders = Object.fromEntries(
+      Object.entries(shuffledOptions)
+        .filter(([key]) => key in data)
+        .map(([key, opts]) => [`${key}__order`, (opts as Array<{ value: string }>).map((o) => o.value)]),
+    );
+    onNext({ ...data, ...orders }).catch((err) =>
       console.error("Failed to advance experiment:", err),
     );
   };
@@ -136,6 +139,9 @@ export function Screen({ screen, isLoading, onNext, context }: ScreenProps) {
           isLoading={isLoading}
         />
       ))}
+      <div className="flex flex-col gap-3">
+        <DataSection title="form" data={form.watch()} />
+      </div>
     </form>
   );
 }

@@ -257,7 +257,7 @@ function DataTree({ data, depth = 0 }: { data: Record<string, unknown>; depth?: 
   );
 }
 
-function DataSection({ title, data }: { title: string; data: Record<string, unknown> }) {
+export function DataSection({ title, data }: { title: string; data: Record<string, unknown> }) {
   return (
     <div className="flex flex-col gap-1">
       <span className="font-mono text-[9px] uppercase tracking-wider text-gray-400">{title}</span>
@@ -298,7 +298,6 @@ export function DataDebug() {
 
   return (
     <div className="my-5 flex flex-col gap-3">
-      <div className="font-mono text-[9px] uppercase tracking-wider text-gray-400">Data</div>
       {hasStart && <DataSection title="start" data={start} />}
       {hasScreenData && <DataSection title="screen data" data={screenData} />}
       {hasData && <DataSection title="collected" data={data} />}

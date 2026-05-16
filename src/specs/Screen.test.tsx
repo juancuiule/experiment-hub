@@ -411,6 +411,84 @@ describe("data collection", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Conditional
+// ---------------------------------------------------------------------------
+
+describe("conditional", () => {
+  const components: FrameworkScreen["components"] = [
+    {
+      componentFamily: "response",
+      template: "radio",
+      props: {
+        dataKey: "has-children",
+        label: "Do you have children?",
+        options: [
+          { label: "Yes", value: "yes" },
+          { label: "No", value: "no" },
+        ],
+      },
+    },
+    {
+      componentFamily: "control",
+      template: "conditional",
+      props: {
+        if: { type: "simple", dataKey: "$has-children", operator: "eq", value: "yes" },
+        component: {
+          componentFamily: "response",
+          template: "numeric-input",
+          props: { label: "How many children do you have?", dataKey: "number-of-children" },
+        },
+      },
+    },
+    { componentFamily: "layout", template: "button", props: { text: "Submit" } },
+  ];
+
+  it("hides the conditional field by default", () => {
+    renderScreen(components);
+    expect(screen.queryByLabelText("How many children do you have?")).not.toBeInTheDocument();
+  });
+
+  it("shows the conditional field when the condition is met", async () => {
+    renderScreen(components);
+    await userEvent.click(screen.getByLabelText("Yes"));
+    expect(screen.getByLabelText("How many children do you have?")).toBeInTheDocument();
+  });
+
+  it("hides the conditional field again when the condition is no longer met", async () => {
+    renderScreen(components);
+    await userEvent.click(screen.getByLabelText("Yes"));
+    await userEvent.click(screen.getByLabelText("No"));
+    expect(screen.queryByLabelText("How many children do you have?")).not.toBeInTheDocument();
+  });
+
+  it("does not submit the conditional field when condition is no longer met", async () => {
+    const onNext = vi.fn().mockResolvedValue(undefined);
+    renderScreen(components, {}, onNext);
+
+    await userEvent.click(screen.getByLabelText("Yes"));
+    await userEvent.type(screen.getByLabelText("How many children do you have?"), "20");
+    await userEvent.click(screen.getByLabelText("No"));
+    await userEvent.click(screen.getByRole("button", { name: "Submit" }));
+
+    expect(onNext).toHaveBeenCalledWith({ "has-children": "no" });
+    expect(onNext).not.toHaveBeenCalledWith(
+      expect.objectContaining({ "number-of-children": expect.anything() }),
+    );
+  });
+
+  it("submits the conditional field value when condition is met", async () => {
+    const onNext = vi.fn().mockResolvedValue(undefined);
+    renderScreen(components, {}, onNext);
+
+    await userEvent.click(screen.getByLabelText("Yes"));
+    await userEvent.type(screen.getByLabelText("How many children do you have?"), "3");
+    await userEvent.click(screen.getByRole("button", { name: "Submit" }));
+
+    expect(onNext).toHaveBeenCalledWith({ "has-children": "yes", "number-of-children": 3 });
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Randomize options
 // ---------------------------------------------------------------------------
 
