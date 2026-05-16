@@ -96,6 +96,7 @@ export interface DropdownComponent extends BaseResponseComponent<
     label: string;
     options: OptionsSource;
     randomize?: boolean;
+    reshuffleInLoop?: boolean;
   }
 > {}
 
@@ -105,6 +106,7 @@ export interface RadioComponent extends BaseResponseComponent<
     label: string;
     options: OptionsSource;
     randomize?: boolean;
+    reshuffleInLoop?: boolean;
   }
 > {}
 
@@ -116,6 +118,7 @@ export interface CheckboxesComponent extends BaseResponseComponent<
     min?: number;
     max?: number;
     randomize?: boolean;
+    reshuffleInLoop?: boolean;
   }
 > {}
 
@@ -153,3 +156,27 @@ export type ResponseComponent =
   | CheckboxesComponent
   | NumericInputComponent
   | LikertScaleComponent;
+
+type RandomizableResponseComponent =
+  | DropdownComponent
+  | RadioComponent
+  | CheckboxesComponent;
+
+export function isRandomizableResponseComponent(
+  component: ResponseComponent,
+): component is RandomizableResponseComponent {
+  return (
+    component.template === "radio" ||
+    component.template === "dropdown" ||
+    component.template === "checkboxes"
+  );
+}
+
+export function hasRandomizedOptions(
+  component: ResponseComponent,
+): component is RandomizableResponseComponent {
+  return (
+    isRandomizableResponseComponent(component) &&
+    Boolean(component.props.randomize)
+  );
+}

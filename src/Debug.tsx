@@ -276,15 +276,16 @@ export function DataDebug() {
   }
 
   const { context } = step;
-  const { data, branches, forks, checkpoints, loops, start } = context;
+  const { data, branches, screenData, forks, checkpoints, loops, start } = context;
 
+  const hasScreenData = screenData && Object.keys(screenData).length > 0;
   const hasData = data && Object.keys(data).length > 0;
   const hasBranches = branches && Object.keys(branches).length > 0;
   const hasForks = forks && Object.keys(forks).length > 0;
   const hasCheckpoints = checkpoints && Object.keys(checkpoints).length > 0;
   const hasLoops = loops && Object.keys(loops).length > 0;
   const hasStart = start && Object.keys(start).length > 0;
-  const isEmpty = !hasData && !hasBranches && !hasForks && !hasCheckpoints && !hasLoops && !hasStart;
+  const isEmpty = !hasData && !hasBranches && !hasForks && !hasCheckpoints && !hasLoops && !hasStart && !hasScreenData;
 
   if (isEmpty) {
     return (
@@ -299,6 +300,7 @@ export function DataDebug() {
     <div className="my-5 flex flex-col gap-3">
       <div className="font-mono text-[9px] uppercase tracking-wider text-gray-400">Data</div>
       {hasStart && <DataSection title="start" data={start} />}
+      {hasScreenData && <DataSection title="screen data" data={screenData} />}
       {hasData && <DataSection title="collected" data={data} />}
       {hasBranches && <DataSection title="branches taken" data={branches} />}
       {hasForks && <DataSection title="forks assigned" data={forks} />}

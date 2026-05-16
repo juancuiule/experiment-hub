@@ -3,6 +3,7 @@
     "allow": [
       "Bash(ls:*)",
       "Bash(npx tsc:*)",
+      "Bash(pnpm tsc *)",
       "Bash(pnpm test *)",
       "Bash(npx vitest *)",
       "Skill(code-review:code-review)",

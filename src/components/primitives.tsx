@@ -2,7 +2,7 @@
 
 import { ScreenComponent } from "@/lib/components";
 import { Option, OptionsSource } from "@/lib/components/response";
-import { getValue } from "@/lib/resolve";
+import { resolveOptionsSource } from "@/lib/resolve";
 import { Context } from "@/lib/types";
 import { UseFormReturn } from "react-hook-form";
 
@@ -16,13 +16,12 @@ export type RenderProps = {
 export function resolveOptions(
   options: OptionsSource,
   context: Context,
+  dataKey?: string,
 ): Option[] {
-  if (Array.isArray(options)) return options;
-  const value = getValue(options, context);
-  if (!Array.isArray(value)) return [];
-  return value.map((item: unknown) =>
-    typeof item === "string" ? { label: item, value: item } : (item as Option),
-  );
+  if (dataKey && context.screenData?.shuffledOptions?.[dataKey]) {
+    return context.screenData.shuffledOptions[dataKey] as Option[];
+  }
+  return resolveOptionsSource(options, context);
 }
 
 export function FieldError({ message }: { message?: string }) {

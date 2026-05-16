@@ -19,7 +19,7 @@ Unresolvable tokens are left literal — `{{$$missing.key}}` renders as-is, maki
 
 ## Supported props
 
-Every user-visible string prop on every component supports interpolation:
+The following props currently support interpolation:
 
 | Prop | Components |
 |---|---|
@@ -29,6 +29,8 @@ Every user-visible string prop on every component supports interpolation:
 | `minLabel` / `maxLabel` | `slider` |
 | `text` | `button` |
 | `content` | `rich-text` |
+| `alt` | `image` |
+| `url` | `image` (only when interpolated result is `http(s)` or a relative path; unsafe schemes are blocked) |
 
 ## How it works
 

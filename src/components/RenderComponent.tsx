@@ -40,7 +40,7 @@ export function RenderComponent({
         case "rich-text":
           return <RichText component={component} context={context} />;
         case "image":
-          return <Image component={component} />;
+          return <Image component={component} context={context} />;
         case "video":
           return <Video component={component} />;
         case "audio":

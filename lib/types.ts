@@ -1,3 +1,4 @@
+import { Option } from "./components/response";
 import { FrameworkEdge } from "./edges";
 import { FrameworkNode, PathNode, LoopNode } from "./nodes";
 import { FrameworkScreen } from "./screen";
@@ -20,6 +21,7 @@ export type Context = Partial<{
   // without requiring a separate key in resolveValuesInString / getValue / conditions.
   screenData: Record<string, any> & {
     foreachData?: { [foreachId: string]: IterativeItem };
+    shuffledOptions: { [dataKey: string]: Array<Option> };
   };
   branches: Record<string, string>;
   forks: Record<string, string>;

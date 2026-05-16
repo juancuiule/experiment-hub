@@ -64,7 +64,7 @@ These references are used in branch conditions, answer piping (string interpolat
 
 ### Answer piping
 
-Any string prop — labels, rich-text content — can interpolate collected values using `{{ }}` template syntax:
+Any string prop — labels, rich-text content, image URLs and alt text — can interpolate collected values using `{{ }}` template syntax:
 
 ```
 "How are you feeling about {{$$welcome.name}}'s results?"
@@ -169,7 +169,7 @@ This project is an **early-stage working prototype**. The flow engine and compon
 
 **Back navigation** — Participants cannot go back to a previous screen. Spec: `specs/back-navigation.md`.
 
-**Answer piping coverage** — Fully implemented. Interpolation works in `rich-text` content, component labels, placeholders (`text-input`, `text-area`, `numeric-input`), slider endpoint labels, option labels (radio, checkboxes, dropdown, likert-scale), and button text.
+**Answer piping coverage** — Fully implemented. Interpolation works in `rich-text` content, `image` URL and alt text, component labels, placeholders (`text-input`, `text-area`, `numeric-input`), slider endpoint labels, option labels (radio, checkboxes, dropdown, likert-scale), and button text.
 
 **Debug artifacts** — The current UI renders raw JSON debug panels (flow state, form values) directly on screen. These exist for development only and must be removed before any participant-facing deployment.
 

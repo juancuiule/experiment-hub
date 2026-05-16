@@ -35,7 +35,7 @@ export default function RootLayout({
         <main className="flex min-h-screen items-center justify-start relative w-full max-w-lg p-6 flex-col mx-auto">
           <nav className="flex flex-row items-center justify-center w-full gap-3">
             <img
-              src="https://avatars.githubusercontent.com/u/132835276?s=200&v=4"
+              src="/experiment-hub-logo.png"
               className="h-12 w-auto"
               alt="Experiment Hub logo with text"
             />

@@ -29,7 +29,7 @@ export function Checkboxes({ component, form, context }: Props) {
         <div className="flex flex-col gap-1">
           <Label context={context}>{component.props.label}</Label>
           <div className="flex flex-col gap-2">
-            {resolveOptions(component.props.options, context).map((opt) => {
+            {resolveOptions(component.props.options, context, component.props.dataKey).map((opt) => {
               const checked =
                 Array.isArray(field.value) && field.value.includes(opt.value);
               return (

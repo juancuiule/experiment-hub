@@ -17,6 +17,7 @@ export interface ImageComponent extends BaseContentComponent<
   {
     url: string;
     alt: string;
+    className?: string;
   }
 > {}
 

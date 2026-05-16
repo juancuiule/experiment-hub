@@ -8,8 +8,9 @@ import {
   isPathEdge,
   isSequentialEdge,
 } from "./edges";
+import { hasRandomizedOptions, Option } from "./components/response";
 import { BranchNode, Fork, ForkNode, FrameworkNode } from "./nodes";
-import { getValue } from "./resolve";
+import { getValue, resolveOptionsSource } from "./resolve";
 import {
   Context,
   ExperimentFlow,
@@ -91,6 +92,36 @@ function initialState(
   }
 }
 
+function computeShuffledOptions(
+  experiment: ExperimentFlow,
+  context: Context,
+  slug: string,
+): Record<string, Array<Option>> {
+  const screen = experiment.screens?.find((s) => s.slug === slug);
+  if (!screen) return {};
+
+  const inLoop = Object.keys(context.loopData ?? {}).length > 0;
+  const previous = context.screenData?.shuffledOptions ?? {};
+  const result: Record<string, Array<Option>> = {};
+
+  for (const component of screen.components) {
+    if (
+      component.componentFamily === "response" &&
+      hasRandomizedOptions(component)
+    ) {
+      const { dataKey } = component.props;
+      if (inLoop && !component.props.reshuffleInLoop && previous[dataKey]) {
+        result[dataKey] = previous[dataKey];
+      } else {
+        result[dataKey] = shuffle(
+          resolveOptionsSource(component.props.options, context),
+        );
+      }
+    }
+  }
+  return result;
+}
+
 // This function handles entering a step, applying any auto-traversal logic if needed.
 async function enterStep(step: FlowStep): Promise<FlowStep> {
   if (step.state.type === "in-loop") {
@@ -150,7 +181,25 @@ async function enterStep(step: FlowStep): Promise<FlowStep> {
       }),
     };
   }
-  return shouldAutoTraverse(step) ? await traverse(step) : step;
+  if (shouldAutoTraverse(step)) return await traverse(step);
+
+  if (step.state.type === "in-node" && step.state.node.type === "screen") {
+    const shuffledOptions = computeShuffledOptions(
+      step.experiment,
+      step.context,
+      step.state.node.props.slug,
+    );
+    if (Object.keys(shuffledOptions).length > 0) {
+      return {
+        ...step,
+        context: mergeContext(step.context, {
+          screenData: { shuffledOptions },
+        }),
+      };
+    }
+  }
+
+  return step;
 }
 
 export async function traverse(

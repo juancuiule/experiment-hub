@@ -193,6 +193,45 @@ describe("label interpolation", () => {
     );
     expect(screen.getByRole("button", { name: "Continue to section 2" })).toBeInTheDocument();
   });
+
+  it("resolves interpolation in image alt text", () => {
+    renderScreen(
+      [{
+        componentFamily: "content",
+        template: "image",
+        props: { url: "https://example.com/cat.png", alt: "Photo of {{$$user.name}}" },
+      }],
+      { data: { user: { name: "Juan" } } },
+    );
+    expect(screen.getByRole("img", { name: "Photo of Juan" })).toBeInTheDocument();
+  });
+
+  it("resolves interpolation in image src when URL is safe", () => {
+    renderScreen(
+      [{
+        componentFamily: "content",
+        template: "image",
+        props: { url: "https://cdn.example.com/{{@loop-1.value}}.png", alt: "Loop image" },
+      }],
+      { loopData: { "loop-1": { value: "cat", index: 0 } } },
+    );
+    expect(screen.getByRole("img", { name: "Loop image" })).toHaveAttribute(
+      "src",
+      "https://cdn.example.com/cat.png",
+    );
+  });
+
+  it("blocks interpolation in image src for unsafe URL schemes", () => {
+    renderScreen(
+      [{
+        componentFamily: "content",
+        template: "image",
+        props: { url: "{{$$image.url}}", alt: "Unsafe image" },
+      }],
+      { data: { image: { url: "javascript:alert(1)" } } },
+    );
+    expect(screen.getByRole("img", { name: "Unsafe image" })).not.toHaveAttribute("src");
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -368,5 +407,188 @@ describe("data collection", () => {
     await userEvent.click(screen.getByRole("button", { name: "Submit" }));
 
     expect(onNext).toHaveBeenCalledWith({ score: "3" });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Randomize options
+// ---------------------------------------------------------------------------
+
+describe("randomize options", () => {
+  function shuffledContext(
+    dataKey: string,
+    order: Array<{ label: string; value: string }>,
+  ) {
+    return { screenData: { shuffledOptions: { [dataKey]: order } } };
+  }
+
+  it("renders radio options in the order provided by context.screenData.shuffledOptions", () => {
+    const shuffled = [
+      { label: "C", value: "c" },
+      { label: "A", value: "a" },
+      { label: "B", value: "b" },
+    ];
+    renderScreen(
+      [
+        {
+          componentFamily: "response",
+          template: "radio",
+          props: {
+            dataKey: "choice",
+            label: "Choice",
+            options: [
+              { label: "A", value: "a" },
+              { label: "B", value: "b" },
+              { label: "C", value: "c" },
+            ],
+            randomize: true,
+          },
+        },
+      ],
+      shuffledContext("choice", shuffled),
+    );
+    const radios = screen.getAllByRole("radio");
+    expect(radios[0]).toHaveAttribute("id", "choice-c");
+    expect(radios[1]).toHaveAttribute("id", "choice-a");
+    expect(radios[2]).toHaveAttribute("id", "choice-b");
+  });
+
+  it("submits value AND __order when radio has randomize:true", async () => {
+    const onNext = vi.fn().mockResolvedValue(undefined);
+    const shuffled = [{ label: "B", value: "b" }, { label: "A", value: "a" }];
+    renderScreen(
+      [
+        {
+          componentFamily: "response",
+          template: "radio",
+          props: {
+            dataKey: "choice",
+            label: "Choice",
+            options: [{ label: "A", value: "a" }, { label: "B", value: "b" }],
+            randomize: true,
+          },
+        },
+        { componentFamily: "layout", template: "button", props: { text: "Submit" } },
+      ],
+      shuffledContext("choice", shuffled),
+      onNext,
+    );
+    await userEvent.click(screen.getByLabelText("A"));
+    await userEvent.click(screen.getByRole("button", { name: "Submit" }));
+    expect(onNext).toHaveBeenCalledWith({
+      choice: "a",
+      choice__order: ["b", "a"],
+    });
+  });
+
+  it("does not include __order when radio has no randomize prop", async () => {
+    const onNext = vi.fn().mockResolvedValue(undefined);
+    renderScreen(
+      [
+        {
+          componentFamily: "response",
+          template: "radio",
+          props: {
+            dataKey: "choice",
+            label: "Choice",
+            options: [{ label: "A", value: "a" }],
+          },
+        },
+        { componentFamily: "layout", template: "button", props: { text: "Submit" } },
+      ],
+      {},
+      onNext,
+    );
+    await userEvent.click(screen.getByLabelText("A"));
+    await userEvent.click(screen.getByRole("button", { name: "Submit" }));
+    expect(onNext).toHaveBeenCalledWith({ choice: "a" });
+    expect(onNext).not.toHaveBeenCalledWith(
+      expect.objectContaining({ choice__order: expect.anything() }),
+    );
+  });
+
+  it("submits values AND __order when checkboxes has randomize:true", async () => {
+    const onNext = vi.fn().mockResolvedValue(undefined);
+    const shuffled = [{ label: "B", value: "b" }, { label: "A", value: "a" }];
+    renderScreen(
+      [
+        {
+          componentFamily: "response",
+          template: "checkboxes",
+          props: {
+            dataKey: "picks",
+            label: "Picks",
+            options: [{ label: "A", value: "a" }, { label: "B", value: "b" }],
+            randomize: true,
+          },
+        },
+        { componentFamily: "layout", template: "button", props: { text: "Submit" } },
+      ],
+      shuffledContext("picks", shuffled),
+      onNext,
+    );
+    await userEvent.click(screen.getByLabelText("A"));
+    await userEvent.click(screen.getByRole("button", { name: "Submit" }));
+    expect(onNext).toHaveBeenCalledWith({
+      picks: ["a"],
+      picks__order: ["b", "a"],
+    });
+  });
+
+  it("picks up new __order defaults when remounted with different shuffledOptions (loop iteration)", async () => {
+    const onNext = vi.fn().mockResolvedValue(undefined);
+    const components: FrameworkScreen["components"] = [
+      {
+        componentFamily: "response",
+        template: "radio",
+        props: {
+          dataKey: "choice",
+          label: "Choice",
+          options: [{ label: "A", value: "a" }, { label: "B", value: "b" }],
+          randomize: true,
+        },
+      },
+      { componentFamily: "layout", template: "button", props: { text: "Submit" } },
+    ];
+
+    const { unmount } = render(
+      <Screen
+        screen={{ slug: "test", components }}
+        isLoading={false}
+        onNext={onNext}
+        context={shuffledContext("choice", [
+          { label: "B", value: "b" },
+          { label: "A", value: "a" },
+        ])}
+      />,
+    );
+
+    await userEvent.click(screen.getByLabelText("A"));
+    await userEvent.click(screen.getByRole("button", { name: "Submit" }));
+    expect(onNext).toHaveBeenNthCalledWith(1, {
+      choice: "a",
+      choice__order: ["b", "a"],
+    });
+
+    // Simulate key-based remount that Experiment.tsx triggers on loop iteration change
+    unmount();
+    render(
+      <Screen
+        screen={{ slug: "test", components }}
+        isLoading={false}
+        onNext={onNext}
+        context={shuffledContext("choice", [
+          { label: "A", value: "a" },
+          { label: "B", value: "b" },
+        ])}
+      />,
+    );
+
+    await userEvent.click(screen.getByLabelText("A"));
+    await userEvent.click(screen.getByRole("button", { name: "Submit" }));
+    expect(onNext).toHaveBeenNthCalledWith(2, {
+      choice: "a",
+      choice__order: ["a", "b"],
+    });
   });
 });

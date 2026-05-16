@@ -18,6 +18,7 @@
 
 :root {
   scroll-behavior: smooth;
+  font-variant-ligatures: no-common-ligatures;
 }
 
 .debug {
