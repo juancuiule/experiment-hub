@@ -4,7 +4,7 @@ async function completeConsent(page: Page) {
   await expect(page.getByLabel('I agree to participate')).toBeVisible();
   await page.getByLabel('I agree to participate').check();
   await page.getByRole('button', { name: 'Start' }).click();
-  await expect(page.getByText('Do you have children?')).toBeVisible();
+  await expect(page.getByRole('radio', { name: 'Yes' })).toBeVisible();
 }
 
 test.describe('Experiment integration', () => {
@@ -23,15 +23,15 @@ test.describe('Experiment integration', () => {
   test('shows and hides conditional numeric input based on radio selection', async ({ page }) => {
     await completeConsent(page);
     await expect(page.getByLabel('How many children?')).not.toBeVisible();
-    await page.getByLabel('Yes').click();
+    await page.getByRole('radio', { name: 'Yes' }).click();
     await expect(page.getByLabel('How many children?')).toBeVisible();
-    await page.getByLabel('No').click();
+    await page.getByRole('radio', { name: 'No' }).click();
     await expect(page.getByLabel('How many children?')).not.toBeVisible();
   });
 
   test('routes to done screen directly when user selects No for children', async ({ page }) => {
     await completeConsent(page);
-    await page.getByLabel('No').click();
+    await page.getByRole('radio', { name: 'No' }).click();
     await page.getByRole('button', { name: 'Continue' }).click();
     await expect(page.getByRole('heading', { name: 'All done!' })).toBeVisible();
     await expect(page.getByLabel("Children's names")).not.toBeVisible();
@@ -39,7 +39,7 @@ test.describe('Experiment integration', () => {
 
   test('routes through children screen when user selects Yes for children', async ({ page }) => {
     await completeConsent(page);
-    await page.getByLabel('Yes').click();
+    await page.getByRole('radio', { name: 'Yes' }).click();
     await page.getByLabel('How many children?').fill('2');
     await page.getByRole('button', { name: 'Continue' }).click();
     await expect(page.getByLabel("Children's names")).toBeVisible();
