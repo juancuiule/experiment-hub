@@ -658,7 +658,7 @@ export async function traverseWithTiming(
           [key]: {
             ...(step.context.timings?.[key] ?? {}),
             submittedAt,
-          } as { enteredAt: string; submittedAt: string },
+          },
         },
       })
     : step.context;

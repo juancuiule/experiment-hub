@@ -31,7 +31,7 @@ export type Context = Partial<{
   paths: { [pathNodeId: string]: { order: string[] } };
   loops: { [loopNodeId: string]: { order: string[] } };
   loopData: { [loopNodeId: string]: IterativeItem };
-  timings: Record<string, TimingEntry>;
+  timings: Record<string, Partial<TimingEntry>>;
 }>;
 
 export type InitialState = { type: "initial" };

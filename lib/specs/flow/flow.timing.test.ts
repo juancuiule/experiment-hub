@@ -78,10 +78,10 @@ describe("timing integration via traverse", () => {
     const step1 = await startExperiment(threeScreenFlow, "start"); // on s1
     const step2 = await traverseWithTiming(step1, {}); // s1 → s2, sets submittedAt for screen-1
     const after = new Date().toISOString();
-    const entry = step2.context.timings?.["screen-1"];
-    expect(entry?.submittedAt).toBeDefined();
-    expect(entry!.submittedAt >= before).toBe(true);
-    expect(entry!.submittedAt <= after).toBe(true);
+    const submittedAt = step2.context.timings?.["screen-1"]?.submittedAt;
+    expect(submittedAt).toBeDefined();
+    expect(submittedAt! >= before).toBe(true);
+    expect(submittedAt! <= after).toBe(true);
   });
 
   it("accumulates submittedAt across 3 screens", async () => {
