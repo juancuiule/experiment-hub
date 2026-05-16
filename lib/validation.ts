@@ -77,7 +77,9 @@ function buildFieldSchema(component: ResponseComponent): z.ZodTypeAny {
         base = base.min(min, errorMessage ?? `Must be at least ${min}`);
       if (max !== undefined)
         base = base.max(max, errorMessage ?? `Must be at most ${max}`);
-      return required ? base : base.optional();
+      if (required) return base;
+      // Use a union so "" survives Zod coercion and reaches superRefine's isEmpty check
+      return z.union([z.literal(""), z.null(), z.undefined(), base]);
     }
 
     case "slider": {
@@ -257,6 +259,7 @@ function collectCrossValidationTargets(
         collectCrossValidationTargets([c.props.else], elseGuard, acc);
       }
     }
+    // Known limitation: for-each components are not recursed here (same limitation as collectConditionals).
   }
   return acc;
 }
@@ -333,7 +336,7 @@ export function buildSchema(screen: FrameworkScreen) {
         if (isEmpty) {
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
-            message: rule.errorMessage ?? "This field is required.",
+            message: rule.errorMessage ?? "This field is required",
             path: [component.props.dataKey],
           });
         }

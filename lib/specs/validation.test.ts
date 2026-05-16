@@ -1179,8 +1179,36 @@ describe("crossValidation — required-if", () => {
     const result = schema.safeParse({ trigger: "yes", answer: "" });
     expect(result.success).toBe(false);
     if (!result.success) {
-      expect(result.error.flatten().fieldErrors.answer).toContain("This field is required.");
+      expect(result.error.flatten().fieldErrors.answer).toContain("This field is required");
     }
+  });
+
+  it("fails when condition is met and numeric-input dependent field is empty string", () => {
+    const schema = buildSchema(
+      screen([
+        {
+          componentFamily: "response",
+          template: "radio",
+          props: { dataKey: "hasChildren", label: "Do you have children?", options: [], required: false },
+        },
+        {
+          componentFamily: "response",
+          template: "numeric-input",
+          props: {
+            dataKey: "numberOfChildren",
+            label: "How many?",
+            required: false,
+            crossValidation: [
+              {
+                operator: "required-if",
+                condition: { type: "simple", operator: "eq", dataKey: "$hasChildren", value: "yes" },
+              },
+            ],
+          },
+        },
+      ])
+    );
+    expect(schema.safeParse({ hasChildren: "yes", numberOfChildren: "" }).success).toBe(false);
   });
 
   it("uses custom errorMessage when provided", () => {
