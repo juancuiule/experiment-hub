@@ -1,4 +1,5 @@
 import { Condition } from "./conditions";
+import { ScreenComponent } from "./components";
 import { ExperimentFlow } from "./types";
 
 export type ValidationError = { code: string; message: string };
@@ -542,6 +543,73 @@ function checkReferences(flow: ExperimentFlow): ValidationError[] {
 }
 
 // ---------------------------------------------------------------------------
+// Helpers for cross-validation reference checks
+// ---------------------------------------------------------------------------
+
+function collectScreenDataKeys(components: ScreenComponent[]): Set<string> {
+  const keys = new Set<string>();
+  for (const c of components) {
+    if (c.componentFamily === "response") {
+      keys.add(c.props.dataKey);
+    } else if (c.componentFamily === "layout" && c.template === "group") {
+      collectScreenDataKeys(c.props.components).forEach((k) => keys.add(k));
+    } else if (c.componentFamily === "control" && c.template === "conditional") {
+      collectScreenDataKeys([c.props.component]).forEach((k) => keys.add(k));
+      if (c.props.else) {
+        collectScreenDataKeys([c.props.else]).forEach((k) => keys.add(k));
+      }
+    }
+  }
+  return keys;
+}
+
+// ---------------------------------------------------------------------------
+// Cross-validation reference check
+// ---------------------------------------------------------------------------
+
+function checkCrossValidationReferences(flow: ExperimentFlow): ValidationError[] {
+  const errors: ValidationError[] = [];
+
+  for (const screen of flow.screens ?? []) {
+    const screenDataKeys = collectScreenDataKeys(screen.components);
+
+    function checkComponents(components: ScreenComponent[]) {
+      for (const c of components) {
+        if (c.componentFamily === "response" && c.props.crossValidation) {
+          for (const rule of c.props.crossValidation) {
+            for (const key of collectConditionDataKeys(rule.condition)) {
+              if (key.startsWith("$$")) {
+                errors.push({
+                  code: "invalid-reference",
+                  message: `Screen "${screen.slug}" field "${c.props.dataKey}" crossValidation references "${key}"; experiment-level data is not supported in crossValidation conditions`,
+                });
+              } else if (key.startsWith("$")) {
+                const fieldKey = key.slice(1);
+                if (!screenDataKeys.has(fieldKey)) {
+                  errors.push({
+                    code: "invalid-reference",
+                    message: `Screen "${screen.slug}" field "${c.props.dataKey}" crossValidation references "${key}" which is not a field on this screen`,
+                  });
+                }
+              }
+            }
+          }
+        } else if (c.componentFamily === "layout" && c.template === "group") {
+          checkComponents(c.props.components);
+        } else if (c.componentFamily === "control" && c.template === "conditional") {
+          checkComponents([c.props.component]);
+          if (c.props.else) checkComponents([c.props.else]);
+        }
+      }
+    }
+
+    checkComponents(screen.components);
+  }
+
+  return errors;
+}
+
+// ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
 
@@ -552,5 +620,6 @@ export function validateExperiment(flow: ExperimentFlow): ValidationError[] {
     ...checkEdgeWiring(flow),
     ...checkScreenDefinitions(flow),
     ...checkReferences(flow),
+    ...checkCrossValidationReferences(flow),
   ];
 }

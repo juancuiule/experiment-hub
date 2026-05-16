@@ -1087,3 +1087,159 @@ describe("actual experiment", () => {
     expect(validateExperiment(experiment)).toEqual([]);
   });
 });
+
+// ---------------------------------------------------------------------------
+// crossValidation reference checks
+// ---------------------------------------------------------------------------
+
+describe("crossValidation reference checks", () => {
+  it("passes when crossValidation references a valid $key on the same screen", () => {
+    const flow: ExperimentFlow = {
+      nodes: [start, makeScreen("s1", "survey")],
+      edges: [seq("start", "s1")],
+      screens: [
+        {
+          slug: "survey",
+          components: [
+            {
+              componentFamily: "response",
+              template: "radio",
+              props: {
+                dataKey: "hasChildren",
+                label: "Children?",
+                options: [],
+                required: false,
+              },
+            },
+            {
+              componentFamily: "response",
+              template: "numeric-input",
+              props: {
+                dataKey: "numberOfChildren",
+                label: "How many?",
+                required: false,
+                crossValidation: [
+                  {
+                    operator: "required-if",
+                    condition: { type: "simple", operator: "eq", dataKey: "$hasChildren", value: "yes" },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    };
+    expect(validateExperiment(flow)).toEqual([]);
+  });
+
+  it("reports invalid-reference when crossValidation references a $key not on the screen", () => {
+    const flow: ExperimentFlow = {
+      nodes: [start, makeScreen("s1", "survey")],
+      edges: [seq("start", "s1")],
+      screens: [
+        {
+          slug: "survey",
+          components: [
+            {
+              componentFamily: "response",
+              template: "text-input",
+              props: {
+                dataKey: "answer",
+                label: "Answer",
+                required: false,
+                crossValidation: [
+                  {
+                    operator: "required-if",
+                    condition: { type: "simple", operator: "eq", dataKey: "$nonExistent", value: "yes" },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    };
+    expect(codes(flow)).toContain("invalid-reference");
+    expect(
+      messages(flow).some((m) => m.includes('"$nonExistent"') && m.includes("not a field on this screen"))
+    ).toBe(true);
+  });
+
+  it("reports invalid-reference when crossValidation references a $$key", () => {
+    const flow: ExperimentFlow = {
+      nodes: [start, makeScreen("s1", "survey")],
+      edges: [seq("start", "s1")],
+      screens: [
+        {
+          slug: "survey",
+          components: [
+            {
+              componentFamily: "response",
+              template: "text-input",
+              props: {
+                dataKey: "answer",
+                label: "Answer",
+                required: false,
+                crossValidation: [
+                  {
+                    operator: "required-if",
+                    condition: { type: "simple", operator: "eq", dataKey: "$$previousScreen.field", value: "yes" },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    };
+    expect(codes(flow)).toContain("invalid-reference");
+    expect(
+      messages(flow).some((m) =>
+        m.includes("$$previousScreen.field") && m.includes("experiment-level data is not supported")
+      )
+    ).toBe(true);
+  });
+
+  it("passes when crossValidation field is inside a ConditionalComponent and references a sibling field", () => {
+    const flow: ExperimentFlow = {
+      nodes: [start, makeScreen("s1", "survey")],
+      edges: [seq("start", "s1")],
+      screens: [
+        {
+          slug: "survey",
+          components: [
+            {
+              componentFamily: "response",
+              template: "radio",
+              props: { dataKey: "trigger", label: "Trigger", options: [], required: false },
+            },
+            {
+              componentFamily: "control",
+              template: "conditional",
+              props: {
+                if: { type: "simple", operator: "eq", dataKey: "$trigger", value: "show" },
+                component: {
+                  componentFamily: "response",
+                  template: "text-input",
+                  props: {
+                    dataKey: "dependent",
+                    label: "Dependent",
+                    required: false,
+                    crossValidation: [
+                      {
+                        operator: "required-if",
+                        condition: { type: "simple", operator: "eq", dataKey: "$trigger", value: "show" },
+                      },
+                    ],
+                  },
+                },
+              },
+            },
+          ],
+        },
+      ],
+    };
+    expect(validateExperiment(flow)).toEqual([]);
+  });
+});
