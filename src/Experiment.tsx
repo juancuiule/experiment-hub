@@ -1,5 +1,6 @@
 "use client";
 import { getActiveState } from "@/lib/flow";
+import { ExperimentFlow } from "@/lib/types";
 import { Screen } from "@/src/Screen";
 import Stepper from "@/src/components/Stepper";
 import { useExperimentStore } from "@/src/data/store";
@@ -7,15 +8,16 @@ import { useEffect } from "react";
 
 type Props = {
   startingNode?: string;
+  experiment?: ExperimentFlow;
 };
 
 export default function Experiment(props: Props) {
-  const { startingNode } = props;
+  const { startingNode, experiment: experimentProp } = props;
   const { step, isLoading, start, next } = useExperimentStore();
 
   useEffect(() => {
     if (!step) {
-      start(startingNode);
+      start(startingNode, experimentProp);
     }
   }, [step]);
 
@@ -26,7 +28,7 @@ export default function Experiment(props: Props) {
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            start(startingNode);
+            start(startingNode, experimentProp);
           }}
         >
           <button>start</button>
