@@ -942,3 +942,277 @@ describe("randomize __order key", () => {
     expect(result.data).not.toHaveProperty("choice__order");
   });
 });
+
+// ---------------------------------------------------------------------------
+// crossValidation — required-if
+// ---------------------------------------------------------------------------
+
+describe("crossValidation — required-if", () => {
+  it("passes when condition is not met and dependent field is empty", () => {
+    const schema = buildSchema(
+      screen([
+        {
+          componentFamily: "response",
+          template: "radio",
+          props: { dataKey: "hasChildren", label: "Do you have children?", options: [], required: false },
+        },
+        {
+          componentFamily: "response",
+          template: "numeric-input",
+          props: {
+            dataKey: "numberOfChildren",
+            label: "How many?",
+            required: false,
+            crossValidation: [
+              {
+                operator: "required-if",
+                condition: { type: "simple", operator: "eq", dataKey: "$hasChildren", value: "yes" },
+              },
+            ],
+          },
+        },
+      ])
+    );
+    expect(schema.safeParse({ hasChildren: "no", numberOfChildren: undefined }).success).toBe(true);
+  });
+
+  it("fails when condition is met and dependent field is empty", () => {
+    const schema = buildSchema(
+      screen([
+        {
+          componentFamily: "response",
+          template: "radio",
+          props: { dataKey: "hasChildren", label: "Do you have children?", options: [], required: false },
+        },
+        {
+          componentFamily: "response",
+          template: "numeric-input",
+          props: {
+            dataKey: "numberOfChildren",
+            label: "How many?",
+            required: false,
+            crossValidation: [
+              {
+                operator: "required-if",
+                condition: { type: "simple", operator: "eq", dataKey: "$hasChildren", value: "yes" },
+              },
+            ],
+          },
+        },
+      ])
+    );
+    expect(schema.safeParse({ hasChildren: "yes", numberOfChildren: undefined }).success).toBe(false);
+  });
+
+  it("passes when condition is met and dependent field is filled", () => {
+    const schema = buildSchema(
+      screen([
+        {
+          componentFamily: "response",
+          template: "radio",
+          props: { dataKey: "hasChildren", label: "Do you have children?", options: [], required: false },
+        },
+        {
+          componentFamily: "response",
+          template: "numeric-input",
+          props: {
+            dataKey: "numberOfChildren",
+            label: "How many?",
+            required: false,
+            crossValidation: [
+              {
+                operator: "required-if",
+                condition: { type: "simple", operator: "eq", dataKey: "$hasChildren", value: "yes" },
+              },
+            ],
+          },
+        },
+      ])
+    );
+    expect(schema.safeParse({ hasChildren: "yes", numberOfChildren: 2 }).success).toBe(true);
+  });
+
+  it("supports gt condition: fails when confidence > 50 and reasoning is empty", () => {
+    const schema = buildSchema(
+      screen([
+        {
+          componentFamily: "response",
+          template: "numeric-input",
+          props: { dataKey: "confidence", label: "Confidence (0-100)", required: false },
+        },
+        {
+          componentFamily: "response",
+          template: "text-area",
+          props: {
+            dataKey: "reasoning",
+            label: "Why?",
+            required: false,
+            crossValidation: [
+              {
+                operator: "required-if",
+                condition: { type: "simple", operator: "gt", dataKey: "$confidence", value: 50 },
+              },
+            ],
+          },
+        },
+      ])
+    );
+    expect(schema.safeParse({ confidence: 75, reasoning: "" }).success).toBe(false);
+    expect(schema.safeParse({ confidence: 30, reasoning: "" }).success).toBe(true);
+  });
+
+  it("adds issues for all failing rules independently (not first-failure-only)", () => {
+    const schema = buildSchema(
+      screen([
+        {
+          componentFamily: "response",
+          template: "radio",
+          props: { dataKey: "a", label: "A", options: [], required: false },
+        },
+        {
+          componentFamily: "response",
+          template: "radio",
+          props: { dataKey: "b", label: "B", options: [], required: false },
+        },
+        {
+          componentFamily: "response",
+          template: "text-input",
+          props: {
+            dataKey: "target",
+            label: "Target",
+            required: false,
+            crossValidation: [
+              {
+                operator: "required-if",
+                condition: { type: "simple", operator: "eq", dataKey: "$a", value: "yes" },
+                errorMessage: "Required because of A",
+              },
+              {
+                operator: "required-if",
+                condition: { type: "simple", operator: "eq", dataKey: "$b", value: "yes" },
+                errorMessage: "Required because of B",
+              },
+            ],
+          },
+        },
+      ])
+    );
+    const result = schema.safeParse({ a: "yes", b: "yes", target: "" });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const errors = result.error.flatten().fieldErrors.target ?? [];
+      expect(errors).toContain("Required because of A");
+      expect(errors).toContain("Required because of B");
+    }
+  });
+
+  it("skips rules when field is inside a hidden ConditionalComponent (guard false)", () => {
+    const schema = buildSchema(
+      screen([
+        {
+          componentFamily: "response",
+          template: "radio",
+          props: { dataKey: "trigger", label: "Trigger", options: [], required: false },
+        },
+        {
+          componentFamily: "response",
+          template: "radio",
+          props: { dataKey: "other", label: "Other", options: [], required: false },
+        },
+        {
+          componentFamily: "control",
+          template: "conditional",
+          props: {
+            if: { type: "simple", operator: "eq", dataKey: "$trigger", value: "show" },
+            component: {
+              componentFamily: "response",
+              template: "text-input",
+              props: {
+                dataKey: "dependent",
+                label: "Dependent",
+                required: false,
+                crossValidation: [
+                  {
+                    operator: "required-if",
+                    condition: { type: "simple", operator: "eq", dataKey: "$other", value: "fire" },
+                  },
+                ],
+              },
+            },
+          },
+        },
+      ])
+    );
+    // Guard false → CV skipped even if CV condition would fire
+    expect(schema.safeParse({ trigger: "hide", other: "fire", dependent: "" }).success).toBe(true);
+    // Guard true + CV condition met + field empty → fails
+    expect(schema.safeParse({ trigger: "show", other: "fire", dependent: "" }).success).toBe(false);
+    // Guard true + CV condition not met → passes
+    expect(schema.safeParse({ trigger: "show", other: "no-fire", dependent: "" }).success).toBe(true);
+  });
+
+  it("uses default error message when errorMessage is omitted", () => {
+    const schema = buildSchema(
+      screen([
+        {
+          componentFamily: "response",
+          template: "radio",
+          props: { dataKey: "trigger", label: "Trigger", options: [], required: false },
+        },
+        {
+          componentFamily: "response",
+          template: "text-input",
+          props: {
+            dataKey: "answer",
+            label: "Answer",
+            required: false,
+            crossValidation: [
+              {
+                operator: "required-if",
+                condition: { type: "simple", operator: "eq", dataKey: "$trigger", value: "yes" },
+              },
+            ],
+          },
+        },
+      ])
+    );
+    const result = schema.safeParse({ trigger: "yes", answer: "" });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.flatten().fieldErrors.answer).toContain("This field is required.");
+    }
+  });
+
+  it("uses custom errorMessage when provided", () => {
+    const schema = buildSchema(
+      screen([
+        {
+          componentFamily: "response",
+          template: "radio",
+          props: { dataKey: "trigger", label: "Trigger", options: [], required: false },
+        },
+        {
+          componentFamily: "response",
+          template: "text-input",
+          props: {
+            dataKey: "answer",
+            label: "Answer",
+            required: false,
+            crossValidation: [
+              {
+                operator: "required-if",
+                condition: { type: "simple", operator: "eq", dataKey: "$trigger", value: "yes" },
+                errorMessage: "Please fill in the answer.",
+              },
+            ],
+          },
+        },
+      ])
+    );
+    const result = schema.safeParse({ trigger: "yes", answer: "" });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.flatten().fieldErrors.answer).toContain("Please fill in the answer.");
+    }
+  });
+});

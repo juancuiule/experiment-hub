@@ -2,7 +2,7 @@ import { z } from "zod";
 import { FrameworkScreen } from "./screen";
 import { hasRandomizedOptions, ResponseComponent } from "./components/response";
 import { ScreenComponent } from "./components";
-import { evaluateCondition } from "./conditions";
+import { Condition, evaluateCondition } from "./conditions";
 import { ConditionalComponent } from "./components/control";
 
 function buildFieldSchema(component: ResponseComponent): z.ZodTypeAny {
@@ -230,12 +230,45 @@ function collectConditionals(
   return result;
 }
 
+type CrossValidationEntry = {
+  component: ResponseComponent;
+  guardCondition?: Condition;
+};
+
+function collectCrossValidationTargets(
+  components: ScreenComponent[],
+  guard?: Condition,
+  acc: CrossValidationEntry[] = [],
+): CrossValidationEntry[] {
+  for (const c of components) {
+    if (c.componentFamily === "response" && c.props.crossValidation?.length) {
+      acc.push({ component: c, guardCondition: guard });
+    } else if (c.componentFamily === "layout" && c.template === "group") {
+      collectCrossValidationTargets(c.props.components, guard, acc);
+    } else if (c.componentFamily === "control" && c.template === "conditional") {
+      const innerGuard: Condition = guard
+        ? { type: "and", conditions: [guard, c.props.if] }
+        : c.props.if;
+      collectCrossValidationTargets([c.props.component], innerGuard, acc);
+      if (c.props.else) {
+        const elseGuard: Condition = guard
+          ? { type: "and", conditions: [guard, { type: "not", condition: c.props.if }] }
+          : { type: "not", condition: c.props.if };
+        collectCrossValidationTargets([c.props.else], elseGuard, acc);
+      }
+    }
+  }
+  return acc;
+}
+
 export function buildSchema(screen: FrameworkScreen) {
   const shape = collectFields(screen.components);
   const baseSchema = z.object(shape);
 
   const conditionals = collectConditionals(screen.components);
-  if (conditionals.length === 0) {
+  const crossValidationTargets = collectCrossValidationTargets(screen.components);
+
+  if (conditionals.length === 0 && crossValidationTargets.length === 0) {
     return baseSchema;
   }
 
@@ -267,6 +300,41 @@ export function buildSchema(screen: FrameworkScreen) {
             code: z.ZodIssueCode.custom,
             message: errorMessage ?? "This field is required",
             path: [inner.props.dataKey],
+          });
+        }
+      }
+    }
+
+    for (const { component, guardCondition } of crossValidationTargets) {
+      if (guardCondition) {
+        const guardMet = evaluateCondition(guardCondition, {
+          screenData: data as Record<string, any>,
+          data: {},
+          loopData: {},
+        });
+        if (!guardMet) continue;
+      }
+
+      for (const rule of component.props.crossValidation!) {
+        const conditionMet = evaluateCondition(rule.condition, {
+          screenData: data as Record<string, any>,
+          data: {},
+          loopData: {},
+        });
+        if (!conditionMet) continue;
+
+        const value = data[component.props.dataKey];
+        const isEmpty =
+          value === undefined ||
+          value === null ||
+          value === "" ||
+          (Array.isArray(value) && value.length === 0);
+
+        if (isEmpty) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: rule.errorMessage ?? "This field is required.",
+            path: [component.props.dataKey],
           });
         }
       }
