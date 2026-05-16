@@ -1,6 +1,6 @@
 import { ExperimentFlow } from '@/lib/types';
 
-export const invalid: ExperimentFlow = {
+export const experiment: ExperimentFlow = {
   nodes: [
     { id: 'start', type: 'start' },
     { id: 'screen-terms', type: 'screen', props: { slug: 'terms' } },
@@ -1052,7 +1052,7 @@ export const _experiment: ExperimentFlow = {
   ],
 };
 
-export const experiment: ExperimentFlow = {
+export const cocuco: ExperimentFlow = {
   nodes: [
     { id: 'start', type: 'start' },
     { id: 'screen-terms', type: 'screen', props: { slug: 'terms' } },
@@ -1205,7 +1205,23 @@ export const experiment: ExperimentFlow = {
           componentFamily: 'content',
           template: 'rich-text',
           props: {
-            content: '# Pandemica, conciencias y sustancias',
+            content:
+              '# Pandemica, conciencias y sustancias \n\n > alguna cosa dentro de un blockquote',
+          },
+        },
+        {
+          componentFamily: 'response',
+          template: 'dropdown',
+          props: {
+            label: '¿En qué ciudad vivís actualmente?',
+            dataKey: 'city',
+            options: [
+              { label: 'Buenos Aires', value: 'buenos-aires' },
+              { label: 'Córdoba', value: 'cordoba' },
+              { label: 'Rosario', value: 'rosario' },
+              { label: 'Mendoza', value: 'mendoza' },
+              { label: 'Otra', value: 'otra' },
+            ],
           },
         },
         {

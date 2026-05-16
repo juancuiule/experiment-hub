@@ -7,6 +7,7 @@ import { Controller, UseFormReturn } from "react-hook-form";
 import { twMerge } from "tailwind-merge";
 import { Label } from "../Label";
 import { CheckIcon, FieldError } from "../primitives";
+import { Check } from "lucide-react";
 
 type Props = {
   component: SingleCheckboxComponent;
@@ -33,15 +34,15 @@ export function SingleCheckbox({ component, form, context }: Props) {
               checked={field.value}
               onCheckedChange={field.onChange}
               className={twMerge(
-                "size-4 border border-gray-400 rounded-sm",
+                "size-4 border border-border-default rounded-sm",
                 "flex items-center justify-center shrink-0",
-                "data-[state=checked]:bg-black data-[state=checked]:border-black",
+                "data-[state=checked]:bg-content-active data-[state=checked]:border-content-active",
                 "transition-colors duration-75",
                 "translate-y-0.5",
               )}
             >
               <CheckboxPrimitive.Indicator>
-                <CheckIcon />
+                <Check className="size-4 text-white" />
               </CheckboxPrimitive.Indicator>
             </CheckboxPrimitive.Root>
             <Label

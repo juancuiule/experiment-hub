@@ -5,6 +5,7 @@ import { resolveValuesInString } from "@/lib/resolve";
 import { Context } from "@/lib/types";
 import * as SliderPrimitive from "@radix-ui/react-slider";
 import { Controller, UseFormReturn } from "react-hook-form";
+import { twMerge } from "tailwind-merge";
 import { Label } from "../Label";
 import { FieldError } from "../primitives";
 
@@ -35,18 +36,14 @@ export function Slider({ component, form, context }: Props) {
           ? (field.value as number)
           : (defaultValue ?? min);
 
-        const thumbClass = hasInteracted
-          ? "block w-4 h-4 bg-black rounded-full outline-none focus-visible:ring-2 focus-visible:ring-black/20 cursor-grab active:cursor-grabbing"
-          : showThumb
-            ? "block w-4 h-4 bg-gray-400 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-black/20 cursor-grab active:cursor-grabbing opacity-60"
-            : "block w-4 h-4 rounded-full outline-none cursor-pointer opacity-0";
+        const thumbClass = hasInteracted ? "bg-content-active" : showThumb ? "bg-content-secondary/60" : "cursor-pointer opacity-0";
 
         return (
           <div className="flex flex-col gap-1">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between mb-2">
               <Label context={context}>{component.props.label}</Label>
               {component.props.showValue && hasInteracted && (
-                <span className="text-sm font-medium tabular-nums">
+                <span className="text-sm font-medium tabular-nums text-content-primary">
                   {field.value}
                 </span>
               )}
@@ -60,18 +57,22 @@ export function Slider({ component, form, context }: Props) {
                 onValueChange={([val]) => field.onChange(val)}
                 className="relative flex items-center w-full h-5 select-none touch-none"
               >
-                <SliderPrimitive.Track className="relative h-px bg-gray-300 flex-1 rounded-full">
-                  <SliderPrimitive.Range className={`absolute h-full rounded-full ${hasInteracted ? "bg-black" : "bg-transparent"}`} />
+                <SliderPrimitive.Track className="relative h-0.5 bg-content-secondary/60 flex-1 rounded-full">
+                  <SliderPrimitive.Range className={`absolute h-full rounded-full ${hasInteracted ? "bg-content-active" : "bg-transparent"}`} />
                 </SliderPrimitive.Track>
-                <SliderPrimitive.Thumb className={thumbClass} />
+                <SliderPrimitive.Thumb className={twMerge(
+                  'block w-4 h-4 rounded-full outline-none',
+                  hasInteracted || showThumb ? 'focus-visible:ring-4 focus-visible:ring-content-active/50 cursor-grab active:cursor-grabbing' : '',
+                  thumbClass
+                )} />
               </SliderPrimitive.Root>
             </div>
             {(component.props.minLabel || component.props.maxLabel) && (
-              <div className="flex justify-between mt-1">
-                <span className="text-xs text-gray-500 uppercase tracking-wide">
+              <div className="flex justify-between mt-0">
+                <span className="text-xs text-content-secondary uppercase tracking-wide">
                   {component.props.minLabel ? resolveValuesInString(component.props.minLabel, context) : undefined}
                 </span>
-                <span className="text-xs text-gray-500 uppercase tracking-wide">
+                <span className="text-xs text-content-secondary uppercase tracking-wide">
                   {component.props.maxLabel ? resolveValuesInString(component.props.maxLabel, context) : undefined}
                 </span>
               </div>

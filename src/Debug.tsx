@@ -54,31 +54,31 @@ function LoopDetail({ node, state }: { node: LoopNode; state: State }) {
 
   return (
     <div className="flex flex-col gap-0.5 pl-4 text-xxs">
-      <span className="text-gray-400">
+      <span className="text-content-secondary">
         type:{" "}
         <span className={node.props.type === "static" ? "text-blue-600" : "text-orange-600"}>
           {node.props.type}
         </span>
       </span>
       {node.props.type === "dynamic" && (
-        <span className="text-gray-400">
-          dataKey: <span className="text-gray-600">{node.props.dataKey}</span>
+        <span className="text-content-secondary">
+          dataKey: <span className="text-content-primary">{node.props.dataKey}</span>
         </span>
       )}
       {resolvedValues && (
-        <span className="text-gray-400">
+        <span className="text-content-secondary">
           values: [
           {resolvedValues.map((v, i) => (
             <span key={i}>
-              {i > 0 && <span className="text-gray-300">, </span>}
-              <span className={loopState && i === loopState.index ? "text-black font-bold" : "text-gray-600"}>
+              {i > 0 && <span className="text-content-secondary">, </span>}
+              <span className={loopState && i === loopState.index ? "text-black font-bold" : "text-content-secondary"}>
                 {v}
               </span>
             </span>
           ))}
           ]
           {loopState && (
-            <span> (idx: <span className="text-gray-600">{loopState.index}</span>)</span>
+            <span> (idx: <span className="text-content-primary">{loopState.index}</span>)</span>
           )}
         </span>
       )}
@@ -102,25 +102,25 @@ function NodeCard({
   const connections = getConnections(node, edges);
 
   const wrapperClass =
-    role === "leaf" ? "ring-2 ring-black shadow-md" :
-      role === "container" ? "ring-1 ring-black/30 border-dashed" :
+    role === "leaf" ? "ring-2 ring-background-inverted shadow-md" :
+      role === "container" ? "ring-1 ring-background-inverted/30 border-dashed" :
         "opacity-50";
 
   return (
     <div className={`rounded border p-2 font-mono text-xxs flex flex-col gap-1 transition-all ${wrapperClass}`}>
       <div className="flex items-center gap-2">
-        {role === "leaf" && <span className="w-2 h-2 rounded-full bg-black shrink-0" />}
+        {role === "leaf" && <span className="w-2 h-2 rounded-full bg-background-inverted shrink-0" />}
         {role === "container" && <span className="w-2 h-2 rounded-full border border-black shrink-0" />}
         <NodeTypeBadge type={node.type} />
-        <span className="text-gray-700 truncate">{node.id}</span>
+        <span className="text-content-secondary truncate">{node.id}</span>
       </div>
       {node.type === "loop" && <LoopDetail node={node} state={state} />}
       {connections.length > 0 && (
         <div className="flex flex-wrap gap-1 pl-4">
           {connections.map((c, i) => (
-            <span key={i} className="text-gray-500">
-              <span className="text-gray-400">{c.label}</span>{" "}
-              <span className="text-gray-600">{c.toId}</span>
+            <span key={i} className="text-content-secondary">
+              <span className="text-content-tertiary">{c.label}</span>{" "}
+              <span className="text-content-primary">{c.toId}</span>
             </span>
           ))}
         </div>
@@ -133,7 +133,7 @@ export function StateDebug() {
   const { step } = useExperimentStore();
 
   if (!step) {
-    return <div className="font-mono text-xxs text-gray-400 p-2">No experiment loaded.</div>;
+    return <div className="font-mono text-xxs text-content-secondary p-2">No experiment loaded.</div>;
   }
 
   const { experiment: { nodes, edges }, state } = step;
@@ -147,8 +147,8 @@ export function StateDebug() {
   }
 
   return (
-    <div className="my-5 border-gray-200">
-      <div className="font-mono text-xxs text-gray-400 mb-2 tracking-wider uppercase gap-1 w-full">
+    <div className="my-5 border-border-default">
+      <div className="font-mono text-xxs text-content-primary mb-2 tracking-wider uppercase gap-1 w-full">
         <div>Debug — {nodes.length} nodes</div>
         <div className="flex">
           <span>State - {state.type}</span>
@@ -157,8 +157,8 @@ export function StateDebug() {
               <span>·</span>
               {currentPath.map((id, i) => (
                 <span key={id} className="flex items-center gap-1">
-                  {i > 0 && <span className="text-gray-300">›</span>}
-                  <span className={i === currentPath.length - 1 ? "text-black" : "text-gray-500"}>{id}</span>
+                  {i > 0 && <span className="text-content-secondary">›</span>}
+                  <span className={i === currentPath.length - 1 ? "text-black" : "text-content-secondary"}>{id}</span>
                 </span>
               ))}
             </>
@@ -189,15 +189,15 @@ function isPrimitiveArray(v: unknown[]): boolean {
 }
 
 function Leaf({ value }: { value: unknown }) {
-  if (value === null || value === undefined) return <span className="text-gray-300">null</span>;
-  if (typeof value === 'boolean') return <span className="text-purple-600">{value.toString()}</span>;
-  if (typeof value === 'number') return <span className="text-blue-600">{value}</span>;
-  if (typeof value === 'string') return <span className="text-green-700">"{value}"</span>;
+  if (value === null || value === undefined) return <span className="text-content-secondary">null</span>;
+  if (typeof value === 'boolean') return <span className="text-purple-600 dark:text-purple-400">{value.toString()}</span>;
+  if (typeof value === 'number') return <span className="text-blue-600 dark:text-blue-400">{value}</span>;
+  if (typeof value === 'string') return <span className="text-green-700 dark:text-green-300">"{value}"</span>;
   if (Array.isArray(value)) {
     return (
-      <span className="text-gray-500">
+      <span className="text-content-secondary">
         [{(value as unknown[]).map((item, i) => (
-          <span key={i}>{i > 0 && <span className="text-gray-300">, </span>}<Leaf value={item} /></span>
+          <span key={i}>{i > 0 && <span className="text-content-secondary">, </span>}<Leaf value={item} /></span>
         ))}]
       </span>
     );
@@ -216,14 +216,14 @@ function DataTree({ data, depth = 0 }: { data: Record<string, unknown>; depth?: 
             : (value as unknown[]).reduce<Record<string, unknown>>((acc, v, i) => { acc[i] = v; return acc; }, {});
           return (
             <div key={key} className="flex flex-col gap-0.5">
-              <span className="text-gray-500">{key}</span>
+              <span className="text-content-secondary">{key}</span>
               <DataTree data={children} depth={depth + 1} />
             </div>
           );
         }
         return (
           <div key={key} className="flex gap-1.5 items-baseline">
-            <span className="text-gray-400 shrink-0">{key}:</span>
+            <span className="text-content-secondary shrink-0">{key}:</span>
             <Leaf value={value} />
           </div>
         );
@@ -235,7 +235,7 @@ function DataTree({ data, depth = 0 }: { data: Record<string, unknown>; depth?: 
 export function DataSection({ title, data }: { title: string; data: Record<string, unknown> }) {
   return (
     <div className="flex flex-col gap-1">
-      <span className="font-mono text-[9px] uppercase tracking-wider text-gray-400">{title}</span>
+      <span className="font-mono text-[9px] uppercase tracking-wider text-content-secondary">{title}</span>
       <div className="rounded border p-2">
         <DataTree data={data} />
       </div>
@@ -247,7 +247,7 @@ export function DataDebug() {
   const { step } = useExperimentStore();
 
   if (!step) {
-    return <div className="font-mono text-xxs text-gray-400 p-2">No experiment loaded.</div>;
+    return <div className="font-mono text-xxs text-content-secondary p-2">No experiment loaded.</div>;
   }
 
   const { context } = step;
@@ -266,8 +266,8 @@ export function DataDebug() {
   if (isEmpty) {
     return (
       <div className="my-5">
-        <div className="font-mono text-[9px] uppercase tracking-wider text-gray-400 mb-2">Data</div>
-        <div className="font-mono text-xxs text-gray-300 italic">No data collected yet.</div>
+        <div className="font-mono text-[9px] uppercase tracking-wider text-content-secondary mb-2">Data</div>
+        <div className="font-mono text-xxs text-content-secondary italic">No data collected yet.</div>
       </div>
     );
   }

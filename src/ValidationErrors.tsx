@@ -52,9 +52,9 @@ function ErrorCard({ error }: { error: ValidationError }) {
           {category}
         </span>
         {nodeType && nodeType !== category && <NodeTypeBadge type={nodeType} />}
-        <span className="text-gray-500 truncate">{error.code}</span>
+        <span className="text-content-primary truncate">{error.code}</span>
       </div>
-      <div className="pl-4 text-gray-600">{error.message}</div>
+      <div className="pl-4 text-content-secondary">{error.message}</div>
     </div>
   );
 }

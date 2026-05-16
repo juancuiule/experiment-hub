@@ -3,6 +3,7 @@ import { validateExperiment } from "@/lib/validate";
 import { experiment } from "@/src/data/experiment";
 import { DataDebug, StateDebug } from "@/src/Debug";
 import Experiment from "@/src/Experiment";
+import { ThemeToggle } from "@/src/ThemeToggle";
 import { ValidationErrors } from "@/src/ValidationErrors";
 
 type Props = {
@@ -44,6 +45,7 @@ export default async function Home(props: Props) {
 
   return <>
     <StateDebug />
+    <ThemeToggle />
     <Experiment startingNode={startingNode} />
     <DataDebug />
   </>

@@ -54,15 +54,15 @@ export function LikertScale({ component, form, context }: Props) {
                         ? `${opt.value} — ${opt.label}`
                         : String(opt.value)
                     }
-                    className="size-8 rounded-full relative border border-gray-300 flex items-center justify-center shrink-0 data-[state=checked]:border-black transition-colors"
+                    className="size-8 rounded-full relative border border-border-default flex items-center justify-center shrink-0 data-[state=checked]:border-content-active transition-colors"
                   >
-                    <span className="text-xs absolute top-1/2 -translate-y-1/2 left-1/2 -translate-x-1/2 text-gray-500">
+                    <span className="text-xs absolute top-1/2 -translate-y-1/2 left-1/2 -translate-x-1/2 text-content-secondary">
                       <span className="ml-0.5">{i + 1}</span>
                     </span>
                     <RadioGroupPrimitive.Indicator
                       className={twMerge(
                         "size-6 flex items-center justify-center text-xs rounded-full",
-                        "bg-black text-white z-10 text-center",
+                        "bg-content-active text-white z-10 text-center",
                       )}
                     >
                       {i + 1}

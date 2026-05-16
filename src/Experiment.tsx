@@ -41,7 +41,7 @@ export default function Experiment(props: Props) {
     return (
       <>
         <h1 className="text-2xl font-semibold mb-2">All done!</h1>
-        <p className="text-zinc-500 mb-8">
+        <p className="text-content-secondary mb-8">
           Thanks for completing the experiment.
         </p>
       </>

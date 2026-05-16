@@ -26,10 +26,10 @@ export function RichText({ component, context }: Props) {
             <h3 {...props} className="text-xl font-bold mb-2" />
           ),
           p: ({ node, ...props }) => (
-            <p {...props} className="text-black mb-[1lh]" />
+            <p {...props} className="text-content-primary mb-[1lh]" />
           ),
           a: ({ node, ...props }) => (
-            <a {...props} className="text-info underline" />
+            <a {...props} className="text-content-active underline" />
           ),
           strong: ({ node, ...props }) => (
             <strong {...props} className="font-bold" />
@@ -43,7 +43,7 @@ export function RichText({ component, context }: Props) {
           blockquote: ({ node, ...props }) => (
             <blockquote
               {...props}
-              className="border-l-4 border-gray-300 pl-4 text-gray-500"
+              className="border-l-4 border-border-default pl-4 *:text-content-secondary!"
             />
           ),
           code: ({ node, ...props }) => (

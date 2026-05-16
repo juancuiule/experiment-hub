@@ -3,10 +3,11 @@
 import { CheckboxesComponent } from "@/lib/components/response";
 import { Context } from "@/lib/types";
 import * as CheckboxPrimitive from "@radix-ui/react-checkbox";
+import { Check } from "lucide-react";
 import { Controller, UseFormReturn } from "react-hook-form";
 import { twMerge } from "tailwind-merge";
 import { Label } from "../Label";
-import { CheckIcon, FieldError, resolveOptions } from "../primitives";
+import { FieldError, resolveOptions } from "../primitives";
 
 type Props = {
   component: CheckboxesComponent;
@@ -50,12 +51,12 @@ export function Checkboxes({ component, form, context }: Props) {
                     className={twMerge(
                       "size-4 border border-gray-400 rounded-sm",
                       "flex items-center justify-center shrink-0",
-                      "data-[state=checked]:bg-black data-[state=checked]:border-black",
+                      "data-[state=checked]:bg-content-active data-[state=checked]:border-content-active",
                       "transition-colors duration-75",
                     )}
                   >
                     <CheckboxPrimitive.Indicator>
-                      <CheckIcon />
+                      <Check className="size-4 text-white" />
                     </CheckboxPrimitive.Indicator>
                   </CheckboxPrimitive.Root>
                   <Label
