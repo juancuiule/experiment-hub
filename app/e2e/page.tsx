@@ -1,15 +1,16 @@
 import { notFound } from 'next/navigation';
-import { testExperiment } from '@/e2e/fixture';
 import { validateExperiment } from '@/lib/validate';
 import Experiment from '@/src/Experiment';
 import { ValidationErrors } from '@/src/ValidationErrors';
 
 export const revalidate = 0;
 
-export default function E2EPage() {
+export default async function E2EPage() {
   if (process.env.NODE_ENV === 'production') {
     notFound();
   }
+
+  const { testExperiment } = await import('@/e2e/fixture');
 
   const errors = validateExperiment(testExperiment);
   if (errors.length > 0) {
