@@ -1,6 +1,6 @@
 import { ExperimentFlow } from '@/lib/types';
 
-export const experiment: ExperimentFlow = {
+export const invalid: ExperimentFlow = {
   nodes: [
     { id: 'start', type: 'start' },
     { id: 'screen-terms', type: 'screen', props: { slug: 'terms' } },
@@ -1052,7 +1052,7 @@ export const _experiment: ExperimentFlow = {
   ],
 };
 
-export const cocuco: ExperimentFlow = {
+export const experiment: ExperimentFlow = {
   nodes: [
     { id: 'start', type: 'start' },
     { id: 'screen-terms', type: 'screen', props: { slug: 'terms' } },
