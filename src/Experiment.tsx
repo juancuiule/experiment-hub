@@ -19,7 +19,7 @@ export default function Experiment(props: Props) {
     if (!step) {
       start(startingNode, experimentProp);
     }
-  }, [step]);
+  }, [step, startingNode, experimentProp]);
 
   if (!step) {
     return (
