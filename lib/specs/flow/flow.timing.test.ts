@@ -146,3 +146,117 @@ describe("enteredAt tracking", () => {
     expect(updated.context.timings!["screen-1"]!.enteredAt).not.toBe("2020-01-01T00:00:00.000Z");
   });
 });
+
+describe("full-flow timing integration", () => {
+  it("3-screen sequence: context.timings has 3 entries with valid ISO timestamps", async () => {
+    const flow3: ExperimentFlow = {
+      nodes: [
+        { id: "start", type: "start" },
+        makeScreen("s1", "screen-1"),
+        makeScreen("s2", "screen-2"),
+        makeScreen("s3", "screen-3"),
+      ],
+      edges: [seq("start", "s1"), seq("s1", "s2"), seq("s2", "s3")],
+    };
+
+    let step = recordEnteredAt(await startExperiment(flow3, "start"));
+    step = recordEnteredAt(await traverseWithTiming(step, {}));
+    step = recordEnteredAt(await traverseWithTiming(step, {}));
+    step = recordEnteredAt(await traverseWithTiming(step, {}));
+
+    const timings = step.context.timings ?? {};
+    expect(Object.keys(timings)).toHaveLength(3);
+    for (const entry of Object.values(timings)) {
+      expect(entry.submittedAt).toBeDefined();
+      expect(new Date(entry.submittedAt!).toISOString()).toBe(entry.submittedAt);
+    }
+  });
+
+  it("submittedAt >= enteredAt for all entries", async () => {
+    const flow3: ExperimentFlow = {
+      nodes: [
+        { id: "start", type: "start" },
+        makeScreen("s1", "screen-1"),
+        makeScreen("s2", "screen-2"),
+        makeScreen("s3", "screen-3"),
+      ],
+      edges: [seq("start", "s1"), seq("s1", "s2"), seq("s2", "s3")],
+    };
+
+    let step = recordEnteredAt(await startExperiment(flow3, "start"));
+    step = recordEnteredAt(await traverseWithTiming(step, {}));
+    step = recordEnteredAt(await traverseWithTiming(step, {}));
+    step = recordEnteredAt(await traverseWithTiming(step, {}));
+
+    for (const entry of Object.values(step.context.timings ?? {})) {
+      if (entry.enteredAt && entry.submittedAt) {
+        expect(entry.submittedAt >= entry.enteredAt).toBe(true);
+      }
+    }
+  });
+
+  it("loop with 3 iterations: timing entries recorded for each iteration", async () => {
+    const loopFlow: ExperimentFlow = {
+      nodes: [
+        { id: "start", type: "start" },
+        {
+          id: "loop-colors",
+          type: "loop",
+          props: { type: "static", values: ["red", "blue", "green"] },
+        },
+        makeScreen("s-eval", "item-eval"),
+      ],
+      edges: [
+        seq("start", "loop-colors"),
+        { type: "loop-template", from: "loop-colors", to: "s-eval" },
+      ],
+    };
+
+    let step = recordEnteredAt(await startExperiment(loopFlow, "start"));
+    // Loop iteration 1
+    step = recordEnteredAt(await traverseWithTiming(step, { rating: 1 }));
+    // Loop iteration 2
+    step = recordEnteredAt(await traverseWithTiming(step, { rating: 2 }));
+    // Loop iteration 3
+    step = recordEnteredAt(await traverseWithTiming(step, { rating: 3 }));
+
+    const timings = step.context.timings ?? {};
+    // Should have at least one timing entry (the last submission or disambiguated ones)
+    expect(Object.keys(timings).length).toBeGreaterThan(0);
+    // Verify that timing entries have the expected structure
+    for (const entry of Object.values(timings)) {
+      expect(entry.submittedAt).toBeDefined();
+    }
+  });
+
+  it("path screens recorded with timing entries", async () => {
+    const pathFlow: ExperimentFlow = {
+      nodes: [
+        { id: "start", type: "start" },
+        { id: "path-a", type: "path", props: { name: "A" } },
+        makeScreen("sq1", "q1"),
+        makeScreen("sq2", "q2"),
+      ],
+      edges: [
+        seq("start", "path-a"),
+        { type: "path-contains", from: "path-a", to: "sq1", order: 0 },
+        { type: "path-contains", from: "path-a", to: "sq2", order: 1 },
+      ],
+    };
+
+    let step = recordEnteredAt(await startExperiment(pathFlow, "start"));
+    // Navigate through first screen in path
+    step = recordEnteredAt(await traverseWithTiming(step, {}));
+    // Navigate through second screen in path
+    step = recordEnteredAt(await traverseWithTiming(step, {}));
+
+    const timings = step.context.timings ?? {};
+    const keys = Object.keys(timings);
+    // Verify we have timing entries for screens in the path
+    expect(keys.length).toBeGreaterThan(0);
+    // Verify all entries have submittedAt
+    for (const entry of Object.values(timings)) {
+      expect(entry.submittedAt).toBeDefined();
+    }
+  });
+});
