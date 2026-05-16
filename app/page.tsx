@@ -3,6 +3,7 @@ import { validateExperiment } from "@/lib/validate";
 import { experiment } from "@/src/data/experiment";
 import { DataDebug, StateDebug } from "@/src/Debug";
 import Experiment from "@/src/Experiment";
+import { ValidationErrors } from "@/src/ValidationErrors";
 
 type Props = {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
@@ -38,18 +39,7 @@ export default async function Home(props: Props) {
   const errors = validateExperiment(experiment);
 
   if (errors.length > 0) {
-    return (
-      <div>
-        <h1>Experiment Validation Errors</h1>
-        <ul>
-          {errors.map((error, index) => (
-            <li key={index}>
-              {error.code} - {error.message}
-            </li>
-          ))}
-        </ul>
-      </div>
-    );
+    return <ValidationErrors errors={errors} />;
   }
 
   return <>

@@ -3,28 +3,8 @@
 import { FrameworkEdge } from "@/lib/edges";
 import { FrameworkNode, LoopNode } from "@/lib/nodes";
 import { InLoopState, State } from "@/lib/types";
-import { CirclePlay, CloudUpload, GitFork, LucideIcon, Repeat, Route, Split, Wallpaper } from "lucide-react";
 import { useExperimentStore } from "./data/store";
-
-const NODE_ICONS: Record<string, LucideIcon> = {
-  start: CirclePlay,
-  screen: Wallpaper,
-  branch: Split,
-  path: Route,
-  fork: GitFork,
-  loop: Repeat,
-  checkpoint: CloudUpload,
-};
-
-const NODE_COLORS: Record<string, string> = {
-  start: "bg-green-100 text-green-800 border-green-300",
-  screen: "bg-blue-100 text-blue-800 border-blue-300",
-  branch: "bg-yellow-100 text-yellow-800 border-yellow-300",
-  path: "bg-purple-100 text-purple-800 border-purple-300",
-  fork: "bg-orange-100 text-orange-800 border-orange-300",
-  loop: "bg-pink-100 text-pink-800 border-pink-300",
-  checkpoint: "bg-gray-100 text-gray-700 border-gray-300",
-};
+import { NodeTypeBadge } from "./nodeConfig";
 
 function findLoopState(state: State, nodeId: string): InLoopState | null {
   if (state.type === "in-loop") {
@@ -120,8 +100,6 @@ function NodeCard({
   state: State;
 }) {
   const connections = getConnections(node, edges);
-  const colorClass = NODE_COLORS[node.type] ?? "bg-gray-100 text-gray-800 border-gray-300";
-  const Icon = NODE_ICONS[node.type];
 
   const wrapperClass =
     role === "leaf" ? "ring-2 ring-black shadow-md" :
@@ -133,10 +111,7 @@ function NodeCard({
       <div className="flex items-center gap-2">
         {role === "leaf" && <span className="w-2 h-2 rounded-full bg-black shrink-0" />}
         {role === "container" && <span className="w-2 h-2 rounded-full border border-black shrink-0" />}
-        <span className={`px-1.5 py-0.5 rounded border text-xxs font-semibold flex items-center gap-1 ${colorClass}`}>
-          {Icon && <Icon size={10} />}
-          {node.type}
-        </span>
+        <NodeTypeBadge type={node.type} />
         <span className="text-gray-700 truncate">{node.id}</span>
       </div>
       {node.type === "loop" && <LoopDetail node={node} state={state} />}
