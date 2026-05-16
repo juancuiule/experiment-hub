@@ -42,6 +42,29 @@ export function getPath(text: string, record: Record<string, any>): any {
     .reduce((obj, key) => (obj == null ? undefined : obj[key]), record);
 }
 
+export function resolveInterpolatedImageUrl(
+  template: string,
+  context: Context,
+): string | null {
+  const resolved = resolveValuesInString(template, context).trim();
+  if (!resolved || resolved.startsWith("//")) return null;
+  if (
+    resolved.startsWith("/") ||
+    resolved.startsWith("./") ||
+    resolved.startsWith("../")
+  ) {
+    return resolved;
+  }
+  try {
+    const parsed = new URL(resolved);
+    return parsed.protocol === "http:" || parsed.protocol === "https:"
+      ? resolved
+      : null;
+  } catch {
+    return null;
+  }
+}
+
 export function getValue(key: string, context: Context) {
   const { data = {}, screenData = {}, loopData = {} } = context;
 

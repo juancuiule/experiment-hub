@@ -101,15 +101,18 @@ function buildFieldSchema(component: ResponseComponent): z.ZodTypeAny {
       if (required) {
         // required on a slider means: user must have interacted (value must not be null)
         // First gate on null/undefined, then delegate to the coerce chain for range checks.
-        return z.preprocess(
-          (v) => v,
-          z
-            .any()
-            .refine(
-              (v) => v !== undefined && v !== null && Number.isFinite(Number(v)),
-              { message: msg },
-            )
-        ).pipe(buildCoerceBase() as z.ZodTypeAny) as z.ZodTypeAny;
+        return z
+          .preprocess(
+            (v) => v,
+            z
+              .any()
+              .refine(
+                (v) =>
+                  v !== undefined && v !== null && Number.isFinite(Number(v)),
+                { message: msg },
+              ),
+          )
+          .pipe(buildCoerceBase() as z.ZodTypeAny) as z.ZodTypeAny;
       }
 
       // not required: null is accepted (user didn't interact),
@@ -139,11 +142,19 @@ function collectFields(
     if (component.componentFamily === "response") {
       acc[component.props.dataKey] = buildFieldSchema(component);
       if (hasRandomizedOptions(component)) {
-        acc[`${component.props.dataKey}__order`] = z.array(z.string()).optional();
+        acc[`${component.props.dataKey}__order`] = z
+          .array(z.string())
+          .optional();
       }
-    } else if (component.componentFamily === "layout" && component.template === "group") {
+    } else if (
+      component.componentFamily === "layout" &&
+      component.template === "group"
+    ) {
       collectFields(component.props.components, acc);
-    } else if (component.componentFamily === "control" && component.template === "conditional") {
+    } else if (
+      component.componentFamily === "control" &&
+      component.template === "conditional"
+    ) {
       // Nested response fields are optional in base schema;
       // superRefine enforces required rules when condition is true at submit time.
       const inner = component.props.component;
@@ -157,18 +168,25 @@ function collectFields(
         const elseBranch = component.props.else;
         if (elseBranch.componentFamily === "response") {
           if (!(elseBranch.props.dataKey in acc)) {
-            acc[elseBranch.props.dataKey] = buildFieldSchema(elseBranch).optional();
+            acc[elseBranch.props.dataKey] =
+              buildFieldSchema(elseBranch).optional();
           }
         } else {
           collectFields([elseBranch], acc);
         }
       }
-    } else if (component.componentFamily === "control" && component.template === "for-each") {
+    } else if (
+      component.componentFamily === "control" &&
+      component.template === "for-each"
+    ) {
       if (component.props.type === "static") {
         const template = component.props.component;
         if (template.componentFamily === "response") {
           for (let i = 0; i < component.props.values.length; i++) {
-            const resolvedKey = template.props.dataKey.replace("@index", String(i));
+            const resolvedKey = template.props.dataKey.replace(
+              "@index",
+              String(i),
+            );
             acc[resolvedKey] = buildFieldSchema(template);
           }
         }
@@ -179,20 +197,34 @@ function collectFields(
   return acc;
 }
 
-function collectConditionals(components: ScreenComponent[]): ConditionalComponent[] {
+function collectConditionals(
+  components: ScreenComponent[],
+): ConditionalComponent[] {
   // Known limitation: a for-each wrapping a conditional is not recursed here (deferred).
   // Known limitation: the else branch of a conditional is not enforced in superRefine (deferred).
   const result: ConditionalComponent[] = [];
   for (const component of components) {
-    if (component.componentFamily === "control" && component.template === "conditional") {
+    if (
+      component.componentFamily === "control" &&
+      component.template === "conditional"
+    ) {
       result.push(component);
       // Recurse into nested conditionals
-      collectConditionals([component.props.component]).forEach((c) => result.push(c));
+      collectConditionals([component.props.component]).forEach((c) =>
+        result.push(c),
+      );
       if (component.props.else) {
-        collectConditionals([component.props.else]).forEach((c) => result.push(c));
+        collectConditionals([component.props.else]).forEach((c) =>
+          result.push(c),
+        );
       }
-    } else if (component.componentFamily === "layout" && component.template === "group") {
-      collectConditionals(component.props.components).forEach((c) => result.push(c));
+    } else if (
+      component.componentFamily === "layout" &&
+      component.template === "group"
+    ) {
+      collectConditionals(component.props.components).forEach((c) =>
+        result.push(c),
+      );
     }
   }
   return result;
