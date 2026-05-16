@@ -3,10 +3,6 @@ import { ExperimentFlow } from "./types";
 
 export type ValidationError = { code: string; message: string };
 
-// ---------------------------------------------------------------------------
-// Condition helpers
-// ---------------------------------------------------------------------------
-
 function validateConditionStructure(
   cond: Condition,
   context: string,
@@ -39,10 +35,6 @@ function collectConditionDataKeys(cond: Condition): string[] {
   return [];
 }
 
-// ---------------------------------------------------------------------------
-// 1. Node identity
-// ---------------------------------------------------------------------------
-
 function checkNodeIdentity(flow: ExperimentFlow): ValidationError[] {
   const errors: ValidationError[] = [];
 
@@ -64,10 +56,6 @@ function checkNodeIdentity(flow: ExperimentFlow): ValidationError[] {
 
   return errors;
 }
-
-// ---------------------------------------------------------------------------
-// 2. Edge endpoints
-// ---------------------------------------------------------------------------
 
 function checkEdgeEndpoints(flow: ExperimentFlow): ValidationError[] {
   const errors: ValidationError[] = [];
@@ -91,10 +79,6 @@ function checkEdgeEndpoints(flow: ExperimentFlow): ValidationError[] {
 
   return errors;
 }
-
-// ---------------------------------------------------------------------------
-// 3. Node-to-edge wiring
-// ---------------------------------------------------------------------------
 
 function checkEdgeWiring(flow: ExperimentFlow): ValidationError[] {
   const errors: ValidationError[] = [];
@@ -289,10 +273,6 @@ function checkEdgeWiring(flow: ExperimentFlow): ValidationError[] {
   return errors;
 }
 
-// ---------------------------------------------------------------------------
-// 4. Screen definitions
-// ---------------------------------------------------------------------------
-
 function checkScreenDefinitions(flow: ExperimentFlow): ValidationError[] {
   const errors: ValidationError[] = [];
   const screens = flow.screens ?? [];
@@ -340,10 +320,6 @@ function checkScreenDefinitions(flow: ExperimentFlow): ValidationError[] {
 
   return errors;
 }
-
-// ---------------------------------------------------------------------------
-// 5 & 6. Reference availability
-// ---------------------------------------------------------------------------
 
 function checkReferences(flow: ExperimentFlow): ValidationError[] {
   const rawErrors: ValidationError[] = [];
@@ -540,10 +516,6 @@ function checkReferences(flow: ExperimentFlow): ValidationError[] {
     return true;
   });
 }
-
-// ---------------------------------------------------------------------------
-// Public API
-// ---------------------------------------------------------------------------
 
 export function validateExperiment(flow: ExperimentFlow): ValidationError[] {
   return [

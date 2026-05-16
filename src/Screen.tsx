@@ -10,20 +10,12 @@ import { buildSchema } from "@/lib/validation";
 import { RenderComponent } from "./components/RenderComponent";
 import { DataSection } from "./Debug";
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
 type ScreenProps = {
   screen: FrameworkScreen;
   isLoading: boolean;
   onNext: (data?: Record<string, any>) => Promise<void>;
   context: Context;
 };
-
-// ---------------------------------------------------------------------------
-// Utilities
-// ---------------------------------------------------------------------------
 
 function collectDefaults(
   components: ScreenComponent[],
@@ -91,11 +83,6 @@ function buildDefaultValues(
 ): Record<string, any> {
   return collectDefaults(screen.components, context);
 }
-
-
-// ---------------------------------------------------------------------------
-// Screen
-// ---------------------------------------------------------------------------
 
 export function Screen({ screen, isLoading, onNext, context }: ScreenProps) {
   const form = useForm<Record<string, any>>({

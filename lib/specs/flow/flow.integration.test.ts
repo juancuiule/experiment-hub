@@ -3,10 +3,6 @@ import { startExperiment, traverse } from "@/lib/flow";
 import { ExperimentFlow } from "@/lib/types";
 import { makeScreen, seq } from "../test-helpers";
 
-// ---------------------------------------------------------------------------
-// Complex experiment — all node types combined
-// ---------------------------------------------------------------------------
-
 // Design:
 //   start-google / start-facebook
 //   → checkpoint("experiment-init")
@@ -45,12 +41,22 @@ const complexFlow: ExperimentFlow = {
           {
             id: "minor",
             name: "Minor",
-            config: { type: "simple", operator: "lt", value: 18, dataKey: "$$profile.age" },
+            config: {
+              type: "simple",
+              operator: "lt",
+              value: 18,
+              dataKey: "$$profile.age",
+            },
           },
           {
             id: "adult",
             name: "Adult",
-            config: { type: "simple", operator: "gte", value: 18, dataKey: "$$profile.age" },
+            config: {
+              type: "simple",
+              operator: "gte",
+              value: 18,
+              dataKey: "$$profile.age",
+            },
           },
         ],
       },
@@ -220,8 +226,12 @@ describe("complex experiment (all node types)", () => {
     step = await traverse(step, { rating: 4 });
     step = await traverse(step, { rating: 3 });
     expect(step.context.data?.["profile"]).toEqual({ age: 25 });
-    expect(step.context.data?.["path-control"]?.["ctrl-q1"]).toEqual({ q1: "alpha" });
-    expect(step.context.data?.["path-control"]?.["ctrl-q2"]).toEqual({ q2: "beta" });
+    expect(step.context.data?.["path-control"]?.["ctrl-q1"]).toEqual({
+      q1: "alpha",
+    });
+    expect(step.context.data?.["path-control"]?.["ctrl-q2"]).toEqual({
+      q2: "beta",
+    });
   });
 
   it("loop iterates through all 3 colors in the correct order", async () => {
@@ -240,10 +250,6 @@ describe("complex experiment (all node types)", () => {
     expect(colors).toEqual(["red", "blue", "green"]);
   });
 });
-
-// ---------------------------------------------------------------------------
-// Error cases
-// ---------------------------------------------------------------------------
 
 describe("error cases", () => {
   it("throws when start node has no sequential edge out", async () => {
@@ -300,7 +306,12 @@ describe("error cases", () => {
               {
                 id: "adult",
                 name: "Adult",
-                config: { type: "simple", operator: "gte", value: 18, dataKey: "$$age.age" },
+                config: {
+                  type: "simple",
+                  operator: "gte",
+                  value: 18,
+                  dataKey: "$$age.age",
+                },
               },
             ],
           },
@@ -327,7 +338,10 @@ describe("error cases", () => {
         {
           id: "fork-bad",
           type: "fork",
-          props: { name: "Bad fork", forks: [{ id: "x", name: "X", weight: 1 }] },
+          props: {
+            name: "Bad fork",
+            forks: [{ id: "x", name: "X", weight: 1 }],
+          },
         },
       ],
       edges: [seq("start", "fork-bad")],

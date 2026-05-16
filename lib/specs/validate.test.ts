@@ -31,10 +31,6 @@ const minimalFlow: ExperimentFlow = {
   ],
 };
 
-// ---------------------------------------------------------------------------
-// 1. Node identity
-// ---------------------------------------------------------------------------
-
 describe("node identity", () => {
   it("passes a valid minimal flow", () => {
     expect(validateExperiment(minimalFlow)).toEqual([]);
@@ -76,10 +72,6 @@ describe("node identity", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// 2. Edge endpoints
-// ---------------------------------------------------------------------------
-
 describe("edge endpoints", () => {
   it("reports unknown source node", () => {
     const flow: ExperimentFlow = {
@@ -101,10 +93,6 @@ describe("edge endpoints", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// 3. Edge wiring — start
-// ---------------------------------------------------------------------------
-
 describe("start node wiring", () => {
   it("reports missing-edge when start has no sequential outgoing edge", () => {
     const flow: ExperimentFlow = {
@@ -114,10 +102,6 @@ describe("start node wiring", () => {
     expect(codes(flow)).toContain("missing-edge");
   });
 });
-
-// ---------------------------------------------------------------------------
-// 3. Edge wiring — checkpoint
-// ---------------------------------------------------------------------------
 
 describe("checkpoint wiring", () => {
   it("passes when checkpoint has no sequential edge (valid terminal)", () => {
@@ -151,10 +135,6 @@ describe("checkpoint wiring", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// 3. Edge wiring — branch
-// ---------------------------------------------------------------------------
-
 describe("branch wiring", () => {
   it("passes a fully wired branch", () => {
     const flow: ExperimentFlow = {
@@ -169,7 +149,12 @@ describe("branch wiring", () => {
               {
                 id: "yes",
                 name: "Yes",
-                config: { type: "simple", operator: "eq", dataKey: "$$q.answer", value: "y" },
+                config: {
+                  type: "simple",
+                  operator: "eq",
+                  dataKey: "$$q.answer",
+                  value: "y",
+                },
               },
             ],
           },
@@ -215,7 +200,12 @@ describe("branch wiring", () => {
               {
                 id: "yes",
                 name: "Yes",
-                config: { type: "simple", operator: "eq", dataKey: "$$s1.v", value: "y" },
+                config: {
+                  type: "simple",
+                  operator: "eq",
+                  dataKey: "$$s1.v",
+                  value: "y",
+                },
               },
             ],
           },
@@ -259,12 +249,22 @@ describe("branch wiring", () => {
               {
                 id: "yes",
                 name: "Yes",
-                config: { type: "simple", operator: "eq", dataKey: "$$s1.v", value: "y" },
+                config: {
+                  type: "simple",
+                  operator: "eq",
+                  dataKey: "$$s1.v",
+                  value: "y",
+                },
               },
               {
                 id: "maybe",
                 name: "Maybe",
-                config: { type: "simple", operator: "eq", dataKey: "$$s1.v", value: "m" },
+                config: {
+                  type: "simple",
+                  operator: "eq",
+                  dataKey: "$$s1.v",
+                  value: "m",
+                },
               },
             ],
           },
@@ -312,7 +312,12 @@ describe("branch wiring", () => {
               {
                 id: "yes",
                 name: "Yes",
-                config: { type: "simple", operator: "eq", dataKey: "$$s1.v", value: "y" },
+                config: {
+                  type: "simple",
+                  operator: "eq",
+                  dataKey: "$$s1.v",
+                  value: "y",
+                },
               },
             ],
           },
@@ -347,10 +352,6 @@ describe("branch wiring", () => {
     expect(messages(flow).some((m) => m.includes('"ghost"'))).toBe(true);
   });
 });
-
-// ---------------------------------------------------------------------------
-// 3. Edge wiring — fork
-// ---------------------------------------------------------------------------
 
 describe("fork wiring", () => {
   it("reports missing-edge when a fork id has no fork-edge", () => {
@@ -389,19 +390,20 @@ describe("fork wiring", () => {
     const flow: ExperimentFlow = {
       nodes: [
         start,
-        { id: "f", type: "fork", props: { name: "Variant fork", forks: [{ id: "a", name: "A" }] } },
+        {
+          id: "f",
+          type: "fork",
+          props: { name: "Variant fork", forks: [{ id: "a", name: "A" }] },
+        },
         makeScreen("s-a", "variant-a"),
       ],
-      edges: [
-        seq("start", "f"),
-        { type: "fork-edge", from: "f.a", to: "s-a" },
-      ],
+      edges: [seq("start", "f"), { type: "fork-edge", from: "f.a", to: "s-a" }],
       screens: [{ slug: "variant-a", components: [] }],
     };
     expect(codes(flow)).toContain("missing-edge");
-    expect(
-      messages(flow).some((m) => m.includes("at least two arms")),
-    ).toBe(true);
+    expect(messages(flow).some((m) => m.includes("at least two arms"))).toBe(
+      true,
+    );
   });
 
   it("does not report missing-edge for arm count when fork has 2 arms", () => {
@@ -411,7 +413,13 @@ describe("fork wiring", () => {
         {
           id: "f",
           type: "fork",
-          props: { name: "Variant fork", forks: [{ id: "a", name: "A" }, { id: "b", name: "B" }] },
+          props: {
+            name: "Variant fork",
+            forks: [
+              { id: "a", name: "A" },
+              { id: "b", name: "B" },
+            ],
+          },
         },
         makeScreen("s-a", "variant-a"),
         makeScreen("s-b", "variant-b"),
@@ -426,16 +434,20 @@ describe("fork wiring", () => {
         { slug: "variant-b", components: [] },
       ],
     };
-    expect(
-      messages(flow).some((m) => m.includes("at least two arms")),
-    ).toBe(false);
+    expect(messages(flow).some((m) => m.includes("at least two arms"))).toBe(
+      false,
+    );
   });
 
   it("reports invalid-edge when fork-edge references a non-existent fork id", () => {
     const flow: ExperimentFlow = {
       nodes: [
         start,
-        { id: "f", type: "fork", props: { name: "Variant fork", forks: [{ id: "a", name: "A" }] } },
+        {
+          id: "f",
+          type: "fork",
+          props: { name: "Variant fork", forks: [{ id: "a", name: "A" }] },
+        },
         makeScreen("s-a", "variant-a"),
         makeScreen("s-ghost", "ghost"),
       ],
@@ -453,10 +465,6 @@ describe("fork wiring", () => {
     expect(messages(flow).some((m) => m.includes('"ghost"'))).toBe(true);
   });
 });
-
-// ---------------------------------------------------------------------------
-// 3. Edge wiring — path
-// ---------------------------------------------------------------------------
 
 describe("path wiring", () => {
   it("reports missing-edge when path has no path-contains edges", () => {
@@ -510,7 +518,9 @@ describe("path wiring", () => {
     };
     expect(codes(flow)).toContain("ambiguous-edge");
     expect(
-      messages(flow).some((m) => m.includes("sequential exit edges; exactly one is required")),
+      messages(flow).some((m) =>
+        m.includes("sequential exit edges; exactly one is required"),
+      ),
     ).toBe(true);
   });
 
@@ -529,10 +539,6 @@ describe("path wiring", () => {
     expect(codes(flow)).toContain("invalid-edge");
   });
 });
-
-// ---------------------------------------------------------------------------
-// 3. Edge wiring — loop
-// ---------------------------------------------------------------------------
 
 describe("loop wiring", () => {
   it("reports missing-edge when loop has no loop-template edge", () => {
@@ -583,10 +589,6 @@ describe("loop wiring", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// 4. Screen definitions
-// ---------------------------------------------------------------------------
-
 describe("screen definitions", () => {
   it("reports missing-screen when a screen node has no matching definition", () => {
     const flow: ExperimentFlow = {
@@ -623,10 +625,6 @@ describe("screen definitions", () => {
     expect(messages(flow).some((m) => m.includes('"orphan"'))).toBe(true);
   });
 });
-
-// ---------------------------------------------------------------------------
-// 5. @ reference checks
-// ---------------------------------------------------------------------------
 
 describe("@ reference checks", () => {
   it("accepts @value in a loop template screen", () => {
@@ -711,10 +709,6 @@ describe("@ reference checks", () => {
     expect(codes(flow)).toContain("invalid-reference");
   });
 });
-
-// ---------------------------------------------------------------------------
-// 5. $$ reference checks
-// ---------------------------------------------------------------------------
 
 describe("$$ reference checks", () => {
   it("accepts a $$ reference to a screen that ran before", () => {
@@ -946,10 +940,6 @@ describe("$$ reference checks", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// 6. Condition $$ / @ reference checks
-// ---------------------------------------------------------------------------
-
 describe("condition reference checks", () => {
   it("accepts a valid $$ reference in a branch condition", () => {
     const flow: ExperimentFlow = {
@@ -1055,7 +1045,12 @@ describe("condition reference checks", () => {
               {
                 id: "yes",
                 name: "Yes",
-                config: { type: "simple", operator: "eq", dataKey: "@value", value: "y" },
+                config: {
+                  type: "simple",
+                  operator: "eq",
+                  dataKey: "@value",
+                  value: "y",
+                },
               },
             ],
           },
@@ -1076,10 +1071,6 @@ describe("condition reference checks", () => {
     expect(codes(flow)).toContain("invalid-reference");
   });
 });
-
-// ---------------------------------------------------------------------------
-// Actual experiment
-// ---------------------------------------------------------------------------
 
 describe("actual experiment", () => {
   it("has no validation errors", async () => {

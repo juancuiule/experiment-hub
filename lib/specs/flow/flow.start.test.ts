@@ -3,10 +3,6 @@ import { startExperiment, traverse, next, getActiveState } from "@/lib/flow";
 import { ExperimentFlow } from "@/lib/types";
 import { makeScreen, seq } from "../test-helpers";
 
-// ---------------------------------------------------------------------------
-// startExperiment
-// ---------------------------------------------------------------------------
-
 describe("startExperiment", () => {
   const flow: ExperimentFlow = {
     nodes: [
@@ -55,10 +51,6 @@ describe("startExperiment", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// Start node without props → "default" group
-// ---------------------------------------------------------------------------
-
 describe("start node without props", () => {
   it("records 'default' as the group when start node has no props", async () => {
     const flow: ExperimentFlow = {
@@ -69,10 +61,6 @@ describe("start node without props", () => {
     expect(step.context.start?.group).toBe("default");
   });
 });
-
-// ---------------------------------------------------------------------------
-// traverse no-op on "end" state
-// ---------------------------------------------------------------------------
 
 describe("traverse no-op on end state", () => {
   const flow: ExperimentFlow = {
@@ -88,10 +76,6 @@ describe("traverse no-op on end state", () => {
     expect(again).toBe(step);
   });
 });
-
-// ---------------------------------------------------------------------------
-// next() — .then() chaining helper
-// ---------------------------------------------------------------------------
 
 describe("next() — .then() chaining helper", () => {
   const flow: ExperimentFlow = {
@@ -139,10 +123,6 @@ describe("next() — .then() chaining helper", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// getActiveState — unwraps nested in-path / in-loop states
-// ---------------------------------------------------------------------------
-
 describe("getActiveState", () => {
   it("returns an in-node state unchanged", async () => {
     const flow: ExperimentFlow = {
@@ -179,7 +159,11 @@ describe("getActiveState", () => {
     const flow: ExperimentFlow = {
       nodes: [
         { id: "start", type: "start" },
-        { id: "loop-l", type: "loop", props: { type: "static", values: ["a", "b"] } },
+        {
+          id: "loop-l",
+          type: "loop",
+          props: { type: "static", values: ["a", "b"] },
+        },
         makeScreen("s-item", "item"),
         makeScreen("s-end", "end"),
       ],

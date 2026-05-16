@@ -4,10 +4,6 @@ import { startExperiment, traverse } from "@/lib/flow";
 import { makeScreen, seq } from "../test-helpers";
 import { ExperimentFlow } from "@/lib/types";
 
-// ---------------------------------------------------------------------------
-// Path — basic
-// ---------------------------------------------------------------------------
-
 describe("path", () => {
   const flow: ExperimentFlow = {
     nodes: [
@@ -72,10 +68,6 @@ describe("path", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// Path with randomized children
-// ---------------------------------------------------------------------------
-
 describe("path with randomized children", () => {
   const flow: ExperimentFlow = {
     nodes: [
@@ -114,10 +106,6 @@ describe("path with randomized children", () => {
     expect(order.sort()).toEqual(["s1", "s2", "s3"]);
   });
 });
-
-// ---------------------------------------------------------------------------
-// Path with a branch node as a child
-// ---------------------------------------------------------------------------
 
 describe("path with a branch node as a child", () => {
   // The branch auto-traverses when reached inside the path, routing to a
@@ -232,10 +220,6 @@ describe("path with a branch node as a child", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// Path with a checkpoint node as a child
-// ---------------------------------------------------------------------------
-
 describe("path with a checkpoint node as a child", () => {
   // Checkpoint auto-traverses (records timestamp + advances via its sequential
   // edge). The sequential edge points to a screen that is NOT a path child.
@@ -285,10 +269,6 @@ describe("path with a checkpoint node as a child", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// Path order tracks every child type
-// ---------------------------------------------------------------------------
-
 describe("path order tracks all child node types", () => {
   // path children: screen → branch → checkpoint
   const flow: ExperimentFlow = {
@@ -305,7 +285,12 @@ describe("path order tracks all child node types", () => {
             {
               id: "easy",
               name: "Easy",
-              config: { type: "simple", operator: "eq", value: "easy", dataKey: "$$path-all.q1.level" },
+              config: {
+                type: "simple",
+                operator: "eq",
+                value: "easy",
+                dataKey: "$$path-all.q1.level",
+              },
             },
           ],
         },
@@ -336,10 +321,6 @@ describe("path order tracks all child node types", () => {
     expect(order).toEqual(["s-q1", "branch-lvl", "cp-mid"]);
   });
 });
-
-// ---------------------------------------------------------------------------
-// Loop as a path child
-// ---------------------------------------------------------------------------
 
 describe("loop as a path child", () => {
   const flow: ExperimentFlow = {

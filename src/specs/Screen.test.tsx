@@ -25,10 +25,6 @@ function renderScreen(
   );
 }
 
-// ---------------------------------------------------------------------------
-// Rendering
-// ---------------------------------------------------------------------------
-
 describe("rendering", () => {
   it("renders an input with its label", () => {
     renderScreen([
@@ -91,10 +87,6 @@ describe("rendering", () => {
     expect(screen.getByRole("button", { name: "Submit" })).toBeInTheDocument();
   });
 });
-
-// ---------------------------------------------------------------------------
-// Label interpolation
-// ---------------------------------------------------------------------------
 
 describe("label interpolation", () => {
   it("replaces @value in labels with currentItem.value from context", () => {
@@ -234,10 +226,6 @@ describe("label interpolation", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// Validation
-// ---------------------------------------------------------------------------
-
 describe("validation", () => {
   it("blocks submit and shows error when a required input is empty", async () => {
     const onNext = vi.fn().mockResolvedValue(undefined);
@@ -325,10 +313,6 @@ describe("validation", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// Data collection
-// ---------------------------------------------------------------------------
-
 describe("data collection", () => {
   it("calls onNext with input value", async () => {
     const onNext = vi.fn().mockResolvedValue(undefined);
@@ -410,10 +394,6 @@ describe("data collection", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// Conditional
-// ---------------------------------------------------------------------------
-
 describe("conditional", () => {
   const components: FrameworkScreen["components"] = [
     {
@@ -487,10 +467,6 @@ describe("conditional", () => {
     expect(onNext).toHaveBeenCalledWith({ "has-children": "yes", "number-of-children": 3 });
   });
 });
-
-// ---------------------------------------------------------------------------
-// Randomize options
-// ---------------------------------------------------------------------------
 
 describe("randomize options", () => {
   function shuffledContext(

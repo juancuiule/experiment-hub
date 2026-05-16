@@ -3,10 +3,6 @@ import { startExperiment, traverse } from "@/lib/flow";
 import { ExperimentFlow } from "@/lib/types";
 import { makeScreen, seq } from "../test-helpers";
 
-// ---------------------------------------------------------------------------
-// Loop (static values)
-// ---------------------------------------------------------------------------
-
 describe("loop (static values)", () => {
   const flow: ExperimentFlow = {
     nodes: [
@@ -30,14 +26,20 @@ describe("loop (static values)", () => {
     const step = await startExperiment(flow, "start");
     expect(step.state.type).toBe("in-loop");
     expect((step.state as any).index).toBe(0);
-    expect(step.context.loopData?.["loop-sports"]).toEqual({ value: "football", index: 0 });
+    expect(step.context.loopData?.["loop-sports"]).toEqual({
+      value: "football",
+      index: 0,
+    });
   });
 
   it("advances loopData on each iteration", async () => {
     let step = await startExperiment(flow, "start"); // index 0: football
     step = await traverse(step, { liked: true }); // advance to index 1: basketball
     expect((step.state as any).index).toBe(1);
-    expect(step.context.loopData?.["loop-sports"]).toEqual({ value: "basketball", index: 1 });
+    expect(step.context.loopData?.["loop-sports"]).toEqual({
+      value: "basketball",
+      index: 1,
+    });
   });
 
   it("exits the loop after the last iteration and moves to the next node", async () => {
@@ -64,15 +66,17 @@ describe("loop (static values)", () => {
     step = await traverse(step, { liked: false }); // basketball
     step = await traverse(step, { liked: true }); // tennis → exit
     // Data is keyed as context.data[loopId][value][screenSlug]
-    expect(step.context.data?.["loop-sports"]?.["football"]?.["sport-screen"]).toEqual({ liked: true });
-    expect(step.context.data?.["loop-sports"]?.["basketball"]?.["sport-screen"]).toEqual({ liked: false });
-    expect(step.context.data?.["loop-sports"]?.["tennis"]?.["sport-screen"]).toEqual({ liked: true });
+    expect(
+      step.context.data?.["loop-sports"]?.["football"]?.["sport-screen"],
+    ).toEqual({ liked: true });
+    expect(
+      step.context.data?.["loop-sports"]?.["basketball"]?.["sport-screen"],
+    ).toEqual({ liked: false });
+    expect(
+      step.context.data?.["loop-sports"]?.["tennis"]?.["sport-screen"],
+    ).toEqual({ liked: true });
   });
 });
-
-// ---------------------------------------------------------------------------
-// Loop (dynamic values from context)
-// ---------------------------------------------------------------------------
 
 describe("loop (dynamic values from context)", () => {
   const flow: ExperimentFlow = {
@@ -130,10 +134,6 @@ describe("loop (dynamic values from context)", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// Loop tracking (context.loops)
-// ---------------------------------------------------------------------------
-
 describe("loop tracking (context.loops)", () => {
   const flow: ExperimentFlow = {
     nodes: [
@@ -155,9 +155,17 @@ describe("loop tracking (context.loops)", () => {
 
   it("sets full order upfront when the loop is entered", async () => {
     let step = await startExperiment(flow, "start"); // index 0: red
-    expect(step.context.loops?.["loop-colors"]?.order).toEqual(["red", "blue", "green"]);
+    expect(step.context.loops?.["loop-colors"]?.order).toEqual([
+      "red",
+      "blue",
+      "green",
+    ]);
     step = await traverse(step, { rated: 1 }); // red done → advance to blue
-    expect(step.context.loops?.["loop-colors"]?.order).toEqual(["red", "blue", "green"]);
+    expect(step.context.loops?.["loop-colors"]?.order).toEqual([
+      "red",
+      "blue",
+      "green",
+    ]);
   });
 
   it("populates context.loops with all values after the loop exits", async () => {

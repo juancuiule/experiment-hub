@@ -1,21 +1,21 @@
-import { describe, expect, it } from "vitest";
-import { buildSchema } from "@/lib/validation";
 import { FrameworkScreen } from "@/lib/screen";
+import { buildSchema } from "@/lib/validation";
+import { describe, expect, it } from "vitest";
 
 function screen(components: FrameworkScreen["components"]): FrameworkScreen {
   return { slug: "test", components };
 }
 
-// ---------------------------------------------------------------------------
-// text-input
-// ---------------------------------------------------------------------------
-
 describe("text-input", () => {
   it("passes a non-empty string when required", () => {
     const schema = buildSchema(
       screen([
-        { componentFamily: "response", template: "text-input", props: { dataKey: "name", label: "Name", required: true } },
-      ])
+        {
+          componentFamily: "response",
+          template: "text-input",
+          props: { dataKey: "name", label: "Name", required: true },
+        },
+      ]),
     );
     expect(schema.safeParse({ name: "Alice" }).success).toBe(true);
   });
@@ -23,8 +23,12 @@ describe("text-input", () => {
   it("fails an empty string when required", () => {
     const schema = buildSchema(
       screen([
-        { componentFamily: "response", template: "text-input", props: { dataKey: "name", label: "Name", required: true } },
-      ])
+        {
+          componentFamily: "response",
+          template: "text-input",
+          props: { dataKey: "name", label: "Name", required: true },
+        },
+      ]),
     );
     expect(schema.safeParse({ name: "" }).success).toBe(false);
   });
@@ -32,8 +36,12 @@ describe("text-input", () => {
   it("passes an empty string when not required", () => {
     const schema = buildSchema(
       screen([
-        { componentFamily: "response", template: "text-input", props: { dataKey: "name", label: "Name", required: false } },
-      ])
+        {
+          componentFamily: "response",
+          template: "text-input",
+          props: { dataKey: "name", label: "Name", required: false },
+        },
+      ]),
     );
     expect(schema.safeParse({ name: "" }).success).toBe(true);
   });
@@ -44,21 +52,24 @@ describe("text-input", () => {
         {
           componentFamily: "response",
           template: "text-input",
-          props: { dataKey: "name", label: "Name", required: true, errorMessage: "Please enter your name" },
+          props: {
+            dataKey: "name",
+            label: "Name",
+            required: true,
+            errorMessage: "Please enter your name",
+          },
         },
-      ])
+      ]),
     );
     const result = schema.safeParse({ name: "" });
     expect(result.success).toBe(false);
     if (!result.success) {
-      expect(result.error.flatten().fieldErrors.name).toContain("Please enter your name");
+      expect(result.error.flatten().fieldErrors.name).toContain(
+        "Please enter your name",
+      );
     }
   });
 });
-
-// ---------------------------------------------------------------------------
-// dropdown / radio
-// ---------------------------------------------------------------------------
 
 describe("dropdown", () => {
   it("passes a selected option when required", () => {
@@ -67,9 +78,14 @@ describe("dropdown", () => {
         {
           componentFamily: "response",
           template: "dropdown",
-          props: { dataKey: "color", label: "Color", options: [{ label: "Red", value: "red" }], required: true },
+          props: {
+            dataKey: "color",
+            label: "Color",
+            options: [{ label: "Red", value: "red" }],
+            required: true,
+          },
         },
-      ])
+      ]),
     );
     expect(schema.safeParse({ color: "red" }).success).toBe(true);
   });
@@ -80,9 +96,14 @@ describe("dropdown", () => {
         {
           componentFamily: "response",
           template: "dropdown",
-          props: { dataKey: "color", label: "Color", options: [], required: true },
+          props: {
+            dataKey: "color",
+            label: "Color",
+            options: [],
+            required: true,
+          },
         },
-      ])
+      ]),
     );
     expect(schema.safeParse({ color: "" }).success).toBe(false);
   });
@@ -95,17 +116,18 @@ describe("radio", () => {
         {
           componentFamily: "response",
           template: "radio",
-          props: { dataKey: "choice", label: "Pick", options: [], required: false },
+          props: {
+            dataKey: "choice",
+            label: "Pick",
+            options: [],
+            required: false,
+          },
         },
-      ])
+      ]),
     );
     expect(schema.safeParse({ choice: "" }).success).toBe(true);
   });
 });
-
-// ---------------------------------------------------------------------------
-// checkboxes
-// ---------------------------------------------------------------------------
 
 describe("checkboxes", () => {
   it("passes when at least one selected and required", () => {
@@ -114,9 +136,14 @@ describe("checkboxes", () => {
         {
           componentFamily: "response",
           template: "checkboxes",
-          props: { dataKey: "hobbies", label: "Hobbies", options: [], required: true },
+          props: {
+            dataKey: "hobbies",
+            label: "Hobbies",
+            options: [],
+            required: true,
+          },
         },
-      ])
+      ]),
     );
     expect(schema.safeParse({ hobbies: ["reading"] }).success).toBe(true);
   });
@@ -127,9 +154,14 @@ describe("checkboxes", () => {
         {
           componentFamily: "response",
           template: "checkboxes",
-          props: { dataKey: "hobbies", label: "Hobbies", options: [], required: true },
+          props: {
+            dataKey: "hobbies",
+            label: "Hobbies",
+            options: [],
+            required: true,
+          },
         },
-      ])
+      ]),
     );
     expect(schema.safeParse({ hobbies: [] }).success).toBe(false);
   });
@@ -142,7 +174,7 @@ describe("checkboxes", () => {
           template: "checkboxes",
           props: { dataKey: "hobbies", label: "Hobbies", options: [], min: 2 },
         },
-      ])
+      ]),
     );
     expect(schema.safeParse({ hobbies: ["a"] }).success).toBe(false);
     expect(schema.safeParse({ hobbies: ["a", "b"] }).success).toBe(true);
@@ -156,16 +188,12 @@ describe("checkboxes", () => {
           template: "checkboxes",
           props: { dataKey: "hobbies", label: "Hobbies", options: [], max: 2 },
         },
-      ])
+      ]),
     );
     expect(schema.safeParse({ hobbies: ["a", "b", "c"] }).success).toBe(false);
     expect(schema.safeParse({ hobbies: ["a", "b"] }).success).toBe(true);
   });
 });
-
-// ---------------------------------------------------------------------------
-// likert-scale
-// ---------------------------------------------------------------------------
 
 const likertOptions = [
   { label: "Strongly disagree", value: "1" },
@@ -179,8 +207,17 @@ describe("likert-scale", () => {
   it("passes when an option is selected and required", () => {
     const schema = buildSchema(
       screen([
-        { componentFamily: "response", template: "likert-scale", props: { dataKey: "score", label: "Rate", options: likertOptions, required: true } },
-      ])
+        {
+          componentFamily: "response",
+          template: "likert-scale",
+          props: {
+            dataKey: "score",
+            label: "Rate",
+            options: likertOptions,
+            required: true,
+          },
+        },
+      ]),
     );
     expect(schema.safeParse({ score: "3" }).success).toBe(true);
   });
@@ -188,8 +225,17 @@ describe("likert-scale", () => {
   it("fails when empty and required", () => {
     const schema = buildSchema(
       screen([
-        { componentFamily: "response", template: "likert-scale", props: { dataKey: "score", label: "Rate", options: likertOptions, required: true } },
-      ])
+        {
+          componentFamily: "response",
+          template: "likert-scale",
+          props: {
+            dataKey: "score",
+            label: "Rate",
+            options: likertOptions,
+            required: true,
+          },
+        },
+      ]),
     );
     expect(schema.safeParse({ score: "" }).success).toBe(false);
   });
@@ -197,23 +243,32 @@ describe("likert-scale", () => {
   it("passes when empty and not required", () => {
     const schema = buildSchema(
       screen([
-        { componentFamily: "response", template: "likert-scale", props: { dataKey: "score", label: "Rate", options: likertOptions, required: false } },
-      ])
+        {
+          componentFamily: "response",
+          template: "likert-scale",
+          props: {
+            dataKey: "score",
+            label: "Rate",
+            options: likertOptions,
+            required: false,
+          },
+        },
+      ]),
     );
     expect(schema.safeParse({}).success).toBe(true);
   });
 });
 
-// ---------------------------------------------------------------------------
-// slider
-// ---------------------------------------------------------------------------
-
 describe("slider", () => {
   it("passes a value within range", () => {
     const schema = buildSchema(
       screen([
-        { componentFamily: "response", template: "slider", props: { dataKey: "vol", label: "Volume", min: 0, max: 100 } },
-      ])
+        {
+          componentFamily: "response",
+          template: "slider",
+          props: { dataKey: "vol", label: "Volume", min: 0, max: 100 },
+        },
+      ]),
     );
     expect(schema.safeParse({ vol: 50 }).success).toBe(true);
   });
@@ -221,8 +276,12 @@ describe("slider", () => {
   it("fails a value above max", () => {
     const schema = buildSchema(
       screen([
-        { componentFamily: "response", template: "slider", props: { dataKey: "vol", label: "Volume", min: 0, max: 100 } },
-      ])
+        {
+          componentFamily: "response",
+          template: "slider",
+          props: { dataKey: "vol", label: "Volume", min: 0, max: 100 },
+        },
+      ]),
     );
     expect(schema.safeParse({ vol: 101 }).success).toBe(false);
   });
@@ -230,8 +289,12 @@ describe("slider", () => {
   it("fails a value below min", () => {
     const schema = buildSchema(
       screen([
-        { componentFamily: "response", template: "slider", props: { dataKey: "vol", label: "Volume", min: 0, max: 100 } },
-      ])
+        {
+          componentFamily: "response",
+          template: "slider",
+          props: { dataKey: "vol", label: "Volume", min: 0, max: 100 },
+        },
+      ]),
     );
     expect(schema.safeParse({ vol: -1 }).success).toBe(false);
   });
@@ -239,8 +302,12 @@ describe("slider", () => {
   it("passes value exactly at min boundary", () => {
     const schema = buildSchema(
       screen([
-        { componentFamily: "response", template: "slider", props: { dataKey: "vol", label: "Volume", min: 0, max: 100 } },
-      ])
+        {
+          componentFamily: "response",
+          template: "slider",
+          props: { dataKey: "vol", label: "Volume", min: 0, max: 100 },
+        },
+      ]),
     );
     expect(schema.safeParse({ vol: 0 }).success).toBe(true);
   });
@@ -248,8 +315,12 @@ describe("slider", () => {
   it("passes value exactly at max boundary", () => {
     const schema = buildSchema(
       screen([
-        { componentFamily: "response", template: "slider", props: { dataKey: "vol", label: "Volume", min: 0, max: 100 } },
-      ])
+        {
+          componentFamily: "response",
+          template: "slider",
+          props: { dataKey: "vol", label: "Volume", min: 0, max: 100 },
+        },
+      ]),
     );
     expect(schema.safeParse({ vol: 100 }).success).toBe(true);
   });
@@ -257,8 +328,12 @@ describe("slider", () => {
   it("coerces string to number", () => {
     const schema = buildSchema(
       screen([
-        { componentFamily: "response", template: "slider", props: { dataKey: "vol", label: "Volume", min: 0, max: 100 } },
-      ])
+        {
+          componentFamily: "response",
+          template: "slider",
+          props: { dataKey: "vol", label: "Volume", min: 0, max: 100 },
+        },
+      ]),
     );
     expect(schema.safeParse({ vol: "75" }).success).toBe(true);
   });
@@ -266,8 +341,12 @@ describe("slider", () => {
   it("fails when required is true and value is absent", () => {
     const schema = buildSchema(
       screen([
-        { componentFamily: "response", template: "slider", props: { dataKey: "vol", label: "Volume", required: true } },
-      ])
+        {
+          componentFamily: "response",
+          template: "slider",
+          props: { dataKey: "vol", label: "Volume", required: true },
+        },
+      ]),
     );
     expect(schema.safeParse({}).success).toBe(false);
   });
@@ -275,8 +354,12 @@ describe("slider", () => {
   it("passes when required is true and a value is provided", () => {
     const schema = buildSchema(
       screen([
-        { componentFamily: "response", template: "slider", props: { dataKey: "vol", label: "Volume", required: true } },
-      ])
+        {
+          componentFamily: "response",
+          template: "slider",
+          props: { dataKey: "vol", label: "Volume", required: true },
+        },
+      ]),
     );
     expect(schema.safeParse({ vol: 50 }).success).toBe(true);
   });
@@ -284,8 +367,12 @@ describe("slider", () => {
   it("passes when required is true and value is 0", () => {
     const schema = buildSchema(
       screen([
-        { componentFamily: "response", template: "slider", props: { dataKey: "vol", label: "Volume", required: true } },
-      ])
+        {
+          componentFamily: "response",
+          template: "slider",
+          props: { dataKey: "vol", label: "Volume", required: true },
+        },
+      ]),
     );
     expect(schema.safeParse({ vol: 0 }).success).toBe(true);
   });
@@ -293,8 +380,12 @@ describe("slider", () => {
   it("fails when required is true and form value is null (slider not touched)", () => {
     const schema = buildSchema(
       screen([
-        { componentFamily: "response", template: "slider", props: { dataKey: "vol", label: "Volume", required: true } },
-      ])
+        {
+          componentFamily: "response",
+          template: "slider",
+          props: { dataKey: "vol", label: "Volume", required: true },
+        },
+      ]),
     );
     expect(schema.safeParse({ vol: null }).success).toBe(false);
   });
@@ -305,22 +396,33 @@ describe("slider", () => {
         {
           componentFamily: "response",
           template: "slider",
-          props: { dataKey: "vol", label: "Volume", required: true, errorMessage: "Please move the slider" },
+          props: {
+            dataKey: "vol",
+            label: "Volume",
+            required: true,
+            errorMessage: "Please move the slider",
+          },
         },
-      ])
+      ]),
     );
     const result = schema.safeParse({});
     expect(result.success).toBe(false);
     if (!result.success) {
-      expect(result.error.flatten().fieldErrors.vol).toContain("Please move the slider");
+      expect(result.error.flatten().fieldErrors.vol).toContain(
+        "Please move the slider",
+      );
     }
   });
 
   it("accepts null when required is false (slider not touched)", () => {
     const schema = buildSchema(
       screen([
-        { componentFamily: "response", template: "slider", props: { dataKey: "vol", label: "Volume", required: false } },
-      ])
+        {
+          componentFamily: "response",
+          template: "slider",
+          props: { dataKey: "vol", label: "Volume", required: false },
+        },
+      ]),
     );
     expect(schema.safeParse({ vol: null }).success).toBe(true);
   });
@@ -331,9 +433,15 @@ describe("slider", () => {
         {
           componentFamily: "response",
           template: "slider",
-          props: { dataKey: "vol", label: "Volume", min: 0, max: 100, minValue: { value: 20 } },
+          props: {
+            dataKey: "vol",
+            label: "Volume",
+            min: 0,
+            max: 100,
+            minValue: { value: 20 },
+          },
         },
-      ])
+      ]),
     );
     expect(schema.safeParse({ vol: 10 }).success).toBe(false);
     expect(schema.safeParse({ vol: 20 }).success).toBe(true);
@@ -345,18 +453,20 @@ describe("slider", () => {
         {
           componentFamily: "response",
           template: "slider",
-          props: { dataKey: "vol", label: "Volume", min: 0, max: 100, maxValue: { value: 80 } },
+          props: {
+            dataKey: "vol",
+            label: "Volume",
+            min: 0,
+            max: 100,
+            maxValue: { value: 80 },
+          },
         },
-      ])
+      ]),
     );
     expect(schema.safeParse({ vol: 81 }).success).toBe(false);
     expect(schema.safeParse({ vol: 80 }).success).toBe(true);
   });
 });
-
-// ---------------------------------------------------------------------------
-// single-checkbox
-// ---------------------------------------------------------------------------
 
 describe("single-checkbox", () => {
   it("passes true when required", () => {
@@ -365,9 +475,14 @@ describe("single-checkbox", () => {
         {
           componentFamily: "response",
           template: "single-checkbox",
-          props: { dataKey: "agree", label: "Agree", defaultValue: false, required: true },
+          props: {
+            dataKey: "agree",
+            label: "Agree",
+            defaultValue: false,
+            required: true,
+          },
         },
-      ])
+      ]),
     );
     expect(schema.safeParse({ agree: true }).success).toBe(true);
   });
@@ -378,9 +493,14 @@ describe("single-checkbox", () => {
         {
           componentFamily: "response",
           template: "single-checkbox",
-          props: { dataKey: "agree", label: "Agree", defaultValue: false, required: true },
+          props: {
+            dataKey: "agree",
+            label: "Agree",
+            defaultValue: false,
+            required: true,
+          },
         },
-      ])
+      ]),
     );
     expect(schema.safeParse({ agree: false }).success).toBe(false);
   });
@@ -391,9 +511,14 @@ describe("single-checkbox", () => {
         {
           componentFamily: "response",
           template: "single-checkbox",
-          props: { dataKey: "agree", label: "Agree", defaultValue: false, required: false },
+          props: {
+            dataKey: "agree",
+            label: "Agree",
+            defaultValue: false,
+            required: false,
+          },
         },
-      ])
+      ]),
     );
     expect(schema.safeParse({ agree: false }).success).toBe(true);
   });
@@ -404,9 +529,14 @@ describe("single-checkbox", () => {
         {
           componentFamily: "response",
           template: "single-checkbox",
-          props: { dataKey: "tos", label: "Accept", defaultValue: false, shouldBe: true },
+          props: {
+            dataKey: "tos",
+            label: "Accept",
+            defaultValue: false,
+            shouldBe: true,
+          },
         },
-      ])
+      ]),
     );
     expect(schema.safeParse({ tos: false }).success).toBe(false);
     expect(schema.safeParse({ tos: true }).success).toBe(true);
@@ -418,27 +548,45 @@ describe("single-checkbox", () => {
         {
           componentFamily: "response",
           template: "single-checkbox",
-          props: { dataKey: "opt-out", label: "Opt out", defaultValue: true, shouldBe: false },
+          props: {
+            dataKey: "opt-out",
+            label: "Opt out",
+            defaultValue: true,
+            shouldBe: false,
+          },
         },
-      ])
+      ]),
     );
     expect(schema.safeParse({ "opt-out": true }).success).toBe(false);
     expect(schema.safeParse({ "opt-out": false }).success).toBe(true);
   });
 });
 
-// ---------------------------------------------------------------------------
-// multi-field screen
-// ---------------------------------------------------------------------------
-
 describe("multi-field screen", () => {
   it("validates all fields together", () => {
     const schema = buildSchema(
       screen([
-        { componentFamily: "response", template: "text-input", props: { dataKey: "name", label: "Name", required: true } },
-        { componentFamily: "response", template: "likert-scale", props: { dataKey: "score", label: "Rate", options: likertOptions, required: true } },
-        { componentFamily: "layout", template: "button", props: { text: "Next" } },
-      ])
+        {
+          componentFamily: "response",
+          template: "text-input",
+          props: { dataKey: "name", label: "Name", required: true },
+        },
+        {
+          componentFamily: "response",
+          template: "likert-scale",
+          props: {
+            dataKey: "score",
+            label: "Rate",
+            options: likertOptions,
+            required: true,
+          },
+        },
+        {
+          componentFamily: "layout",
+          template: "button",
+          props: { text: "Next" },
+        },
+      ]),
     );
     expect(schema.safeParse({ name: "Alice", score: "3" }).success).toBe(true);
     expect(schema.safeParse({ name: "", score: "3" }).success).toBe(false);
@@ -447,18 +595,22 @@ describe("multi-field screen", () => {
   it("ignores non-response components", () => {
     const schema = buildSchema(
       screen([
-        { componentFamily: "content", template: "rich-text", props: { content: "## Hello" } },
-        { componentFamily: "layout", template: "button", props: { text: "Go" } },
-      ])
+        {
+          componentFamily: "content",
+          template: "rich-text",
+          props: { content: "## Hello" },
+        },
+        {
+          componentFamily: "layout",
+          template: "button",
+          props: { text: "Go" },
+        },
+      ]),
     );
     // No fields — any object passes
     expect(schema.safeParse({}).success).toBe(true);
   });
 });
-
-// ---------------------------------------------------------------------------
-// text-input — advanced constraints
-// ---------------------------------------------------------------------------
 
 describe("text-input advanced constraints", () => {
   it("enforces minLength", () => {
@@ -469,7 +621,7 @@ describe("text-input advanced constraints", () => {
           template: "text-input",
           props: { dataKey: "bio", label: "Bio", minLength: { value: 10 } },
         },
-      ])
+      ]),
     );
     expect(schema.safeParse({ bio: "short" }).success).toBe(false);
     expect(schema.safeParse({ bio: "long enough bio" }).success).toBe(true);
@@ -483,7 +635,7 @@ describe("text-input advanced constraints", () => {
           template: "text-input",
           props: { dataKey: "code", label: "Code", maxLength: { value: 5 } },
         },
-      ])
+      ]),
     );
     expect(schema.safeParse({ code: "toolong" }).success).toBe(false);
     expect(schema.safeParse({ code: "ok" }).success).toBe(true);
@@ -495,9 +647,13 @@ describe("text-input advanced constraints", () => {
         {
           componentFamily: "response",
           template: "text-input",
-          props: { dataKey: "zip", label: "ZIP", pattern: { value: "^\\d{5}$" } },
+          props: {
+            dataKey: "zip",
+            label: "ZIP",
+            pattern: { value: "^\\d{5}$" },
+          },
         },
-      ])
+      ]),
     );
     expect(schema.safeParse({ zip: "abc" }).success).toBe(false);
     expect(schema.safeParse({ zip: "12345" }).success).toBe(true);
@@ -515,7 +671,7 @@ describe("text-input advanced constraints", () => {
             minLength: { value: 10, errorMessage: "Too short" },
           },
         },
-      ])
+      ]),
     );
     const result = schema.safeParse({ bio: "hi" });
     expect(result.success).toBe(false);
@@ -525,16 +681,16 @@ describe("text-input advanced constraints", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// date-input / time-input
-// ---------------------------------------------------------------------------
-
 describe("date-input", () => {
   it("fails empty string when required", () => {
     const schema = buildSchema(
       screen([
-        { componentFamily: "response", template: "date-input", props: { dataKey: "dob", label: "DOB", required: true } },
-      ])
+        {
+          componentFamily: "response",
+          template: "date-input",
+          props: { dataKey: "dob", label: "DOB", required: true },
+        },
+      ]),
     );
     expect(schema.safeParse({ dob: "" }).success).toBe(false);
   });
@@ -542,8 +698,12 @@ describe("date-input", () => {
   it("passes a non-empty string when required", () => {
     const schema = buildSchema(
       screen([
-        { componentFamily: "response", template: "date-input", props: { dataKey: "dob", label: "DOB", required: true } },
-      ])
+        {
+          componentFamily: "response",
+          template: "date-input",
+          props: { dataKey: "dob", label: "DOB", required: true },
+        },
+      ]),
     );
     expect(schema.safeParse({ dob: "2024-01-15" }).success).toBe(true);
   });
@@ -551,8 +711,12 @@ describe("date-input", () => {
   it("passes empty when not required", () => {
     const schema = buildSchema(
       screen([
-        { componentFamily: "response", template: "date-input", props: { dataKey: "dob", label: "DOB", required: false } },
-      ])
+        {
+          componentFamily: "response",
+          template: "date-input",
+          props: { dataKey: "dob", label: "DOB", required: false },
+        },
+      ]),
     );
     expect(schema.safeParse({}).success).toBe(true);
   });
@@ -562,8 +726,12 @@ describe("time-input", () => {
   it("fails empty string when required", () => {
     const schema = buildSchema(
       screen([
-        { componentFamily: "response", template: "time-input", props: { dataKey: "alarm", label: "Alarm", required: true } },
-      ])
+        {
+          componentFamily: "response",
+          template: "time-input",
+          props: { dataKey: "alarm", label: "Alarm", required: true },
+        },
+      ]),
     );
     expect(schema.safeParse({ alarm: "" }).success).toBe(false);
   });
@@ -571,23 +739,27 @@ describe("time-input", () => {
   it("passes a non-empty string when required", () => {
     const schema = buildSchema(
       screen([
-        { componentFamily: "response", template: "time-input", props: { dataKey: "alarm", label: "Alarm", required: true } },
-      ])
+        {
+          componentFamily: "response",
+          template: "time-input",
+          props: { dataKey: "alarm", label: "Alarm", required: true },
+        },
+      ]),
     );
     expect(schema.safeParse({ alarm: "08:30" }).success).toBe(true);
   });
 });
 
-// ---------------------------------------------------------------------------
-// numeric-input
-// ---------------------------------------------------------------------------
-
 describe("numeric-input", () => {
   it("passes a number within range", () => {
     const schema = buildSchema(
       screen([
-        { componentFamily: "response", template: "numeric-input", props: { dataKey: "age", label: "Age", min: 0, max: 120 } },
-      ])
+        {
+          componentFamily: "response",
+          template: "numeric-input",
+          props: { dataKey: "age", label: "Age", min: 0, max: 120 },
+        },
+      ]),
     );
     expect(schema.safeParse({ age: 30 }).success).toBe(true);
   });
@@ -595,8 +767,12 @@ describe("numeric-input", () => {
   it("fails below min", () => {
     const schema = buildSchema(
       screen([
-        { componentFamily: "response", template: "numeric-input", props: { dataKey: "age", label: "Age", min: 0, max: 120 } },
-      ])
+        {
+          componentFamily: "response",
+          template: "numeric-input",
+          props: { dataKey: "age", label: "Age", min: 0, max: 120 },
+        },
+      ]),
     );
     expect(schema.safeParse({ age: -1 }).success).toBe(false);
   });
@@ -604,8 +780,12 @@ describe("numeric-input", () => {
   it("fails above max", () => {
     const schema = buildSchema(
       screen([
-        { componentFamily: "response", template: "numeric-input", props: { dataKey: "age", label: "Age", min: 0, max: 120 } },
-      ])
+        {
+          componentFamily: "response",
+          template: "numeric-input",
+          props: { dataKey: "age", label: "Age", min: 0, max: 120 },
+        },
+      ]),
     );
     expect(schema.safeParse({ age: 121 }).success).toBe(false);
   });
@@ -613,8 +793,12 @@ describe("numeric-input", () => {
   it("coerces string to number", () => {
     const schema = buildSchema(
       screen([
-        { componentFamily: "response", template: "numeric-input", props: { dataKey: "age", label: "Age", min: 0, max: 120 } },
-      ])
+        {
+          componentFamily: "response",
+          template: "numeric-input",
+          props: { dataKey: "age", label: "Age", min: 0, max: 120 },
+        },
+      ]),
     );
     expect(schema.safeParse({ age: "42" }).success).toBe(true);
   });
@@ -622,16 +806,16 @@ describe("numeric-input", () => {
   it("passes when optional and absent", () => {
     const schema = buildSchema(
       screen([
-        { componentFamily: "response", template: "numeric-input", props: { dataKey: "age", label: "Age", required: false } },
-      ])
+        {
+          componentFamily: "response",
+          template: "numeric-input",
+          props: { dataKey: "age", label: "Age", required: false },
+        },
+      ]),
     );
     expect(schema.safeParse({}).success).toBe(true);
   });
 });
-
-// ---------------------------------------------------------------------------
-// nested components — group
-// ---------------------------------------------------------------------------
 
 describe("group — nested fields included in schema", () => {
   it("includes a required text-input nested inside a group", () => {
@@ -643,11 +827,19 @@ describe("group — nested fields included in schema", () => {
           props: {
             name: "personal",
             components: [
-              { componentFamily: "response", template: "text-input", props: { dataKey: "fname", label: "First name", required: true } },
+              {
+                componentFamily: "response",
+                template: "text-input",
+                props: {
+                  dataKey: "fname",
+                  label: "First name",
+                  required: true,
+                },
+              },
             ],
           },
         },
-      ])
+      ]),
     );
     expect(schema.safeParse({ fname: "Alice" }).success).toBe(true);
     expect(schema.safeParse({ fname: "" }).success).toBe(false);
@@ -662,32 +854,50 @@ describe("group — nested fields included in schema", () => {
           props: {
             name: "survey",
             components: [
-              { componentFamily: "response", template: "text-input", props: { dataKey: "q1", label: "Q1", required: true } },
-              { componentFamily: "response", template: "text-input", props: { dataKey: "q2", label: "Q2", required: true } },
+              {
+                componentFamily: "response",
+                template: "text-input",
+                props: { dataKey: "q1", label: "Q1", required: true },
+              },
+              {
+                componentFamily: "response",
+                template: "text-input",
+                props: { dataKey: "q2", label: "Q2", required: true },
+              },
             ],
           },
         },
-      ])
+      ]),
     );
     expect(schema.safeParse({ q1: "a", q2: "b" }).success).toBe(true);
     expect(schema.safeParse({ q1: "", q2: "b" }).success).toBe(false);
   });
 });
 
-// ---------------------------------------------------------------------------
-// nested components — conditional
-// ---------------------------------------------------------------------------
-
 describe("conditional — nested field included as optional in base schema", () => {
   it("conditional field is optional in the base schema (missing value passes)", () => {
     const schema = buildSchema(
       screen([
-        { componentFamily: "response", template: "radio", props: { dataKey: "answer", label: "Answer", options: [], required: true } },
+        {
+          componentFamily: "response",
+          template: "radio",
+          props: {
+            dataKey: "answer",
+            label: "Answer",
+            options: [],
+            required: true,
+          },
+        },
         {
           componentFamily: "control",
           template: "conditional",
           props: {
-            if: { type: "simple", operator: "eq", dataKey: "$answer", value: "yes" },
+            if: {
+              type: "simple",
+              operator: "eq",
+              dataKey: "$answer",
+              value: "yes",
+            },
             component: {
               componentFamily: "response",
               template: "text-input",
@@ -695,7 +905,7 @@ describe("conditional — nested field included as optional in base schema", () 
             },
           },
         },
-      ])
+      ]),
     );
     // The conditional field is absent — base schema is optional, so it passes
     expect(schema.safeParse({ answer: "no" }).success).toBe(true);
@@ -704,12 +914,26 @@ describe("conditional — nested field included as optional in base schema", () 
   it("superRefine enforces required on conditional field when condition is true", () => {
     const schema = buildSchema(
       screen([
-        { componentFamily: "response", template: "radio", props: { dataKey: "answer", label: "Answer", options: [], required: true } },
+        {
+          componentFamily: "response",
+          template: "radio",
+          props: {
+            dataKey: "answer",
+            label: "Answer",
+            options: [],
+            required: true,
+          },
+        },
         {
           componentFamily: "control",
           template: "conditional",
           props: {
-            if: { type: "simple", operator: "eq", dataKey: "$answer", value: "yes" },
+            if: {
+              type: "simple",
+              operator: "eq",
+              dataKey: "$answer",
+              value: "yes",
+            },
             component: {
               componentFamily: "response",
               template: "text-input",
@@ -717,21 +941,37 @@ describe("conditional — nested field included as optional in base schema", () 
             },
           },
         },
-      ])
+      ]),
     );
     // condition is true, details is empty — should fail
-    expect(schema.safeParse({ answer: "yes", details: "" }).success).toBe(false);
+    expect(schema.safeParse({ answer: "yes", details: "" }).success).toBe(
+      false,
+    );
   });
 
   it("superRefine passes when condition is true and required conditional field is filled", () => {
     const schema = buildSchema(
       screen([
-        { componentFamily: "response", template: "radio", props: { dataKey: "answer", label: "Answer", options: [], required: true } },
+        {
+          componentFamily: "response",
+          template: "radio",
+          props: {
+            dataKey: "answer",
+            label: "Answer",
+            options: [],
+            required: true,
+          },
+        },
         {
           componentFamily: "control",
           template: "conditional",
           props: {
-            if: { type: "simple", operator: "eq", dataKey: "$answer", value: "yes" },
+            if: {
+              type: "simple",
+              operator: "eq",
+              dataKey: "$answer",
+              value: "yes",
+            },
             component: {
               componentFamily: "response",
               template: "text-input",
@@ -739,20 +979,36 @@ describe("conditional — nested field included as optional in base schema", () 
             },
           },
         },
-      ])
+      ]),
     );
-    expect(schema.safeParse({ answer: "yes", details: "some detail" }).success).toBe(true);
+    expect(
+      schema.safeParse({ answer: "yes", details: "some detail" }).success,
+    ).toBe(true);
   });
 
   it("superRefine skips required check when conditional field is not required", () => {
     const schema = buildSchema(
       screen([
-        { componentFamily: "response", template: "radio", props: { dataKey: "answer", label: "Answer", options: [], required: true } },
+        {
+          componentFamily: "response",
+          template: "radio",
+          props: {
+            dataKey: "answer",
+            label: "Answer",
+            options: [],
+            required: true,
+          },
+        },
         {
           componentFamily: "control",
           template: "conditional",
           props: {
-            if: { type: "simple", operator: "eq", dataKey: "$answer", value: "yes" },
+            if: {
+              type: "simple",
+              operator: "eq",
+              dataKey: "$answer",
+              value: "yes",
+            },
             component: {
               componentFamily: "response",
               template: "text-input",
@@ -760,16 +1016,12 @@ describe("conditional — nested field included as optional in base schema", () 
             },
           },
         },
-      ])
+      ]),
     );
     // condition true but not required — should pass even when empty
     expect(schema.safeParse({ answer: "yes", details: "" }).success).toBe(true);
   });
 });
-
-// ---------------------------------------------------------------------------
-// nested components — static for-each
-// ---------------------------------------------------------------------------
 
 describe("static for-each — generates N schema entries", () => {
   it("creates one entry per static value with @index resolved", () => {
@@ -785,14 +1037,22 @@ describe("static for-each — generates N schema entries", () => {
             component: {
               componentFamily: "response",
               template: "text-input",
-              props: { dataKey: "sport_@index", label: "Sport", required: true },
+              props: {
+                dataKey: "sport_@index",
+                label: "Sport",
+                required: true,
+              },
             },
           },
         },
-      ])
+      ]),
     );
-    expect(schema.safeParse({ sport_0: "a", sport_1: "b", sport_2: "c" }).success).toBe(true);
-    expect(schema.safeParse({ sport_0: "", sport_1: "b", sport_2: "c" }).success).toBe(false);
+    expect(
+      schema.safeParse({ sport_0: "a", sport_1: "b", sport_2: "c" }).success,
+    ).toBe(true);
+    expect(
+      schema.safeParse({ sport_0: "", sport_1: "b", sport_2: "c" }).success,
+    ).toBe(false);
   });
 
   it("generates exactly N keys matching values length", () => {
@@ -812,7 +1072,7 @@ describe("static for-each — generates N schema entries", () => {
             },
           },
         },
-      ])
+      ]),
     );
     // only 2 values → keys item_0 and item_1
     expect(schema.safeParse({ item_0: "x", item_1: "y" }).success).toBe(true);
@@ -820,10 +1080,6 @@ describe("static for-each — generates N schema entries", () => {
     expect(schema.safeParse({ item_0: "", item_1: "y" }).success).toBe(false);
   });
 });
-
-// ---------------------------------------------------------------------------
-// nested components — dynamic for-each (skipped)
-// ---------------------------------------------------------------------------
 
 describe("dynamic for-each — gracefully skipped", () => {
   it("produces no entries for dynamic for-each", () => {
@@ -843,16 +1099,12 @@ describe("dynamic for-each — gracefully skipped", () => {
             },
           },
         },
-      ])
+      ]),
     );
     // No fields registered — empty object passes
     expect(schema.safeParse({}).success).toBe(true);
   });
 });
-
-// ---------------------------------------------------------------------------
-// randomize __order key
-// ---------------------------------------------------------------------------
 
 describe("randomize __order key", () => {
   it("does not strip __order from validated data for randomize:true radio", () => {
@@ -865,7 +1117,10 @@ describe("randomize __order key", () => {
           props: {
             dataKey: "choice",
             label: "Choice",
-            options: [{ label: "A", value: "a" }, { label: "B", value: "b" }],
+            options: [
+              { label: "A", value: "a" },
+              { label: "B", value: "b" },
+            ],
             randomize: true,
           },
         },
@@ -887,7 +1142,10 @@ describe("randomize __order key", () => {
           props: {
             dataKey: "picks",
             label: "Picks",
-            options: [{ label: "A", value: "a" }, { label: "B", value: "b" }],
+            options: [
+              { label: "A", value: "a" },
+              { label: "B", value: "b" },
+            ],
             randomize: true,
           },
         },
@@ -909,14 +1167,20 @@ describe("randomize __order key", () => {
           props: {
             dataKey: "selected",
             label: "Selected",
-            options: [{ label: "A", value: "a" }, { label: "B", value: "b" }],
+            options: [
+              { label: "A", value: "a" },
+              { label: "B", value: "b" },
+            ],
             randomize: true,
           },
         },
       ],
     };
     const schema = buildSchema(screen);
-    const result = schema.safeParse({ selected: "a", selected__order: ["b", "a"] });
+    const result = schema.safeParse({
+      selected: "a",
+      selected__order: ["b", "a"],
+    });
     expect(result.success).toBe(true);
     expect(result.data?.selected__order).toEqual(["b", "a"]);
   });

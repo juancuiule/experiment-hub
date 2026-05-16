@@ -10,6 +10,10 @@ export type ExperimentFlow = {
 };
 
 type IterativeItem = { value: any; index: number };
+type ScreenData = Record<string, any> & {
+  foreachData?: { [foreachId: string]: IterativeItem };
+  shuffledOptions: { [dataKey: string]: Array<Option> };
+};
 
 export type Context = Partial<{
   start: { group: string };
@@ -19,10 +23,7 @@ export type Context = Partial<{
   // RenderComponent merges live form values (form.watch()) into this key at render time
   // so that $ prefix references ({{$fieldName}}) resolve correctly inside components
   // without requiring a separate key in resolveValuesInString / getValue / conditions.
-  screenData: Record<string, any> & {
-    foreachData?: { [foreachId: string]: IterativeItem };
-    shuffledOptions: { [dataKey: string]: Array<Option> };
-  };
+  screenData: ScreenData;
   branches: Record<string, string>;
   forks: Record<string, string>;
   paths: { [pathNodeId: string]: { order: string[] } };

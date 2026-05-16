@@ -3,10 +3,6 @@ import { startExperiment, traverse } from "@/lib/flow";
 import { ExperimentFlow } from "@/lib/types";
 import { makeScreen, seq } from "../test-helpers";
 
-// ---------------------------------------------------------------------------
-// Screen traversal
-// ---------------------------------------------------------------------------
-
 describe("screen traversal", () => {
   const flow: ExperimentFlow = {
     nodes: [
@@ -42,10 +38,6 @@ describe("screen traversal", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// Checkpoint
-// ---------------------------------------------------------------------------
-
 describe("checkpoint", () => {
   const flow: ExperimentFlow = {
     nodes: [
@@ -74,10 +66,6 @@ describe("checkpoint", () => {
     expect(new Date(ts!).getTime()).toBeLessThanOrEqual(after);
   });
 });
-
-// ---------------------------------------------------------------------------
-// Checkpoint at the end of the flow (no sequential edge out)
-// ---------------------------------------------------------------------------
 
 describe("checkpoint at end of flow", () => {
   it("transitions to end state and records the timestamp", async () => {

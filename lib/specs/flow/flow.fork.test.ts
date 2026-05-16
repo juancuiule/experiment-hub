@@ -3,10 +3,6 @@ import { startExperiment, traverse } from "@/lib/flow";
 import { ExperimentFlow } from "@/lib/types";
 import { makeScreen, seq } from "../test-helpers";
 
-// ---------------------------------------------------------------------------
-// Fork
-// ---------------------------------------------------------------------------
-
 describe("fork", () => {
   afterEach(() => vi.restoreAllMocks());
 

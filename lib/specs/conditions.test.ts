@@ -2,10 +2,6 @@ import { describe, expect, it } from "vitest";
 import { evaluateCondition } from "../conditions";
 import { getValue } from "../resolve";
 
-// ---------------------------------------------------------------------------
-// getValue
-// ---------------------------------------------------------------------------
-
 describe("getValue", () => {
   it("resolves a top-level key", async () => {
     const ctx = { data: { profile: { age: 30 } } };
@@ -31,7 +27,9 @@ describe("getValue", () => {
   });
 
   it("resolves fields from currentItem using @ prefix", async () => {
-    const ctx = { loopData: { "loop-sports": { value: "football", index: 0 } } };
+    const ctx = {
+      loopData: { "loop-sports": { value: "football", index: 0 } },
+    };
     expect(getValue("@loop-sports.value", ctx)).toBe("football");
     expect(getValue("@loop-sports.index", ctx)).toBe(0);
   });
@@ -50,10 +48,6 @@ describe("getValue", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// evaluateCondition — simple conditions
-// ---------------------------------------------------------------------------
-
 describe("evaluateCondition — simple", () => {
   const ctx = {
     data: {
@@ -66,7 +60,12 @@ describe("evaluateCondition — simple", () => {
   it("eq — matches equal value", async () => {
     expect(
       evaluateCondition(
-        { type: "simple", operator: "eq", dataKey: "$$profile.name", value: "alice" },
+        {
+          type: "simple",
+          operator: "eq",
+          dataKey: "$$profile.name",
+          value: "alice",
+        },
         ctx,
       ),
     ).toBe(true);
@@ -75,7 +74,12 @@ describe("evaluateCondition — simple", () => {
   it("eq — does not match different value", async () => {
     expect(
       evaluateCondition(
-        { type: "simple", operator: "eq", dataKey: "$$profile.name", value: "bob" },
+        {
+          type: "simple",
+          operator: "eq",
+          dataKey: "$$profile.name",
+          value: "bob",
+        },
         ctx,
       ),
     ).toBe(false);
@@ -84,7 +88,12 @@ describe("evaluateCondition — simple", () => {
   it("neq — matches when values differ", async () => {
     expect(
       evaluateCondition(
-        { type: "simple", operator: "neq", dataKey: "$$profile.name", value: "bob" },
+        {
+          type: "simple",
+          operator: "neq",
+          dataKey: "$$profile.name",
+          value: "bob",
+        },
         ctx,
       ),
     ).toBe(true);
@@ -93,7 +102,12 @@ describe("evaluateCondition — simple", () => {
   it("neq — does not match when values are equal", async () => {
     expect(
       evaluateCondition(
-        { type: "simple", operator: "neq", dataKey: "$$profile.name", value: "alice" },
+        {
+          type: "simple",
+          operator: "neq",
+          dataKey: "$$profile.name",
+          value: "alice",
+        },
         ctx,
       ),
     ).toBe(false);
@@ -116,7 +130,12 @@ describe("evaluateCondition — simple", () => {
   it("returns false when value is undefined for a base operator", async () => {
     expect(
       evaluateCondition(
-        { type: "simple", operator: "eq", dataKey: "$$profile.missing", value: "x" },
+        {
+          type: "simple",
+          operator: "eq",
+          dataKey: "$$profile.missing",
+          value: "x",
+        },
         ctx,
       ),
     ).toBe(false);
@@ -125,7 +144,12 @@ describe("evaluateCondition — simple", () => {
   it("contains — true when array includes the value", async () => {
     expect(
       evaluateCondition(
-        { type: "simple", operator: "contains", dataKey: "$$tags.list", value: "sport" },
+        {
+          type: "simple",
+          operator: "contains",
+          dataKey: "$$tags.list",
+          value: "sport",
+        },
         ctx,
       ),
     ).toBe(true);
@@ -134,7 +158,12 @@ describe("evaluateCondition — simple", () => {
   it("contains — false when array does not include the value", async () => {
     expect(
       evaluateCondition(
-        { type: "simple", operator: "contains", dataKey: "$$tags.list", value: "cooking" },
+        {
+          type: "simple",
+          operator: "contains",
+          dataKey: "$$tags.list",
+          value: "cooking",
+        },
         ctx,
       ),
     ).toBe(false);
@@ -143,7 +172,12 @@ describe("evaluateCondition — simple", () => {
   it("contains — false when value is not an array", async () => {
     expect(
       evaluateCondition(
-        { type: "simple", operator: "contains", dataKey: "$$profile.age", value: 25 },
+        {
+          type: "simple",
+          operator: "contains",
+          dataKey: "$$profile.age",
+          value: 25,
+        },
         ctx,
       ),
     ).toBe(false);
@@ -152,7 +186,12 @@ describe("evaluateCondition — simple", () => {
   it("length-gt — true when array length exceeds threshold", async () => {
     expect(
       evaluateCondition(
-        { type: "simple", operator: "length-gt", dataKey: "$$tags.list", value: 1 },
+        {
+          type: "simple",
+          operator: "length-gt",
+          dataKey: "$$tags.list",
+          value: 1,
+        },
         ctx,
       ),
     ).toBe(true);
@@ -161,7 +200,12 @@ describe("evaluateCondition — simple", () => {
   it("length-lte — true when string length is within threshold", async () => {
     expect(
       evaluateCondition(
-        { type: "simple", operator: "length-lte", dataKey: "$$profile.name", value: 5 },
+        {
+          type: "simple",
+          operator: "length-lte",
+          dataKey: "$$profile.name",
+          value: 5,
+        },
         ctx,
       ),
     ).toBe(true); // "alice".length === 5
@@ -170,7 +214,12 @@ describe("evaluateCondition — simple", () => {
   it("length-lt — true when length is below threshold", async () => {
     expect(
       evaluateCondition(
-        { type: "simple", operator: "length-lt", dataKey: "$$tags.list", value: 3 },
+        {
+          type: "simple",
+          operator: "length-lt",
+          dataKey: "$$tags.list",
+          value: 3,
+        },
         ctx,
       ),
     ).toBe(true); // list has 2 items
@@ -179,7 +228,12 @@ describe("evaluateCondition — simple", () => {
   it("length-gte — true when array length equals threshold", async () => {
     expect(
       evaluateCondition(
-        { type: "simple", operator: "length-gte", dataKey: "$$tags.list", value: 2 },
+        {
+          type: "simple",
+          operator: "length-gte",
+          dataKey: "$$tags.list",
+          value: 2,
+        },
         ctx,
       ),
     ).toBe(true);
@@ -188,7 +242,12 @@ describe("evaluateCondition — simple", () => {
   it("length-eq — true when string length exactly matches threshold", async () => {
     expect(
       evaluateCondition(
-        { type: "simple", operator: "length-eq", dataKey: "$$profile.name", value: 5 },
+        {
+          type: "simple",
+          operator: "length-eq",
+          dataKey: "$$profile.name",
+          value: 5,
+        },
         ctx,
       ),
     ).toBe(true); // "alice".length === 5
@@ -197,7 +256,12 @@ describe("evaluateCondition — simple", () => {
   it("length-neq — true when string length does not match threshold", async () => {
     expect(
       evaluateCondition(
-        { type: "simple", operator: "length-neq", dataKey: "$$profile.name", value: 4 },
+        {
+          type: "simple",
+          operator: "length-neq",
+          dataKey: "$$profile.name",
+          value: 4,
+        },
         ctx,
       ),
     ).toBe(true); // "alice".length (5) !== 4
@@ -206,7 +270,12 @@ describe("evaluateCondition — simple", () => {
   it("length-gt on undefined key treats length as 0 and returns false", async () => {
     expect(
       evaluateCondition(
-        { type: "simple", operator: "length-gt", dataKey: "$$profile.missing", value: 0 },
+        {
+          type: "simple",
+          operator: "length-gt",
+          dataKey: "$$profile.missing",
+          value: 0,
+        },
         ctx,
       ),
     ).toBe(false);
@@ -215,7 +284,12 @@ describe("evaluateCondition — simple", () => {
   it("contains — false when key is undefined", async () => {
     expect(
       evaluateCondition(
-        { type: "simple", operator: "contains", dataKey: "$$profile.missing", value: "x" },
+        {
+          type: "simple",
+          operator: "contains",
+          dataKey: "$$profile.missing",
+          value: "x",
+        },
         ctx,
       ),
     ).toBe(false);
@@ -224,16 +298,17 @@ describe("evaluateCondition — simple", () => {
   it("eq — uses loose equality (string '25' equals number 25)", async () => {
     expect(
       evaluateCondition(
-        { type: "simple", operator: "eq", dataKey: "$$profile.age", value: "25" },
+        {
+          type: "simple",
+          operator: "eq",
+          dataKey: "$$profile.age",
+          value: "25",
+        },
         ctx,
       ),
     ).toBe(true); // 25 == "25" via loose equality
   });
 });
-
-// ---------------------------------------------------------------------------
-// evaluateCondition — compound conditions
-// ---------------------------------------------------------------------------
 
 describe("evaluateCondition — and", () => {
   const ctx = {
@@ -249,8 +324,18 @@ describe("evaluateCondition — and", () => {
         {
           type: "and",
           conditions: [
-            { type: "simple", operator: "gte", dataKey: "$$profile.age", value: 18 },
-            { type: "simple", operator: "eq", dataKey: "$$consent.agreed", value: true },
+            {
+              type: "simple",
+              operator: "gte",
+              dataKey: "$$profile.age",
+              value: 18,
+            },
+            {
+              type: "simple",
+              operator: "eq",
+              dataKey: "$$consent.agreed",
+              value: true,
+            },
           ],
         },
         ctx,
@@ -264,8 +349,18 @@ describe("evaluateCondition — and", () => {
         {
           type: "and",
           conditions: [
-            { type: "simple", operator: "gte", dataKey: "$$profile.age", value: 18 },
-            { type: "simple", operator: "eq", dataKey: "$$consent.agreed", value: false },
+            {
+              type: "simple",
+              operator: "gte",
+              dataKey: "$$profile.age",
+              value: 18,
+            },
+            {
+              type: "simple",
+              operator: "eq",
+              dataKey: "$$consent.agreed",
+              value: false,
+            },
           ],
         },
         ctx,
@@ -274,9 +369,7 @@ describe("evaluateCondition — and", () => {
   });
 
   it("returns true for empty conditions (vacuous truth)", () => {
-    expect(
-      evaluateCondition({ type: "and", conditions: [] }, ctx),
-    ).toBe(true);
+    expect(evaluateCondition({ type: "and", conditions: [] }, ctx)).toBe(true);
   });
 
   it("short-circuits on the first false", () => {
@@ -311,7 +404,12 @@ describe("evaluateCondition — or", () => {
         {
           type: "or",
           conditions: [
-            { type: "simple", operator: "eq", dataKey: "$$role", value: "admin" },
+            {
+              type: "simple",
+              operator: "eq",
+              dataKey: "$$role",
+              value: "admin",
+            },
             { type: "simple", operator: "gt", dataKey: "$$score", value: 100 },
           ],
         },
@@ -326,7 +424,12 @@ describe("evaluateCondition — or", () => {
         {
           type: "or",
           conditions: [
-            { type: "simple", operator: "eq", dataKey: "$$role", value: "viewer" },
+            {
+              type: "simple",
+              operator: "eq",
+              dataKey: "$$role",
+              value: "viewer",
+            },
             { type: "simple", operator: "gt", dataKey: "$$score", value: 100 },
           ],
         },
@@ -336,9 +439,7 @@ describe("evaluateCondition — or", () => {
   });
 
   it("returns false for empty conditions", () => {
-    expect(
-      evaluateCondition({ type: "or", conditions: [] }, ctx),
-    ).toBe(false);
+    expect(evaluateCondition({ type: "or", conditions: [] }, ctx)).toBe(false);
   });
 });
 
@@ -350,7 +451,12 @@ describe("evaluateCondition — not", () => {
       evaluateCondition(
         {
           type: "not",
-          condition: { type: "simple", operator: "eq", dataKey: "$$active", value: false },
+          condition: {
+            type: "simple",
+            operator: "eq",
+            dataKey: "$$active",
+            value: false,
+          },
         },
         ctx,
       ),
@@ -362,7 +468,12 @@ describe("evaluateCondition — not", () => {
       evaluateCondition(
         {
           type: "not",
-          condition: { type: "simple", operator: "eq", dataKey: "$$active", value: true },
+          condition: {
+            type: "simple",
+            operator: "eq",
+            dataKey: "$$active",
+            value: true,
+          },
         },
         ctx,
       ),
@@ -388,13 +499,28 @@ describe("evaluateCondition — nested compound", () => {
             {
               type: "and",
               conditions: [
-                { type: "simple", operator: "gte", dataKey: "$$profile.age", value: 18 },
-                { type: "simple", operator: "eq", dataKey: "$$consent.agreed", value: true },
+                {
+                  type: "simple",
+                  operator: "gte",
+                  dataKey: "$$profile.age",
+                  value: 18,
+                },
+                {
+                  type: "simple",
+                  operator: "eq",
+                  dataKey: "$$consent.agreed",
+                  value: true,
+                },
               ],
             },
             {
               type: "not",
-              condition: { type: "simple", operator: "eq", dataKey: "$$flags.banned", value: true },
+              condition: {
+                type: "simple",
+                operator: "eq",
+                dataKey: "$$flags.banned",
+                value: true,
+              },
             },
           ],
         },
@@ -409,10 +535,20 @@ describe("evaluateCondition — nested compound", () => {
         {
           type: "and",
           conditions: [
-            { type: "simple", operator: "gte", dataKey: "$$profile.age", value: 18 },
+            {
+              type: "simple",
+              operator: "gte",
+              dataKey: "$$profile.age",
+              value: 18,
+            },
             {
               type: "not",
-              condition: { type: "simple", operator: "eq", dataKey: "$$consent.agreed", value: true },
+              condition: {
+                type: "simple",
+                operator: "eq",
+                dataKey: "$$consent.agreed",
+                value: true,
+              },
             },
           ],
         },
@@ -430,15 +566,35 @@ describe("evaluateCondition — nested compound", () => {
             {
               type: "and",
               conditions: [
-                { type: "simple", operator: "gte", dataKey: "$$profile.age", value: 18 },
-                { type: "simple", operator: "eq", dataKey: "$$consent.agreed", value: true },
+                {
+                  type: "simple",
+                  operator: "gte",
+                  dataKey: "$$profile.age",
+                  value: 18,
+                },
+                {
+                  type: "simple",
+                  operator: "eq",
+                  dataKey: "$$consent.agreed",
+                  value: true,
+                },
               ],
             },
             {
               type: "and",
               conditions: [
-                { type: "simple", operator: "lt", dataKey: "$$profile.age", value: 18 },
-                { type: "simple", operator: "eq", dataKey: "$$consent.agreed", value: false },
+                {
+                  type: "simple",
+                  operator: "lt",
+                  dataKey: "$$profile.age",
+                  value: 18,
+                },
+                {
+                  type: "simple",
+                  operator: "eq",
+                  dataKey: "$$consent.agreed",
+                  value: false,
+                },
               ],
             },
           ],

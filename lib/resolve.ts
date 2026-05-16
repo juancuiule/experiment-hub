@@ -1,4 +1,3 @@
-// import { getValue } from "./conditions";
 import { Option, OptionsSource } from "./components/response";
 import { Context } from "./types";
 
@@ -43,7 +42,10 @@ export function getPath(text: string, record: Record<string, any>): any {
     .reduce((obj, key) => (obj == null ? undefined : obj[key]), record);
 }
 
-export function resolveOptionsSource(options: OptionsSource, context: Context): Option[] {
+export function resolveOptionsSource(
+  options: OptionsSource,
+  context: Context,
+): Option[] {
   if (Array.isArray(options)) return options;
   const value = getValue(options, context);
   if (!Array.isArray(value)) return [];
@@ -76,7 +78,7 @@ export function resolveInterpolatedImageUrl(
 }
 
 export function getValue(key: string, context: Context) {
-  const { data = {}, screenData = {}, loopData = {} } = context;
+  const { data = {}, screenData, loopData = {} } = context;
 
   const { prefix, path } = getPrefixAndPath(key) || {};
   if (!prefix || !path) {
@@ -85,7 +87,7 @@ export function getValue(key: string, context: Context) {
 
   switch (prefix) {
     case "$": {
-      return getPath(path, screenData);
+      return getPath(path, screenData ?? {});
     }
     case "$$": {
       return getPath(path, data);
@@ -94,7 +96,7 @@ export function getValue(key: string, context: Context) {
       return getPath(path, loopData);
     }
     case "#": {
-      return getPath(path, screenData.foreachData || {});
+      return getPath(path, screenData?.foreachData || {});
     }
   }
 
