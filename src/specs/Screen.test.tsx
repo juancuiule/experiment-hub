@@ -646,3 +646,116 @@ describe("randomize options", () => {
     });
   });
 });
+
+// ---------------------------------------------------------------------------
+// For-each
+// ---------------------------------------------------------------------------
+
+describe("for-each", () => {
+  const components: FrameworkScreen["components"] = [
+    {
+      componentFamily: "response",
+      template: "checkboxes",
+      props: {
+        dataKey: "selected-varieties",
+        label: "Select varieties",
+        options: [
+          { label: "Variety 1", value: "variety-1" },
+          { label: "Variety 2", value: "variety-2" },
+          { label: "Variety 3", value: "variety-3" },
+        ],
+      },
+    },
+    {
+      componentFamily: "control",
+      template: "for-each",
+      props: {
+        id: "for-each-variety",
+        type: "dynamic",
+        dataKey: "$selected-varieties",
+        component: {
+          componentFamily: "layout",
+          template: "group",
+          props: {
+            name: "variety-group-{{#for-each-variety.index}}",
+            components: [
+              {
+                componentFamily: "response",
+                template: "radio",
+                props: {
+                  label: "Recommend {{#for-each-variety.value}}?",
+                  dataKey: "recommend-{{#for-each-variety.value}}",
+                  options: [
+                    { label: "Yes", value: "yes" },
+                    { label: "No", value: "no" },
+                  ],
+                },
+              },
+            ],
+          },
+        },
+      },
+    },
+    { componentFamily: "layout", template: "button", props: { text: "Submit" } },
+  ];
+
+  it("renders a radio group for each selected checkbox item", async () => {
+    renderScreen(components);
+    await userEvent.click(screen.getByLabelText("Variety 1"));
+    await userEvent.click(screen.getByLabelText("Variety 2"));
+    expect(screen.getByText("Recommend variety-1?")).toBeInTheDocument();
+    expect(screen.getByText("Recommend variety-2?")).toBeInTheDocument();
+    expect(screen.queryByText("Recommend variety-3?")).not.toBeInTheDocument();
+  });
+
+  it("removes a radio group when its checkbox is deselected", async () => {
+    renderScreen(components);
+    await userEvent.click(screen.getByLabelText("Variety 1"));
+    await userEvent.click(screen.getByLabelText("Variety 2"));
+    await userEvent.click(screen.getByLabelText("Variety 1"));
+    expect(screen.queryByText("Recommend variety-1?")).not.toBeInTheDocument();
+    expect(screen.getByText("Recommend variety-2?")).toBeInTheDocument();
+  });
+
+  it("collects radio values for each foreach iteration on submit", async () => {
+    const onNext = vi.fn().mockResolvedValue(undefined);
+    renderScreen(components, {}, onNext);
+
+    await userEvent.click(screen.getByLabelText("Variety 1"));
+    await userEvent.click(screen.getByLabelText("Variety 2"));
+
+    const [yesForVariety1, yesForVariety2] = screen.getAllByRole("radio", { name: "Yes" });
+    await userEvent.click(yesForVariety1);
+    await userEvent.click(yesForVariety2);
+
+    await userEvent.click(screen.getByRole("button", { name: "Submit" }));
+
+    expect(onNext).toHaveBeenCalledWith({
+      "selected-varieties": ["variety-1", "variety-2"],
+      "recommend-variety-1": "yes",
+      "recommend-variety-2": "yes",
+    });
+  });
+
+  it("does not submit radio values for deselected checkbox items", async () => {
+    const onNext = vi.fn().mockResolvedValue(undefined);
+    renderScreen(components, {}, onNext);
+
+    await userEvent.click(screen.getByLabelText("Variety 1"));
+    await userEvent.click(screen.getByLabelText("Variety 2"));
+    await userEvent.click(screen.getByLabelText("Variety 1"));
+
+    const [yesForVariety2] = screen.getAllByRole("radio", { name: "Yes" });
+    await userEvent.click(yesForVariety2);
+
+    await userEvent.click(screen.getByRole("button", { name: "Submit" }));
+
+    expect(onNext).toHaveBeenCalledWith({
+      "selected-varieties": ["variety-2"],
+      "recommend-variety-2": "yes",
+    });
+    expect(onNext).not.toHaveBeenCalledWith(
+      expect.objectContaining({ "recommend-variety-1": expect.anything() }),
+    );
+  });
+});

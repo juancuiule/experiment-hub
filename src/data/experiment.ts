@@ -158,6 +158,45 @@ export const experiment: ExperimentFlow = {
           },
         },
         {
+          componentFamily: "control",
+          template: "for-each",
+          props: {
+            id: "for-each-favorite-variety",
+            type: "dynamic",
+            dataKey: "$favorite-varieties",
+            component: {
+              componentFamily: "layout",
+              template: "group",
+              props: {
+                name: "favorite-variety-{{#for-each-favorite-variety.index}}",
+                components: [
+                  {
+                    componentFamily: "content",
+                    template: "rich-text",
+                    props: {
+                      content:
+                        "- You selected **{{#for-each-favorite-variety.value}}** as one of your favorite {{@loop-test.value}} varieties",
+                    },
+                  },
+                  {
+                    componentFamily: "response",
+                    template: "radio",
+                    props: {
+                      label:
+                        "Would you recommend {{#for-each-favorite-variety.value}} to a friend?",
+                      dataKey: "recommend-{{#for-each-favorite-variety.value}}",
+                      options: [
+                        { label: "Yes", value: "yes" },
+                        { label: "No", value: "no" },
+                      ],
+                    },
+                  },
+                ],
+              },
+            },
+          },
+        },
+        {
           componentFamily: "layout",
           template: "button",
           props: {

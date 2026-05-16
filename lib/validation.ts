@@ -232,7 +232,9 @@ function collectConditionals(
 
 export function buildSchema(screen: FrameworkScreen) {
   const shape = collectFields(screen.components);
-  const baseSchema = z.object(shape);
+  // passthrough() preserves keys not in shape (e.g. dynamic for-each fields whose dataKey
+  // is a runtime template). Remove once buildSchema handles dynamic for-each statically.
+  const baseSchema = z.object(shape).passthrough();
 
   const conditionals = collectConditionals(screen.components);
   if (conditionals.length === 0) {

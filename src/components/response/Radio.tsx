@@ -24,6 +24,7 @@ export function Radio({ component, form, context }: Props) {
     <Controller
       control={control}
       name={dataKey}
+      defaultValue=""
       render={({ field }) => (
         <div className="flex flex-col gap-1">
           <Label context={context}>{component.props.label}</Label>
