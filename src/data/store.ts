@@ -1,4 +1,5 @@
 import { getActiveState, startExperiment, traverse } from "@/lib/flow";
+import { hasRandomizedOptions } from "@/lib/components/response";
 import { FlowStep } from "@/lib/types";
 import { shuffle } from "@/lib/utils";
 import { create } from "zustand";
@@ -34,13 +35,7 @@ export function computeShuffledOptions(
   const result: Record<string, Array<{ label: string; value: string }>> = {};
   const inLoop = isInLoop(step.state);
   for (const component of screen.components) {
-    if (
-      component.componentFamily === "response" &&
-      (component.template === "radio" ||
-        component.template === "dropdown" ||
-        component.template === "checkboxes") &&
-      component.props.randomize
-    ) {
+    if (component.componentFamily === "response" && hasRandomizedOptions(component)) {
       if (
         inLoop &&
         component.props.reshuffleInLoop === false &&

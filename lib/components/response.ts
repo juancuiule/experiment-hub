@@ -156,3 +156,24 @@ export type ResponseComponent =
   | CheckboxesComponent
   | NumericInputComponent
   | LikertScaleComponent;
+
+type RandomizableResponseComponent =
+  | DropdownComponent
+  | RadioComponent
+  | CheckboxesComponent;
+
+export function isRandomizableResponseComponent(
+  component: ResponseComponent,
+): component is RandomizableResponseComponent {
+  return (
+    component.template === "radio" ||
+    component.template === "dropdown" ||
+    component.template === "checkboxes"
+  );
+}
+
+export function hasRandomizedOptions(
+  component: ResponseComponent,
+): component is RandomizableResponseComponent {
+  return isRandomizableResponseComponent(component) && component.props.randomize === true;
+}

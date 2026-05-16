@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { FrameworkScreen } from "./screen";
-import { ResponseComponent } from "./components/response";
+import { hasRandomizedOptions, ResponseComponent } from "./components/response";
 import { ScreenComponent } from "./components";
 import { evaluateCondition } from "./conditions";
 import { ConditionalComponent } from "./components/control";
@@ -138,12 +138,7 @@ function collectFields(
   for (const component of components) {
     if (component.componentFamily === "response") {
       acc[component.props.dataKey] = buildFieldSchema(component);
-      if (
-        (component.template === "radio" ||
-          component.template === "dropdown" ||
-          component.template === "checkboxes") &&
-        component.props.randomize
-      ) {
+      if (hasRandomizedOptions(component)) {
         acc[`${component.props.dataKey}__order`] = z.array(z.string()).optional();
       }
     } else if (component.componentFamily === "layout" && component.template === "group") {
