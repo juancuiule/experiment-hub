@@ -107,7 +107,8 @@ function computeShuffledOptions(
   for (const component of screen.components) {
     if (component.componentFamily === "response" && hasRandomizedOptions(component)) {
       const { dataKey } = component.props;
-      if (inLoop && !component.props.reshuffleInLoop && previous[dataKey]) {
+      const reshuffleInLoop = component.props.reshuffleInLoop ?? true;
+      if (inLoop && !reshuffleInLoop && previous[dataKey]) {
         result[dataKey] = previous[dataKey];
       } else {
         result[dataKey] = shuffle(resolveOptionsSource(component.props.options, context));

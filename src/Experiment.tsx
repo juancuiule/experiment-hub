@@ -70,7 +70,7 @@ export default function Experiment(props: Props) {
         )}
         {screen ? (
           <Screen
-            key={screen.slug}
+            key={[screen.slug, ...Object.entries(step.context.loopData ?? {}).map(([id, item]) => `${id}:${item.index}`)].join("|")}
             screen={screen}
             isLoading={isLoading}
             onNext={next}

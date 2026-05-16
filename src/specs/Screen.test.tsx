@@ -535,7 +535,7 @@ describe("randomize options", () => {
     });
   });
 
-  it("resets __order defaults when context shuffledOptions changes on same screen slug", async () => {
+  it("picks up new __order defaults when remounted with different shuffledOptions (loop iteration)", async () => {
     const onNext = vi.fn().mockResolvedValue(undefined);
     const components: FrameworkScreen["components"] = [
       {
@@ -551,7 +551,7 @@ describe("randomize options", () => {
       { componentFamily: "layout", template: "button", props: { text: "Submit" } },
     ];
 
-    const { rerender } = render(
+    const { unmount } = render(
       <Screen
         screen={{ slug: "test", components }}
         isLoading={false}
@@ -570,7 +570,9 @@ describe("randomize options", () => {
       choice__order: ["b", "a"],
     });
 
-    rerender(
+    // Simulate key-based remount that Experiment.tsx triggers on loop iteration change
+    unmount();
+    render(
       <Screen
         screen={{ slug: "test", components }}
         isLoading={false}
