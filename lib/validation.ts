@@ -318,6 +318,10 @@ export function buildSchema(screen: FrameworkScreen) {
         if (!guardMet) continue;
       }
 
+      // required: true fields are already unconditionally required by the base schema;
+      // adding a second isEmpty error would produce duplicates on the same field.
+      if (component.props.required) continue;
+
       for (const rule of component.props.crossValidation!) {
         const conditionMet = evaluateCondition(rule.condition, {
           screenData: data as Record<string, any>,

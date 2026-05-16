@@ -1243,4 +1243,38 @@ describe("crossValidation — required-if", () => {
       expect(result.error.flatten().fieldErrors.answer).toContain("Please fill in the answer.");
     }
   });
+
+  it("does not produce duplicate errors when required: true is combined with crossValidation", () => {
+    const schema = buildSchema(
+      screen([
+        {
+          componentFamily: "response",
+          template: "radio",
+          props: { dataKey: "trigger", label: "Trigger", options: [], required: false },
+        },
+        {
+          componentFamily: "response",
+          template: "text-input",
+          props: {
+            dataKey: "answer",
+            label: "Answer",
+            required: true,
+            crossValidation: [
+              {
+                operator: "required-if",
+                condition: { type: "simple", operator: "eq", dataKey: "$trigger", value: "yes" },
+              },
+            ],
+          },
+        },
+      ])
+    );
+    // When condition fires, required: true handles enforcement — no extra crossValidation error
+    const result = schema.safeParse({ trigger: "yes", answer: "" });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const answerErrors = result.error.flatten().fieldErrors.answer ?? [];
+      expect(answerErrors.length).toBe(1);
+    }
+  });
 });
