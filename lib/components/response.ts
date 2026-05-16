@@ -1,9 +1,17 @@
 import { BaseComponent } from ".";
+import { Condition } from "../conditions";
+
+export type CrossValidationRule = {
+  operator: "required-if";
+  condition: Condition;
+  errorMessage?: string;
+};
 
 type ResponseComponentBaseProps = {
   dataKey: string;
   required?: boolean;
   errorMessage?: string;
+  crossValidation?: CrossValidationRule[];
 };
 
 type ValidationRule<T = never> = [T] extends [never]
