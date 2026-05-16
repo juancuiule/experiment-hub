@@ -220,16 +220,14 @@ describe("full-flow timing integration", () => {
     // Loop iteration 3
     step = recordEnteredAt(await traverseWithTiming(step, { rating: 3 }));
 
-    const timings = step.context.timings ?? {};
-    // Should have at least one timing entry (the last submission or disambiguated ones)
-    expect(Object.keys(timings).length).toBeGreaterThan(0);
-    // Verify that timing entries have the expected structure
-    for (const entry of Object.values(timings)) {
-      expect(entry.submittedAt).toBeDefined();
-    }
+    const keys = Object.keys(step.context.timings ?? {});
+    expect(keys).toHaveLength(3);
+    expect(keys).toContain("loop-colors/red/item-eval");
+    expect(keys).toContain("loop-colors/blue/item-eval");
+    expect(keys).toContain("loop-colors/green/item-eval");
   });
 
-  it("path screens recorded with timing entries", async () => {
+  it("path screens get disambiguated timing keys", async () => {
     const pathFlow: ExperimentFlow = {
       nodes: [
         { id: "start", type: "start" },
@@ -245,18 +243,11 @@ describe("full-flow timing integration", () => {
     };
 
     let step = recordEnteredAt(await startExperiment(pathFlow, "start"));
-    // Navigate through first screen in path
     step = recordEnteredAt(await traverseWithTiming(step, {}));
-    // Navigate through second screen in path
     step = recordEnteredAt(await traverseWithTiming(step, {}));
 
-    const timings = step.context.timings ?? {};
-    const keys = Object.keys(timings);
-    // Verify we have timing entries for screens in the path
-    expect(keys.length).toBeGreaterThan(0);
-    // Verify all entries have submittedAt
-    for (const entry of Object.values(timings)) {
-      expect(entry.submittedAt).toBeDefined();
-    }
+    const keys = Object.keys(step.context.timings ?? {});
+    expect(keys).toContain("path-a/q1");
+    expect(keys).toContain("path-a/q2");
   });
 });
