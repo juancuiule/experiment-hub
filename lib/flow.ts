@@ -664,3 +664,20 @@ export async function traverseWithTiming(
     : step.context;
   return traverse({ ...step, context: contextWithSubmit }, data);
 }
+
+export function recordEnteredAt(step: FlowStep): FlowStep {
+  const key = buildTimingKey(step);
+  if (!key) return step;
+  const enteredAt = new Date().toISOString();
+  return {
+    ...step,
+    context: mergeContext(step.context, {
+      timings: {
+        [key]: {
+          ...(step.context.timings?.[key] ?? {}),
+          enteredAt,
+        },
+      },
+    }),
+  };
+}

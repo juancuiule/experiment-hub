@@ -1,7 +1,6 @@
-import { startExperiment, traverse } from "@/lib/flow";
+import { recordEnteredAt, startExperiment, traverseWithTiming } from "@/lib/flow";
 import { FlowStep } from "@/lib/types";
 import { create } from "zustand";
-import { createJSONStorage, persist } from "zustand/middleware";
 import { experiment } from "./experiment";
 
 type ExperimentStore = {
@@ -18,7 +17,8 @@ export const useExperimentStore = create<ExperimentStore>()(
     start: async (startNodeId?: string) => {
       set({ isLoading: true });
       try {
-        const step = await startExperiment(experiment, startNodeId);
+        const rawStep = await startExperiment(experiment, startNodeId);
+        const step = recordEnteredAt(rawStep);
         set({ step });
       } catch (err) {
         throw err;
@@ -31,7 +31,8 @@ export const useExperimentStore = create<ExperimentStore>()(
       if (!step) return;
       set({ isLoading: true });
       try {
-        const nextStep = await traverse(step, data);
+        const rawNext = await traverseWithTiming(step, data);
+        const nextStep = recordEnteredAt(rawNext);
         set({ step: nextStep });
       } catch (err) {
         throw err;
@@ -40,11 +41,4 @@ export const useExperimentStore = create<ExperimentStore>()(
       }
     },
   }),
-  // persist(
-  //   {
-  //     name: "experiment",
-  //     // storage: createJSONStorage(() => sessionStorage),
-  //     partialize: (state) => ({ step: state.step }),
-  //   },
-  // ),
 );

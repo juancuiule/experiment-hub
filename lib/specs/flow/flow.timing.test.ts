@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildTimingKey, startExperiment, traverseWithTiming } from "@/lib/flow";
+import { buildTimingKey, recordEnteredAt, startExperiment, traverseWithTiming } from "@/lib/flow";
 import { ExperimentFlow, FlowStep } from "@/lib/types";
 import { makeScreen, seq } from "../test-helpers";
 
@@ -92,5 +92,57 @@ describe("timing integration via traverse", () => {
     expect(step.context.timings?.["screen-1"]?.submittedAt).toBeDefined();
     expect(step.context.timings?.["screen-2"]?.submittedAt).toBeDefined();
     expect(step.context.timings?.["screen-3"]?.submittedAt).toBeDefined();
+  });
+});
+
+describe("enteredAt tracking", () => {
+  const twoScreenFlow: ExperimentFlow = {
+    nodes: [
+      { id: "start", type: "start" },
+      makeScreen("s1", "screen-1"),
+      makeScreen("s2", "screen-2"),
+    ],
+    edges: [seq("start", "s1"), seq("s1", "s2")],
+  };
+
+  it("recordEnteredAt sets enteredAt when on a screen node", () => {
+    const before = new Date().toISOString();
+    const step: FlowStep = {
+      state: { type: "in-node", node: { id: "s1", type: "screen", props: { slug: "screen-1" } } },
+      experiment: twoScreenFlow,
+      context: {},
+      dataPath: [],
+    };
+    const updated = recordEnteredAt(step);
+    const after = new Date().toISOString();
+    const enteredAt = updated.context.timings?.["screen-1"]?.enteredAt;
+    expect(enteredAt).toBeDefined();
+    expect(enteredAt! >= before).toBe(true);
+    expect(enteredAt! <= after).toBe(true);
+  });
+
+  it("recordEnteredAt is a no-op for non-screen nodes", () => {
+    const step: FlowStep = {
+      state: { type: "end" },
+      experiment: twoScreenFlow,
+      context: {},
+    };
+    const updated = recordEnteredAt(step);
+    expect(updated).toBe(step);
+  });
+
+  it("back navigation updates enteredAt for the re-visited screen", () => {
+    const step: FlowStep = {
+      state: { type: "in-node", node: { id: "s1", type: "screen", props: { slug: "screen-1" } } },
+      experiment: twoScreenFlow,
+      context: {
+        timings: {
+          "screen-1": { enteredAt: "2020-01-01T00:00:00.000Z", submittedAt: "2020-01-01T00:00:01.000Z" },
+        },
+      },
+      dataPath: [],
+    };
+    const updated = recordEnteredAt(step);
+    expect(updated.context.timings!["screen-1"]!.enteredAt).not.toBe("2020-01-01T00:00:00.000Z");
   });
 });
