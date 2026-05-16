@@ -175,5 +175,8 @@ export function isRandomizableResponseComponent(
 export function hasRandomizedOptions(
   component: ResponseComponent,
 ): component is RandomizableResponseComponent {
-  return isRandomizableResponseComponent(component) && component.props.randomize === true;
+  return (
+    isRandomizableResponseComponent(component) &&
+    Boolean(component.props.randomize)
+  );
 }
