@@ -136,6 +136,9 @@ export function Screen({ screen, isLoading, onNext, context }: ScreenProps) {
           isLoading={isLoading}
         />
       ))}
+      <pre>
+        <code>{JSON.stringify(form.getValues(), null, 2)}</code>
+      </pre>
     </form>
   );
 }

@@ -3,6 +3,7 @@ import { ExperimentFlow } from "@/lib/types";
 export const experiment: ExperimentFlow = {
   nodes: [
     { id: "start", type: "start" },
+    { id: "screen-family", type: "screen", props: { slug: "family" } },
     { id: "screen-welcome", type: "screen", props: { slug: "welcome" } },
     {
       id: "loop-test",
@@ -22,11 +23,76 @@ export const experiment: ExperimentFlow = {
     },
   ],
   edges: [
-    { type: "sequential", from: "start", to: "loop-test" },
+    { type: "sequential", from: "start", to: "screen-family" },
+    { type: "sequential", from: "screen-family", to: "loop-test" },
     { type: "loop-template", from: "loop-test", to: "inner-loop" },
     { type: "loop-template", from: "inner-loop", to: "screen-welcome" },
   ],
   screens: [
+    {
+      slug: "family",
+      components: [
+        {
+          componentFamily: "content",
+          template: "rich-text",
+          props: {
+            content:
+              "## Family \n Lorem ipsum dolor sit amet, consectetur adipiscing elit.",
+          },
+        },
+        {
+          componentFamily: "response",
+          template: "radio",
+          props: {
+            label: "Do you have children?",
+            dataKey: "has-children",
+            options: [
+              { label: "Yes", value: "yes" },
+              { label: "No", value: "no" },
+            ],
+          },
+        },
+        {
+          componentFamily: "control",
+          template: "conditional",
+          props: {
+            if: {
+              type: "simple",
+              dataKey: "$has-children",
+              value: "yes",
+              operator: "eq",
+            },
+            component: {
+              componentFamily: "response",
+              template: "numeric-input",
+              props: {
+                label: "How many children do you have?",
+                dataKey: "number-of-children",
+                crossValidation: [
+                  {
+                    operator: "required-if",
+                    condition: {
+                      type: "simple",
+                      dataKey: "$has-children",
+                      value: "yes",
+                      operator: "eq",
+                    },
+                  },
+                ],
+              },
+            },
+          },
+        },
+        {
+          componentFamily: "layout",
+          template: "button",
+          props: {
+            text: "Continue",
+            alignBottom: true,
+          },
+        },
+      ],
+    },
     {
       slug: "welcome",
       components: [
