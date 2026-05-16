@@ -16,7 +16,7 @@ export const testExperiment: ExperimentFlow = {
             name: 'yes-children',
             config: {
               type: 'simple',
-              dataKey: '$has-children',
+              dataKey: '$$personal.has-children',
               operator: 'eq',
               value: 'yes',
             },
