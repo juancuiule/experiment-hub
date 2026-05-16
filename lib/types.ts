@@ -15,6 +15,8 @@ type ScreenData = Record<string, any> & {
   shuffledOptions?: { [dataKey: string]: Array<Option> };
 };
 
+export type TimingEntry = { enteredAt: string; submittedAt: string };
+
 export type Context = Partial<{
   start: { group: string };
   checkpoints: { [checkpointName: string]: string };
@@ -29,6 +31,7 @@ export type Context = Partial<{
   paths: { [pathNodeId: string]: { order: string[] } };
   loops: { [loopNodeId: string]: { order: string[] } };
   loopData: { [loopNodeId: string]: IterativeItem };
+  timings: Record<string, TimingEntry>;
 }>;
 
 export type InitialState = { type: "initial" };
