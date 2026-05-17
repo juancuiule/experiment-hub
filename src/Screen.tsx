@@ -50,8 +50,8 @@ function collectDefaults(
               props: {
                 ...inner.props,
                 dataKey: inner.props.dataKey
-                  .replace(`{{#${c.props.id}.index}}`, String(i))
-                  .replace(`{{#${c.props.id}.value}}`, c.props.values[i]),
+                  .replaceAll(`{{#${c.props.id}.index}}`, String(i))
+                  .replaceAll(`{{#${c.props.id}.value}}`, c.props.values[i]),
               },
             } as typeof inner;
           } else {
