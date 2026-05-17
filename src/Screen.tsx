@@ -34,7 +34,10 @@ function resolveForEachComponent(
       },
     } as typeof component;
   }
-  if (component.componentFamily === 'layout' && component.template === 'group') {
+  if (
+    component.componentFamily === 'layout' &&
+    component.template === 'group'
+  ) {
     return {
       ...component,
       props: {
