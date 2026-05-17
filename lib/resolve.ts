@@ -83,7 +83,6 @@ export function getValue(key: string, context: Context) {
 
   const resolvedKey = resolveValuesInString(key, context);
   const { prefix, path } = getPrefixAndPath(resolvedKey) || {};
-
   if (!prefix || !path) {
     throw new Error(`Invalid key format: ${key}`);
   }
