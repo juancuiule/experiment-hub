@@ -1,4 +1,5 @@
 import { StepperConfig } from "@/lib/nodes";
+import { twMerge } from "tailwind-merge";
 
 type Props = {
   config: StepperConfig;
@@ -17,13 +18,16 @@ export default function Stepper(props: Props) {
             .replace("{total}", String(total))}
         </p>
       ) : null}
-      <div className="h-1 w-full bg-foreground rounded-full overflow-hidden">
+      <div className="h-1 w-full rounded-full overflow-hidden">
         {config.style === "dashed" ? (
-          <div className="h-full flex gap-2">
+          <div className="h-full flex gap-1.5">
             {Array.from({ length: total }, (_, index) => (
               <div
                 key={index}
-                className={`h-full flex-1 ${index < step + 1 ? "bg-content-active" : "bg-foreground"}`}
+                className={twMerge(
+                  "h-full flex-1",
+                  index < step + 1 ? "bg-content-active" : "bg-foreground",
+                )}
               />
             ))}
           </div>

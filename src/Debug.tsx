@@ -1,48 +1,65 @@
-'use client'
+'use client';
 
-import { FrameworkEdge } from "@/lib/edges";
-import { FrameworkNode, LoopNode } from "@/lib/nodes";
-import { InLoopState, State } from "@/lib/types";
-import { useExperimentStore } from "./data/store";
-import { NodeTypeBadge } from "./nodeConfig";
+import { FrameworkEdge } from '@/lib/edges';
+import { FrameworkNode, LoopNode } from '@/lib/nodes';
+import { InLoopState, State } from '@/lib/types';
+import { useExperimentStore } from './data/store';
+import { NodeTypeBadge } from './nodeConfig';
 
 function findLoopState(state: State, nodeId: string): InLoopState | null {
-  if (state.type === "in-loop") {
+  if (state.type === 'in-loop') {
     if (state.node.id === nodeId) return state;
     return findLoopState(state.innerState, nodeId);
   }
-  if (state.type === "in-path") return findLoopState(state.innerState, nodeId);
+  if (state.type === 'in-path') return findLoopState(state.innerState, nodeId);
   return null;
 }
 
 // Returns the full chain of active node IDs from outermost to innermost.
 function getCurrentPath(state: State): string[] {
-  if (state.type === "in-node") return [state.node.id];
-  if (state.type === "in-path") return [state.node.id, ...getCurrentPath(state.innerState)];
-  if (state.type === "in-loop") return [state.node.id, ...getCurrentPath(state.innerState)];
+  if (state.type === 'in-node') return [state.node.id];
+  if (state.type === 'in-path')
+    return [state.node.id, ...getCurrentPath(state.innerState)];
+  if (state.type === 'in-loop')
+    return [state.node.id, ...getCurrentPath(state.innerState)];
   return [];
 }
 
 type Connection = { label: string; toId: string };
 
-function getConnections(node: FrameworkNode, edges: FrameworkEdge[]): Connection[] {
+function getConnections(
+  node: FrameworkNode,
+  edges: FrameworkEdge[],
+): Connection[] {
   const result: Connection[] = [];
   for (const edge of edges) {
     const fromNodeId = edge.from.split('.')[0];
     if (fromNodeId !== node.id) continue;
     switch (edge.type) {
       case 'sequential':
-        result.push({ label: '→', toId: edge.to }); break;
+        result.push({ label: '→', toId: edge.to });
+        break;
       case 'branch-condition':
-        result.push({ label: `branch:${edge.from.split('.')[1]}`, toId: edge.to }); break;
+        result.push({
+          label: `branch:${edge.from.split('.')[1]}`,
+          toId: edge.to,
+        });
+        break;
       case 'branch-default':
-        result.push({ label: 'default', toId: edge.to }); break;
+        result.push({ label: 'default', toId: edge.to });
+        break;
       case 'path-contains':
-        result.push({ label: `[${edge.order}]`, toId: edge.to }); break;
+        result.push({ label: `[${edge.order}]`, toId: edge.to });
+        break;
       case 'loop-template':
-        result.push({ label: 'template', toId: edge.to }); break;
+        result.push({ label: 'template', toId: edge.to });
+        break;
       case 'fork-edge':
-        result.push({ label: `fork:${edge.from.split('.')[1]}`, toId: edge.to }); break;
+        result.push({
+          label: `fork:${edge.from.split('.')[1]}`,
+          toId: edge.to,
+        });
+        break;
     }
   }
   return result;
@@ -50,19 +67,26 @@ function getConnections(node: FrameworkNode, edges: FrameworkEdge[]): Connection
 
 function LoopDetail({ node, state }: { node: LoopNode; state: State }) {
   const loopState = findLoopState(state, node.id);
-  const resolvedValues = loopState?.values ?? (node.props.type === "static" ? node.props.values : null);
+  const resolvedValues =
+    loopState?.values ??
+    (node.props.type === 'static' ? node.props.values : null);
 
   return (
-    <div className="flex flex-col gap-0.5 pl-4 text-xxs">
+    <div className="text-xxs flex flex-col gap-0.5 pl-4">
       <span className="text-content-secondary">
-        type:{" "}
-        <span className={node.props.type === "static" ? "text-blue-600" : "text-orange-600"}>
+        type:{' '}
+        <span
+          className={
+            node.props.type === 'static' ? 'text-blue-600' : 'text-orange-600'
+          }
+        >
           {node.props.type}
         </span>
       </span>
-      {node.props.type === "dynamic" && (
+      {node.props.type === 'dynamic' && (
         <span className="text-content-secondary">
-          dataKey: <span className="text-content-primary">{node.props.dataKey}</span>
+          dataKey:{' '}
+          <span className="text-content-primary">{node.props.dataKey}</span>
         </span>
       )}
       {resolvedValues && (
@@ -71,14 +95,24 @@ function LoopDetail({ node, state }: { node: LoopNode; state: State }) {
           {resolvedValues.map((v, i) => (
             <span key={i}>
               {i > 0 && <span className="text-content-secondary">, </span>}
-              <span className={loopState && i === loopState.index ? "text-content-primary font-bold" : "text-content-secondary"}>
+              <span
+                className={
+                  loopState && i === loopState.index
+                    ? 'text-content-primary font-bold'
+                    : 'text-content-secondary'
+                }
+              >
                 {v}
               </span>
             </span>
           ))}
           ]
           {loopState && (
-            <span> (idx: <span className="text-content-primary">{loopState.index}</span>)</span>
+            <span>
+              {' '}
+              (idx:{' '}
+              <span className="text-content-primary">{loopState.index}</span>)
+            </span>
           )}
         </span>
       )}
@@ -86,7 +120,7 @@ function LoopDetail({ node, state }: { node: LoopNode; state: State }) {
   );
 }
 
-type ActiveRole = "leaf" | "container" | null;
+type ActiveRole = 'leaf' | 'container' | null;
 
 function NodeCard({
   node,
@@ -102,24 +136,32 @@ function NodeCard({
   const connections = getConnections(node, edges);
 
   const wrapperClass =
-    role === "leaf" ? "ring-2 ring-background-inverted shadow-md" :
-      role === "container" ? "ring-1 ring-background-inverted/30 border-dashed" :
-        "opacity-50";
+    role === 'leaf'
+      ? 'ring-2 ring-background-inverted shadow-md'
+      : role === 'container'
+        ? 'ring-1 ring-background-inverted/30 border-dashed'
+        : 'opacity-50';
 
   return (
-    <div className={`rounded border p-2 font-mono text-xxs flex flex-col gap-1 transition-[box-shadow,opacity] duration-150 ${wrapperClass}`}>
+    <div
+      className={`text-xxs flex flex-col gap-1 rounded border p-2 font-mono transition-[box-shadow,opacity] duration-150 ${wrapperClass}`}
+    >
       <div className="flex items-center gap-2">
-        {role === "leaf" && <span className="w-2 h-2 rounded-full bg-background-inverted shrink-0" />}
-        {role === "container" && <span className="w-2 h-2 rounded-full border border-content-primary shrink-0" />}
+        {role === 'leaf' && (
+          <span className="bg-background-inverted h-2 w-2 shrink-0 rounded-full" />
+        )}
+        {role === 'container' && (
+          <span className="border-content-primary h-2 w-2 shrink-0 rounded-full border" />
+        )}
         <NodeTypeBadge type={node.type} />
         <span className="text-content-secondary truncate">{node.id}</span>
       </div>
-      {node.type === "loop" && <LoopDetail node={node} state={state} />}
+      {node.type === 'loop' && <LoopDetail node={node} state={state} />}
       {connections.length > 0 && (
         <div className="flex flex-wrap gap-1 pl-4">
           {connections.map((c, i) => (
             <span key={i} className="text-content-secondary">
-              <span className="text-content-secondary">{c.label}</span>{" "}
+              <span className="text-content-secondary">{c.label}</span>{' '}
               <span className="text-content-primary">{c.toId}</span>
             </span>
           ))}
@@ -133,22 +175,29 @@ export function StateDebug() {
   const { step } = useExperimentStore();
 
   if (!step) {
-    return <div className="font-mono text-xxs text-content-secondary p-2">No experiment loaded.</div>;
+    return (
+      <div className="text-xxs text-content-secondary p-2 font-mono">
+        No experiment loaded.
+      </div>
+    );
   }
 
-  const { experiment: { nodes, edges }, state } = step;
+  const {
+    experiment: { nodes, edges },
+    state,
+  } = step;
   const currentPath = getCurrentPath(state);
   const leafId = currentPath.at(-1) ?? null;
 
   function getRole(nodeId: string): ActiveRole {
-    if (nodeId === leafId) return "leaf";
-    if (currentPath.includes(nodeId)) return "container";
+    if (nodeId === leafId) return 'leaf';
+    if (currentPath.includes(nodeId)) return 'container';
     return null;
   }
 
   return (
-    <div className="my-5 border-border-default">
-      <div className="font-mono text-xxs text-content-primary mb-2 tracking-wider uppercase gap-1 w-full">
+    <div className="my-5">
+      <div className="text-xxs text-content-primary mb-2 w-full gap-1 font-mono tracking-wider uppercase">
         <div>Debug — {nodes.length} nodes</div>
         <div className="flex">
           <span>State - {state.type}</span>
@@ -158,7 +207,15 @@ export function StateDebug() {
               {currentPath.map((id, i) => (
                 <span key={id} className="flex items-center gap-1">
                   {i > 0 && <span className="text-content-secondary">›</span>}
-                  <span className={i === currentPath.length - 1 ? "text-content-primary" : "text-content-secondary"}>{id}</span>
+                  <span
+                    className={
+                      i === currentPath.length - 1
+                        ? 'text-content-primary'
+                        : 'text-content-secondary'
+                    }
+                  >
+                    {id}
+                  </span>
                 </span>
               ))}
             </>
@@ -185,35 +242,66 @@ function isPlainObject(v: unknown): v is Record<string, unknown> {
 }
 
 function isPrimitiveArray(v: unknown[]): boolean {
-  return v.every(item => typeof item !== 'object' || item === null);
+  return v.every((item) => typeof item !== 'object' || item === null);
 }
 
 function Leaf({ value }: { value: unknown }) {
-  if (value === null || value === undefined) return <span className="text-content-secondary">null</span>;
-  if (typeof value === 'boolean') return <span className="text-purple-600 dark:text-purple-400">{value.toString()}</span>;
-  if (typeof value === 'number') return <span className="text-blue-600 dark:text-blue-400">{value}</span>;
-  if (typeof value === 'string') return <span className="text-green-700 dark:text-green-300">"{value}"</span>;
+  if (value === null || value === undefined)
+    return <span className="text-content-secondary">null</span>;
+  if (typeof value === 'boolean')
+    return (
+      <span className="text-purple-600 dark:text-purple-400">
+        {value.toString()}
+      </span>
+    );
+  if (typeof value === 'number')
+    return <span className="text-blue-600 dark:text-blue-400">{value}</span>;
+  if (typeof value === 'string')
+    return (
+      <span className="text-green-700 dark:text-green-300">"{value}"</span>
+    );
   if (Array.isArray(value)) {
     return (
       <span className="text-content-secondary">
-        [{(value as unknown[]).map((item, i) => (
-          <span key={i}>{i > 0 && <span className="text-content-secondary">, </span>}<Leaf value={item} /></span>
-        ))}]
+        [
+        {(value as unknown[]).map((item, i) => (
+          <span key={i}>
+            {i > 0 && <span className="text-content-secondary">, </span>}
+            <Leaf value={item} />
+          </span>
+        ))}
+        ]
       </span>
     );
   }
   return null;
 }
 
-function DataTree({ data, depth = 0 }: { data: Record<string, unknown>; depth?: number }) {
+function DataTree({
+  data,
+  depth = 0,
+}: {
+  data: Record<string, unknown>;
+  depth?: number;
+}) {
   return (
-    <div className={`flex flex-col gap-0.5 font-mono text-xxs ${depth > 0 ? 'border-l border-border-default pl-2 ml-1' : ''}`}>
+    <div
+      className={`text-xxs flex flex-col gap-0.5 font-mono ${depth > 0 ? 'border-border-default ml-1 border-l pl-2' : ''}`}
+    >
       {Object.entries(data).map(([key, value]) => {
-        const isComplex = isPlainObject(value) || (Array.isArray(value) && !isPrimitiveArray(value as unknown[]));
+        const isComplex =
+          isPlainObject(value) ||
+          (Array.isArray(value) && !isPrimitiveArray(value as unknown[]));
         if (isComplex) {
           const children = isPlainObject(value)
             ? value
-            : (value as unknown[]).reduce<Record<string, unknown>>((acc, v, i) => { acc[i] = v; return acc; }, {});
+            : (value as unknown[]).reduce<Record<string, unknown>>(
+              (acc, v, i) => {
+                acc[i] = v;
+                return acc;
+              },
+              {},
+            );
           return (
             <div key={key} className="flex flex-col gap-0.5">
               <span className="text-content-secondary">{key}</span>
@@ -222,7 +310,7 @@ function DataTree({ data, depth = 0 }: { data: Record<string, unknown>; depth?: 
           );
         }
         return (
-          <div key={key} className="flex gap-1.5 items-baseline">
+          <div key={key} className="flex items-baseline gap-1.5">
             <span className="text-content-secondary shrink-0">{key}:</span>
             <Leaf value={value} />
           </div>
@@ -232,10 +320,18 @@ function DataTree({ data, depth = 0 }: { data: Record<string, unknown>; depth?: 
   );
 }
 
-export function DataSection({ title, data }: { title: string; data: Record<string, unknown> }) {
+export function DataSection({
+  title,
+  data,
+}: {
+  title: string;
+  data: Record<string, unknown>;
+}) {
   return (
     <div className="flex flex-col gap-1">
-      <span className="font-mono text-[9px] uppercase tracking-wider text-content-secondary">{title}</span>
+      <span className="text-content-secondary font-mono text-[9px] tracking-wider uppercase">
+        {title}
+      </span>
       <div className="rounded border p-2">
         <DataTree data={data} />
       </div>
@@ -247,11 +343,24 @@ export function DataDebug() {
   const { step } = useExperimentStore();
 
   if (!step) {
-    return <div className="font-mono text-xxs text-content-secondary p-2">No experiment loaded.</div>;
+    return (
+      <div className="text-xxs text-content-secondary p-2 font-mono">
+        No experiment loaded.
+      </div>
+    );
   }
 
   const { context } = step;
-  const { data, branches, screenData, timings, forks, checkpoints, loops, start } = context;
+  const {
+    data,
+    branches,
+    screenData,
+    timings,
+    forks,
+    checkpoints,
+    loops,
+    start,
+  } = context;
 
   const hasScreenData = screenData && Object.keys(screenData).length > 0;
   const hasData = data && Object.keys(data).length > 0;
@@ -261,13 +370,25 @@ export function DataDebug() {
   const hasLoops = loops && Object.keys(loops).length > 0;
   const hasStart = start && Object.keys(start).length > 0;
   const hasTimings = timings && Object.keys(timings).length > 0;
-  const isEmpty = !hasData && !hasBranches && !hasForks && !hasCheckpoints && !hasLoops && !hasStart && !hasScreenData && !hasTimings;
+  const isEmpty =
+    !hasData &&
+    !hasBranches &&
+    !hasForks &&
+    !hasCheckpoints &&
+    !hasLoops &&
+    !hasStart &&
+    !hasScreenData &&
+    !hasTimings;
 
   if (isEmpty) {
     return (
       <div className="my-5">
-        <div className="font-mono text-[9px] uppercase tracking-wider text-content-secondary mb-2">Data</div>
-        <div className="font-mono text-xxs text-content-secondary italic">No data collected yet.</div>
+        <div className="text-content-secondary mb-2 font-mono text-[9px] tracking-wider uppercase">
+          Data
+        </div>
+        <div className="text-xxs text-content-secondary font-mono italic">
+          No data collected yet.
+        </div>
       </div>
     );
   }
