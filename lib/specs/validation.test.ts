@@ -2127,6 +2127,404 @@ describe('dynamic for-each — all occurrences of placeholder replaced in templa
   });
 });
 
+// ── buildFieldSchema — missing coverage per component type ───────────────────
+
+describe('text-area', () => {
+  it('passes a non-empty string when required', () => {
+    const schema = buildSchema(
+      screen([
+        {
+          componentFamily: 'response',
+          template: 'text-area',
+          props: { dataKey: 'bio', label: 'Bio', required: true },
+        },
+      ]),
+    );
+    expect(schema.safeParse({ bio: 'Hello world' }).success).toBe(true);
+  });
+
+  it('fails an empty string when required', () => {
+    const schema = buildSchema(
+      screen([
+        {
+          componentFamily: 'response',
+          template: 'text-area',
+          props: { dataKey: 'bio', label: 'Bio', required: true },
+        },
+      ]),
+    );
+    expect(schema.safeParse({ bio: '' }).success).toBe(false);
+  });
+
+  it('passes an empty string when not required', () => {
+    const schema = buildSchema(
+      screen([
+        {
+          componentFamily: 'response',
+          template: 'text-area',
+          props: { dataKey: 'bio', label: 'Bio', required: false },
+        },
+      ]),
+    );
+    expect(schema.safeParse({ bio: '' }).success).toBe(true);
+  });
+
+  it('passes when absent and not required', () => {
+    const schema = buildSchema(
+      screen([
+        {
+          componentFamily: 'response',
+          template: 'text-area',
+          props: { dataKey: 'bio', label: 'Bio', required: false },
+        },
+      ]),
+    );
+    expect(schema.safeParse({}).success).toBe(true);
+  });
+
+  it('enforces minLength', () => {
+    const schema = buildSchema(
+      screen([
+        {
+          componentFamily: 'response',
+          template: 'text-area',
+          props: { dataKey: 'bio', label: 'Bio', minLength: { value: 10 } },
+        },
+      ]),
+    );
+    expect(schema.safeParse({ bio: 'short' }).success).toBe(false);
+    expect(schema.safeParse({ bio: 'long enough!' }).success).toBe(true);
+  });
+
+  it('enforces maxLength', () => {
+    const schema = buildSchema(
+      screen([
+        {
+          componentFamily: 'response',
+          template: 'text-area',
+          props: { dataKey: 'bio', label: 'Bio', maxLength: { value: 5 } },
+        },
+      ]),
+    );
+    expect(schema.safeParse({ bio: 'toolong' }).success).toBe(false);
+    expect(schema.safeParse({ bio: 'ok' }).success).toBe(true);
+  });
+
+  it('enforces regex pattern', () => {
+    const schema = buildSchema(
+      screen([
+        {
+          componentFamily: 'response',
+          template: 'text-area',
+          props: {
+            dataKey: 'bio',
+            label: 'Bio',
+            pattern: { value: '^[A-Z]' },
+          },
+        },
+      ]),
+    );
+    expect(schema.safeParse({ bio: 'lowercase' }).success).toBe(false);
+    expect(schema.safeParse({ bio: 'Uppercase' }).success).toBe(true);
+  });
+
+  it('uses custom errorMessage', () => {
+    const schema = buildSchema(
+      screen([
+        {
+          componentFamily: 'response',
+          template: 'text-area',
+          props: {
+            dataKey: 'bio',
+            label: 'Bio',
+            required: true,
+            errorMessage: 'Please write your bio',
+          },
+        },
+      ]),
+    );
+    const result = schema.safeParse({ bio: '' });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.flatten().fieldErrors.bio).toContain(
+        'Please write your bio',
+      );
+    }
+  });
+});
+
+describe('radio — required: true cases', () => {
+  it('fails an empty string when required', () => {
+    const schema = buildSchema(
+      screen([
+        {
+          componentFamily: 'response',
+          template: 'radio',
+          props: {
+            dataKey: 'choice',
+            label: 'Pick',
+            options: [{ label: 'A', value: 'a' }],
+            required: true,
+          },
+        },
+      ]),
+    );
+    expect(schema.safeParse({ choice: '' }).success).toBe(false);
+  });
+
+  it('passes a selected value when required', () => {
+    const schema = buildSchema(
+      screen([
+        {
+          componentFamily: 'response',
+          template: 'radio',
+          props: {
+            dataKey: 'choice',
+            label: 'Pick',
+            options: [{ label: 'A', value: 'a' }],
+            required: true,
+          },
+        },
+      ]),
+    );
+    expect(schema.safeParse({ choice: 'a' }).success).toBe(true);
+  });
+
+  it('uses custom errorMessage when required fails', () => {
+    const schema = buildSchema(
+      screen([
+        {
+          componentFamily: 'response',
+          template: 'radio',
+          props: {
+            dataKey: 'choice',
+            label: 'Pick',
+            options: [],
+            required: true,
+            errorMessage: 'Please select an option',
+          },
+        },
+      ]),
+    );
+    const result = schema.safeParse({ choice: '' });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.flatten().fieldErrors.choice).toContain(
+        'Please select an option',
+      );
+    }
+  });
+});
+
+describe('dropdown — optional case', () => {
+  it('passes when not required and absent', () => {
+    const schema = buildSchema(
+      screen([
+        {
+          componentFamily: 'response',
+          template: 'dropdown',
+          props: {
+            dataKey: 'color',
+            label: 'Color',
+            options: [],
+            required: false,
+          },
+        },
+      ]),
+    );
+    expect(schema.safeParse({}).success).toBe(true);
+  });
+
+  it('passes when not required and empty string', () => {
+    const schema = buildSchema(
+      screen([
+        {
+          componentFamily: 'response',
+          template: 'dropdown',
+          props: {
+            dataKey: 'color',
+            label: 'Color',
+            options: [],
+            required: false,
+          },
+        },
+      ]),
+    );
+    expect(schema.safeParse({ color: '' }).success).toBe(true);
+  });
+});
+
+describe('checkboxes — Bug 5: required: false should allow absent value', () => {
+  // Bug: buildFieldSchema for checkboxes never returns .optional(), unlike every other type.
+  // A top-level optional checkboxes field where the value is absent (undefined) fails
+  // z.array(z.string()) because undefined is not an array.
+  it('passes when not required and value is absent (undefined)', () => {
+    const schema = buildSchema(
+      screen([
+        {
+          componentFamily: 'response',
+          template: 'checkboxes',
+          props: {
+            dataKey: 'hobbies',
+            label: 'Hobbies',
+            options: [],
+            required: false,
+          },
+        },
+      ]),
+    );
+    expect(schema.safeParse({}).success).toBe(true);
+  });
+
+  it('passes an empty array when not required', () => {
+    const schema = buildSchema(
+      screen([
+        {
+          componentFamily: 'response',
+          template: 'checkboxes',
+          props: {
+            dataKey: 'hobbies',
+            label: 'Hobbies',
+            options: [],
+            required: false,
+          },
+        },
+      ]),
+    );
+    expect(schema.safeParse({ hobbies: [] }).success).toBe(true);
+  });
+});
+
+describe('numeric-input — additional cases', () => {
+  it('fails when required (default) and value is absent', () => {
+    const schema = buildSchema(
+      screen([
+        {
+          componentFamily: 'response',
+          template: 'numeric-input',
+          props: { dataKey: 'age', label: 'Age' },
+        },
+      ]),
+    );
+    expect(schema.safeParse({}).success).toBe(false);
+  });
+
+  it('passes at exactly min boundary', () => {
+    const schema = buildSchema(
+      screen([
+        {
+          componentFamily: 'response',
+          template: 'numeric-input',
+          props: { dataKey: 'age', label: 'Age', min: 18, max: 99 },
+        },
+      ]),
+    );
+    expect(schema.safeParse({ age: 18 }).success).toBe(true);
+  });
+
+  it('passes at exactly max boundary', () => {
+    const schema = buildSchema(
+      screen([
+        {
+          componentFamily: 'response',
+          template: 'numeric-input',
+          props: { dataKey: 'age', label: 'Age', min: 18, max: 99 },
+        },
+      ]),
+    );
+    expect(schema.safeParse({ age: 99 }).success).toBe(true);
+  });
+
+  it('uses custom errorMessage when below min', () => {
+    const schema = buildSchema(
+      screen([
+        {
+          componentFamily: 'response',
+          template: 'numeric-input',
+          props: {
+            dataKey: 'age',
+            label: 'Age',
+            min: 18,
+            errorMessage: 'Must be 18 or older',
+          },
+        },
+      ]),
+    );
+    const result = schema.safeParse({ age: 5 });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.flatten().fieldErrors.age).toContain(
+        'Must be 18 or older',
+      );
+    }
+  });
+
+  // Bug 6: z.coerce.number().optional() coerces null → 0 instead of treating as absent.
+  // Optional numeric fields whose default is null (user never touched the field) submit as 0.
+  it('does not coerce null to 0 when not required (Bug 6)', () => {
+    const schema = buildSchema(
+      screen([
+        {
+          componentFamily: 'response',
+          template: 'numeric-input',
+          props: { dataKey: 'score', label: 'Score', required: false },
+        },
+      ]),
+    );
+    const result = schema.safeParse({ score: null });
+    expect(result.success).toBe(true);
+    expect(result.data?.score).toBeUndefined();
+  });
+});
+
+describe('single-checkbox — Bug 7: shouldBe ignores required: false', () => {
+  // Bug: when shouldBe is set, required is not consulted — the constraint is always enforced.
+  // An optional checkbox with a target value should not block submission.
+  it('does not enforce shouldBe when required is false', () => {
+    const schema = buildSchema(
+      screen([
+        {
+          componentFamily: 'response',
+          template: 'single-checkbox',
+          props: {
+            dataKey: 'tos',
+            label: 'Accept TOS',
+            defaultValue: false,
+            shouldBe: true,
+            required: false,
+          },
+        },
+      ]),
+    );
+    expect(schema.safeParse({ tos: false }).success).toBe(true);
+  });
+
+  it('uses custom errorMessage with shouldBe', () => {
+    const schema = buildSchema(
+      screen([
+        {
+          componentFamily: 'response',
+          template: 'single-checkbox',
+          props: {
+            dataKey: 'tos',
+            label: 'Accept',
+            defaultValue: false,
+            shouldBe: true,
+            errorMessage: 'You must accept the terms',
+          },
+        },
+      ]),
+    );
+    const result = schema.safeParse({ tos: false });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.flatten().fieldErrors.tos).toContain(
+        'You must accept the terms',
+      );
+    }
+  });
+});
+
 describe('dynamic for-each field — full constraint validation in Phase 2', () => {
   const constraintDynamicScreen = screen([
     {

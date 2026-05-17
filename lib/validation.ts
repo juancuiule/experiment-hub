@@ -62,7 +62,7 @@ function buildFieldSchema(component: ResponseComponent): z.ZodTypeAny {
       if (max !== undefined) {
         base = base.max(max, errorMessage ?? `Select at most ${max} options`);
       }
-      return base;
+      return required ? base : base.optional();
     }
 
     case 'likert-scale': {
@@ -77,7 +77,7 @@ function buildFieldSchema(component: ResponseComponent): z.ZodTypeAny {
         base = base.min(min, errorMessage ?? `Must be at least ${min}`);
       if (max !== undefined)
         base = base.max(max, errorMessage ?? `Must be at most ${max}`);
-      return required ? base : base.optional();
+      return required ? base : z.preprocess((v) => (v === null ? undefined : v), base.optional());
     }
 
     case 'slider': {
@@ -122,7 +122,7 @@ function buildFieldSchema(component: ResponseComponent): z.ZodTypeAny {
 
     case 'single-checkbox': {
       const { shouldBe } = component.props;
-      if (shouldBe !== undefined) {
+      if (shouldBe !== undefined && required) {
         return z.boolean().refine((v) => v === shouldBe, {
           message: errorMessage ?? `Must be ${shouldBe}`,
         });
