@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Montserrat, Overpass_Mono } from "next/font/google";
 import { twMerge } from "tailwind-merge";
 import "./globals.css";
+import { ThemeProvider } from "@/src/theme-provider";
+import { ThemeToggle } from "@/src/ThemeToggle";
 
 const montserrat = Montserrat({
   variable: "--font-sans",
@@ -24,24 +26,32 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body
         className={twMerge(
           montserrat.variable,
           overpassMono.variable,
-          "antialiased h-svh",
+          "antialiased h-svh bg-background text-content-primary",
         )}
       >
-        <main className="flex min-h-screen items-center justify-start relative w-full max-w-lg p-6 flex-col mx-auto">
-          <nav className="flex flex-row items-center justify-center w-full gap-3">
-            <img
-              src="/experiment-hub-logo.png"
-              className="h-12 w-auto"
-              alt="Experiment Hub logo with text"
-            />
-          </nav>
-          <div className="flex-1 flex flex-col w-full">{children}</div>
-        </main>
+        <ThemeProvider
+          attribute={"class"}
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
+          <main className="flex min-h-screen items-center justify-start relative w-full max-w-lg p-6 flex-col mx-auto">
+            <nav className="flex flex-row items-center justify-between w-full gap-3">
+              <img
+                src="/experiment-hub-logo.png"
+                className="h-12 w-auto"
+                alt="Experiment Hub logo with text"
+              />
+              <ThemeToggle />
+            </nav>
+            <div className="flex-1 flex flex-col w-full">{children}</div>
+          </main>
+        </ThemeProvider>
       </body>
     </html>
   );

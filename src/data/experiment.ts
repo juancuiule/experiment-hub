@@ -1052,6 +1052,74 @@ export const _experiment: ExperimentFlow = {
   ],
 };
 
+export const path: ExperimentFlow = {
+  nodes: [
+    { id: 'start', type: 'start' },
+    {
+      id: 'path',
+      type: 'path',
+      props: {
+        name: 'test-path',
+        stepper: {
+          label: '{index} / {total}',
+          style: 'continuous',
+        },
+      },
+    },
+    { id: 'screen-terms', type: 'screen', props: { slug: 'terms' } },
+    { id: 'screen-regressors', type: 'screen', props: { slug: 'regressors' } },
+    { id: 'screen-thanks', type: 'screen', props: { slug: 'thanks' } },
+  ],
+  edges: [
+    { type: 'sequential', from: 'start', to: 'path' },
+    { type: 'path-contains', from: 'path', to: 'screen-terms', order: 0 },
+    { type: 'path-contains', from: 'path', to: 'screen-regressors', order: 1 },
+    { type: 'sequential', from: 'path', to: 'screen-thanks' },
+  ],
+  screens: [
+    {
+      slug: 'terms',
+      components: [
+        {
+          componentFamily: 'content',
+          template: 'rich-text',
+          props: { content: '# Intro' },
+        },
+        {
+          componentFamily: 'layout',
+          template: 'button',
+          props: { text: 'Continue', alignBottom: true },
+        },
+      ],
+    },
+    {
+      slug: 'regressors',
+      components: [
+        {
+          componentFamily: 'content',
+          template: 'rich-text',
+          props: { content: '# Regressors' },
+        },
+        {
+          componentFamily: 'layout',
+          template: 'button',
+          props: { text: 'Continue', alignBottom: true },
+        },
+      ],
+    },
+    {
+      slug: 'thanks',
+      components: [
+        {
+          componentFamily: 'content',
+          template: 'rich-text',
+          props: { content: '# Thanks for participating!' },
+        },
+      ],
+    },
+  ],
+};
+
 export const experiment: ExperimentFlow = {
   nodes: [
     { id: 'start', type: 'start' },
@@ -1205,7 +1273,23 @@ export const experiment: ExperimentFlow = {
           componentFamily: 'content',
           template: 'rich-text',
           props: {
-            content: '# Pandemica, conciencias y sustancias',
+            content:
+              '# Pandemia, conciencias y sustancias \n\n > alguna cosa dentro de un blockquote',
+          },
+        },
+        {
+          componentFamily: 'response',
+          template: 'dropdown',
+          props: {
+            label: '¿En qué ciudad vivís actualmente?',
+            dataKey: 'city',
+            options: [
+              { label: 'Buenos Aires', value: 'buenos-aires' },
+              { label: 'Córdoba', value: 'cordoba' },
+              { label: 'Rosario', value: 'rosario' },
+              { label: 'Mendoza', value: 'mendoza' },
+              { label: 'Otra', value: 'otra' },
+            ],
           },
         },
         {

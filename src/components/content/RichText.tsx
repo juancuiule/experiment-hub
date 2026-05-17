@@ -17,19 +17,19 @@ export function RichText({ component, context }: Props) {
       <Markdown
         components={{
           h1: ({ node, ...props }) => (
-            <h1 {...props} className="text-5xl font-bold mb-4" />
+            <h1 {...props} className="text-5xl font-bold mb-4 text-content-primary" />
           ),
           h2: ({ node, ...props }) => (
-            <h2 {...props} className="text-3xl font-bold mb-3" />
+            <h2 {...props} className="text-3xl font-bold mb-3 text-content-primary" />
           ),
           h3: ({ node, ...props }) => (
-            <h3 {...props} className="text-xl font-bold mb-2" />
+            <h3 {...props} className="text-xl font-bold mb-2 text-content-primary" />
           ),
           p: ({ node, ...props }) => (
-            <p {...props} className="text-black mb-[1lh]" />
+            <p {...props} className="text-content-primary mb-[1lh]" />
           ),
           a: ({ node, ...props }) => (
-            <a {...props} className="text-info underline" />
+            <a {...props} className="text-content-active underline" />
           ),
           strong: ({ node, ...props }) => (
             <strong {...props} className="font-bold" />
@@ -43,19 +43,19 @@ export function RichText({ component, context }: Props) {
           blockquote: ({ node, ...props }) => (
             <blockquote
               {...props}
-              className="border-l-4 border-gray-300 pl-4 text-gray-500"
+              className="border-l-4 border-border-default pl-4 *:text-content-secondary!"
             />
           ),
           code: ({ node, ...props }) => (
             <code
               {...props}
-              className="bg-gray-100 text-gray-800 rounded p-1 text-sm whitespace-break-spaces"
+              className="bg-background-surface text-content-primary rounded p-1 text-sm whitespace-break-spaces"
             />
           ),
           pre: ({ node, ...props }) => (
             <pre
               {...props}
-              className="bg-gray-100 text-gray-800 rounded text-sm [&>code]:block [&>code]:bg-transparent"
+              className="bg-background-surface text-content-primary rounded text-sm [&>code]:block [&>code]:bg-transparent"
             />
           ),
         }}

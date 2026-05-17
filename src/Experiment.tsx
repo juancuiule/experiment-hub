@@ -31,7 +31,12 @@ export default function Experiment(props: Props) {
             start(startingNode, experimentProp);
           }}
         >
-          <button>start</button>
+          <button
+            type="submit"
+            className="w-full h-10 bg-background-inverted text-content-inverted uppercase text-sm font-medium tracking-wide rounded-sm hover:bg-background-inverted/80 active:scale-[0.98] disabled:active:scale-100 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition duration-150 ease-out"
+          >
+            Start
+          </button>
         </form>
       </>
     );
@@ -43,7 +48,7 @@ export default function Experiment(props: Props) {
     return (
       <>
         <h1 className="text-2xl font-semibold mb-2">All done!</h1>
-        <p className="text-zinc-500 mb-8">
+        <p className="text-content-secondary mb-8">
           Thanks for completing the experiment.
         </p>
       </>
@@ -78,7 +83,7 @@ export default function Experiment(props: Props) {
             context={step.context}
           />
         ) : (
-          <p className="text-red-500">Screen not found: {slug}</p>
+          <p className="text-error">Screen not found: {slug}</p>
         )}
       </>
     );
@@ -87,7 +92,7 @@ export default function Experiment(props: Props) {
   // Fallback for any auto-traversal states still in flight
   return (
     <>
-      <p className="text-zinc-400">Loading…</p>
+      <p className="text-content-secondary">Loading…</p>
     </>
   );
 }

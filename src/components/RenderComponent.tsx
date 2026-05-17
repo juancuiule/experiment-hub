@@ -128,7 +128,7 @@ export function RenderComponent({
   }
 
   return (
-    <pre className="text-xs my-2 bg-gray-50 p-2 rounded">
+    <pre className="text-xs my-2 bg-background-surface text-content-primary p-2 rounded">
       <code>{JSON.stringify(component, null, 2)}</code>
     </pre>
   );
