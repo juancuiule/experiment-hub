@@ -1,9 +1,9 @@
-import { ExperimentFlow } from "@/lib/types";
-import { validateExperiment } from "@/lib/flow-validation";
-import { experiment } from "@/src/data/experiment";
-import { DataDebug, StateDebug } from "@/src/Debug";
-import Experiment from "@/src/Experiment";
-import { ValidationErrors } from "@/src/ValidationErrors";
+import { ExperimentFlow } from '@/lib/types';
+import { validateExperiment } from '@/lib/flow-validation';
+import { experiment } from '@/src/data/experiment';
+import { DataDebug, StateDebug } from '@/src/Debug';
+import Experiment from '@/src/Experiment';
+import { ValidationErrors } from '@/src/ValidationErrors';
 
 type Props = {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
@@ -16,7 +16,7 @@ function determineStartingNode(
   experiment: ExperimentFlow,
 ) {
   const keys = Object.keys(searchParams);
-  const startNodes = experiment.nodes.filter((node) => node.type === "start");
+  const startNodes = experiment.nodes.filter((node) => node.type === 'start');
 
   for (const node of startNodes) {
     if (node.props && keys.includes(node.props.param.key)) {
@@ -42,9 +42,11 @@ export default async function Home(props: Props) {
     return <ValidationErrors errors={errors} />;
   }
 
-  return <>
-    <StateDebug />
-    <Experiment startingNode={startingNode} />
-    <DataDebug />
-  </>
+  return (
+    <>
+      <StateDebug />
+      <Experiment startingNode={startingNode} />
+      <DataDebug />
+    </>
+  );
 }
