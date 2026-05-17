@@ -3,7 +3,7 @@ import { FrameworkScreen } from './screen';
 import { hasRandomizedOptions, ResponseComponent } from './components/response';
 import { ScreenComponent } from './components';
 import { evaluateCondition } from './conditions';
-import { ConditionalComponent } from './components/control';
+import { getValue } from './resolve';
 
 function buildFieldSchema(component: ResponseComponent): z.ZodTypeAny {
   const { required = true, errorMessage } = component.props;
@@ -134,140 +134,139 @@ function buildFieldSchema(component: ResponseComponent): z.ZodTypeAny {
   }
 }
 
-function collectResponsesInComponent(
+type FieldEntry = { component: ResponseComponent; dataKey: string; optional: boolean };
+
+// Pure recursive field collector, analogous to getComponentFields.
+function collectFieldEntries(
   component: ScreenComponent,
-): ResponseComponent[] {
-  const result: ResponseComponent[] = [];
+  optional = false,
+): FieldEntry[] {
   if (component.componentFamily === 'response') {
-    result.push(component);
-  } else if (
-    component.componentFamily === 'layout' &&
-    component.template === 'group'
-  ) {
-    for (const child of component.props.components) {
-      collectResponsesInComponent(child).forEach((r) => result.push(r));
-    }
+    return [{ component, dataKey: component.props.dataKey, optional }];
   }
-  // Stop at nested conditionals — they appear separately in collectConditionals
-  return result;
+  if (component.componentFamily === 'layout' && component.template === 'group') {
+    return component.props.components.flatMap((c) => collectFieldEntries(c, optional));
+  }
+  if (component.componentFamily === 'control') {
+    if (component.template === 'conditional') {
+      return [
+        ...collectFieldEntries(component.props.component, true),
+        ...(component.props.else ? collectFieldEntries(component.props.else, true) : []),
+      ];
+    }
+    if (component.template === 'for-each' && component.props.type === 'static') {
+      return component.props.values.flatMap((value, index) =>
+        collectFieldEntries(component.props.component, optional).map((entry) => ({
+          ...entry,
+          dataKey: entry.dataKey
+            .replace(`{{#${component.props.id}.index}}`, String(index))
+            .replace(`{{#${component.props.id}.value}}`, value),
+        })),
+      );
+    }
+    // dynamic for-each: skip — dataKey is not statically resolvable
+  }
+  return [];
 }
 
-function collectFieldsAsOptional(
-  component: ScreenComponent,
-  acc: Record<string, z.ZodTypeAny>,
-): void {
-  for (const r of collectResponsesInComponent(component)) {
-    acc[r.props.dataKey] = buildFieldSchema(r).optional();
-    if (hasRandomizedOptions(r)) {
-      acc[`${r.props.dataKey}__order`] = z.array(z.string()).optional();
-    }
-  }
-}
-
-function collectFields(
-  components: ScreenComponent[],
-  acc: Record<string, z.ZodTypeAny> = {},
-): Record<string, z.ZodTypeAny> {
-  for (const component of components) {
-    if (component.componentFamily === 'response') {
-      acc[component.props.dataKey] = buildFieldSchema(component);
-      if (hasRandomizedOptions(component)) {
-        acc[`${component.props.dataKey}__order`] = z
-          .array(z.string())
-          .optional();
-      }
-    } else if (
-      component.componentFamily === 'layout' &&
-      component.template === 'group'
-    ) {
-      collectFields(component.props.components, acc);
-    } else if (
-      component.componentFamily === 'control' &&
-      component.template === 'conditional'
-    ) {
-      // Nested response fields are optional in base schema;
-      // superRefine enforces required rules when condition is true at submit time.
-      const inner = component.props.component;
-      if (inner.componentFamily === 'response') {
-        acc[inner.props.dataKey] = buildFieldSchema(inner).optional();
-        if (hasRandomizedOptions(inner)) {
-          acc[`${inner.props.dataKey}__order`] = z.array(z.string()).optional();
-        }
-      } else {
-        collectFieldsAsOptional(inner, acc);
-      }
-      // Also handle else branch if present
-      if (component.props.else) {
-        const elseBranch = component.props.else;
-        if (elseBranch.componentFamily === 'response') {
-          if (!(elseBranch.props.dataKey in acc)) {
-            acc[elseBranch.props.dataKey] =
-              buildFieldSchema(elseBranch).optional();
-            if (hasRandomizedOptions(elseBranch)) {
-              acc[`${elseBranch.props.dataKey}__order`] = z
-                .array(z.string())
-                .optional();
-            }
-          }
-        } else {
-          collectFieldsAsOptional(elseBranch, acc);
-        }
-      }
-    } else if (
-      component.componentFamily === 'control' &&
-      component.template === 'for-each'
-    ) {
-      if (component.props.type === 'static') {
-        const template = component.props.component;
-        if (template.componentFamily === 'response') {
-          for (let i = 0; i < component.props.values.length; i++) {
-            const resolvedKey = template.props.dataKey
-              .replace(`{{#${component.props.id}.index}}`, String(i))
-              .replace(
-                `{{#${component.props.id}.value}}`,
-                component.props.values[i],
-              );
-            acc[resolvedKey] = buildFieldSchema(template);
-          }
-        }
-        // dynamic for-each: skip — dataKey is not statically resolvable
-      }
+function collectFields(components: ScreenComponent[]): Record<string, z.ZodTypeAny> {
+  const acc: Record<string, z.ZodTypeAny> = {};
+  for (const { component, dataKey, optional } of components.flatMap((c) =>
+    collectFieldEntries(c),
+  )) {
+    if (dataKey in acc) continue; // first entry wins (if/else branches may share a key)
+    acc[dataKey] = optional ? buildFieldSchema(component).optional() : buildFieldSchema(component);
+    if (hasRandomizedOptions(component)) {
+      acc[`${dataKey}__order`] = z.array(z.string()).optional();
     }
   }
   return acc;
 }
 
-function collectConditionals(
-  components: ScreenComponent[],
-): ConditionalComponent[] {
-  // Known limitation: a for-each wrapping a conditional is not recursed here (deferred).
-  // Known limitation: the else branch of a conditional is not enforced in superRefine (deferred).
-  const result: ConditionalComponent[] = [];
-  for (const component of components) {
-    if (
-      component.componentFamily === 'control' &&
-      component.template === 'conditional'
-    ) {
-      result.push(component);
-      // Recurse into nested conditionals
-      collectConditionals([component.props.component]).forEach((c) =>
-        result.push(c),
-      );
-      if (component.props.else) {
-        collectConditionals([component.props.else]).forEach((c) =>
-          result.push(c),
-        );
+// forEachCtx accumulates {id → {value, index}} as we descend into for-each loops,
+// so that {{#id.value}} and {{#id.index}} placeholders can be resolved at any depth.
+type ForEachCtx = Record<string, { value: string; index: number }>;
+
+function resolveTemplateKey(key: string, ctx: ForEachCtx): string {
+  return Object.entries(ctx).reduce(
+    (k, [id, { value, index }]) =>
+      k.replace(`{{#${id}.value}}`, value).replace(`{{#${id}.index}}`, String(index)),
+    key,
+  );
+}
+
+// Recursively validates required fields, entering "dynamic mode" on the first conditional
+// branch or dynamic for-each iteration encountered. dynamicMode=false means Phase 1 (Zod
+// static schema) is already responsible for the field; we only add issues in dynamic mode.
+function validateComponentTree(
+  component: ScreenComponent,
+  screenData: Record<string, any>,
+  forEachCtx: ForEachCtx,
+  dynamicMode: boolean,
+  issues: Array<{ path: string; message: string }>,
+): void {
+  if (component.componentFamily === 'response') {
+    if (!dynamicMode) return;
+    const { required = true, errorMessage } = component.props;
+    if (!required) return;
+    const resolvedKey = resolveTemplateKey(component.props.dataKey, forEachCtx);
+    const value = screenData[resolvedKey];
+    const isEmpty =
+      value === undefined ||
+      value === null ||
+      value === '' ||
+      (Array.isArray(value) && value.length === 0);
+    if (isEmpty) {
+      issues.push({ path: resolvedKey, message: errorMessage ?? 'This field is required' });
+    }
+    return;
+  }
+
+  if (component.componentFamily === 'layout' && component.template === 'group') {
+    for (const child of component.props.components) {
+      validateComponentTree(child, screenData, forEachCtx, dynamicMode, issues);
+    }
+    return;
+  }
+
+  if (component.componentFamily === 'control') {
+    if (component.template === 'conditional') {
+      // Build a context with foreachData so evaluateCondition can resolve {{#id.value}}
+      // patterns in the condition's dataKey (e.g. '$likes-{{#for-each-fruit.value}}').
+      const context = {
+        screenData: { ...screenData, foreachData: forEachCtx },
+        data: {},
+        loopData: {},
+      };
+      const conditionMet = evaluateCondition(component.props.if, context);
+      const branch = conditionMet ? component.props.component : component.props.else;
+      if (branch) {
+        validateComponentTree(branch, screenData, forEachCtx, true, issues);
       }
-    } else if (
-      component.componentFamily === 'layout' &&
-      component.template === 'group'
-    ) {
-      collectConditionals(component.props.components).forEach((c) =>
-        result.push(c),
-      );
+      return;
+    }
+
+    if (component.template === 'for-each') {
+      if (component.props.type === 'static') {
+        component.props.values.forEach((value, index) => {
+          const newCtx = { ...forEachCtx, [component.props.id]: { value, index } };
+          validateComponentTree(component.props.component, screenData, newCtx, dynamicMode, issues);
+        });
+      } else {
+        const context = {
+          screenData: { ...screenData, foreachData: forEachCtx },
+          data: {},
+          loopData: {},
+        };
+        const values = getValue(component.props.dataKey, context);
+        if (!Array.isArray(values)) return;
+        values.forEach((v, index) => {
+          const newCtx = { ...forEachCtx, [component.props.id]: { value: String(v), index } };
+          validateComponentTree(component.props.component, screenData, newCtx, true, issues);
+        });
+      }
     }
   }
-  return result;
 }
 
 type Field = { dataKey: string; always: boolean; dynamic?: boolean };
@@ -339,48 +338,20 @@ export function getComponentFields(component: ScreenComponent): Field[] {
 
 export function buildSchema(screen: FrameworkScreen) {
   const shape = collectFields(screen.components);
-  // passthrough() preserves keys not in shape (e.g. dynamic for-each fields whose dataKey
-  // is a runtime template). Remove once buildSchema handles dynamic for-each statically.
+  // passthrough() preserves dynamically-keyed fields from dynamic for-each (e.g. "eats-apple")
+  // that are not in the static shape but must survive schema parsing to be submitted.
   const baseSchema = z.object(shape).passthrough();
 
-  const conditionals = collectConditionals(screen.components);
-  if (conditionals.length === 0) {
-    return baseSchema;
-  }
-
   return baseSchema.superRefine((data, ctx) => {
-    for (const conditional of conditionals) {
-      const condition = conditional.props.if;
-      const conditionMet = evaluateCondition(condition, {
-        screenData: data as Record<string, any>,
-        data: {},
-        loopData: {},
-      });
+    const screenData = data as Record<string, any>;
+    const issues: Array<{ path: string; message: string }> = [];
 
-      if (!conditionMet) continue;
+    for (const component of screen.components) {
+      validateComponentTree(component, screenData, {}, false, issues);
+    }
 
-      const responses = collectResponsesInComponent(
-        conditional.props.component,
-      );
-      for (const inner of responses) {
-        const { required = true, errorMessage } = inner.props;
-        if (!required) continue;
-
-        const value = data[inner.props.dataKey];
-        const isEmpty =
-          value === undefined ||
-          value === null ||
-          value === '' ||
-          (Array.isArray(value) && value.length === 0);
-
-        if (isEmpty) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: errorMessage ?? 'This field is required',
-            path: [inner.props.dataKey],
-          });
-        }
-      }
+    for (const { path, message } of issues) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message, path: [path] });
     }
   }) as typeof baseSchema;
 }
