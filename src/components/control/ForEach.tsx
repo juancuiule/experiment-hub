@@ -47,7 +47,7 @@ export function ForEach({
         const resolvedTemplate: ScreenComponent =
           component.props.type === "static" &&
           template.componentFamily === "response"
-            ? {
+            ? ({
                 ...template,
                 props: {
                   ...template.props,
@@ -55,7 +55,7 @@ export function ForEach({
                     .replace("@index", String(index))
                     .replace("@value", String(itemValue)),
                 },
-              }
+              } as typeof template)
             : template;
 
         return (
