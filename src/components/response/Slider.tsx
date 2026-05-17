@@ -55,14 +55,14 @@ export function Slider({ component, form, context }: Props) {
                 max={max}
                 step={component.props.step ?? 1}
                 onValueChange={([val]) => field.onChange(val)}
-                className="relative flex items-center w-full h-5 select-none touch-none"
+                className="group relative flex items-center w-full h-5 select-none touch-none"
               >
                 <SliderPrimitive.Track className="relative h-0.5 bg-content-secondary/60 flex-1 rounded-full">
                   <SliderPrimitive.Range className={`absolute h-full rounded-full ${hasInteracted ? "bg-content-active" : "bg-transparent"}`} />
                 </SliderPrimitive.Track>
                 <SliderPrimitive.Thumb className={twMerge(
-                  'block w-4 h-4 rounded-full outline-none',
-                  hasInteracted || showThumb ? 'focus-visible:ring-4 focus-visible:ring-ring/50 cursor-grab active:cursor-grabbing active:scale-125 transition-transform duration-100 ease-out' : '',
+                  'block w-4 h-4 rounded-full outline-none transition-transform duration-100 ease-out',
+                  hasInteracted || showThumb ? 'focus-visible:ring-4 focus-visible:ring-ring/50 cursor-grab group-active:scale-125 group-active:cursor-grabbing' : '',
                   thumbClass
                 )} />
               </SliderPrimitive.Root>
