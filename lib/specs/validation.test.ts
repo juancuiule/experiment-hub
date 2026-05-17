@@ -1095,7 +1095,7 @@ describe('conditional — group inside conditional', () => {
 });
 
 describe('static for-each — generates N schema entries', () => {
-  it('creates one entry per static value with @index resolved', () => {
+  it('creates one entry per static value with {{#id.index}} resolved', () => {
     const schema = buildSchema(
       screen([
         {
@@ -1109,7 +1109,7 @@ describe('static for-each — generates N schema entries', () => {
               componentFamily: 'response',
               template: 'text-input',
               props: {
-                dataKey: 'sport_@index',
+                dataKey: 'sport_{{#sports.index}}',
                 label: 'Sport',
                 required: true,
               },
@@ -1139,21 +1139,19 @@ describe('static for-each — generates N schema entries', () => {
             component: {
               componentFamily: 'response',
               template: 'text-input',
-              props: { dataKey: 'item_@index', label: 'Item', required: true },
+              props: { dataKey: 'item_{{#items.index}}', label: 'Item', required: true },
             },
           },
         },
       ]),
     );
-    // only 2 values → keys item_0 and item_1
     expect(schema.safeParse({ item_0: 'x', item_1: 'y' }).success).toBe(true);
-    // extra key item_2 is irrelevant (zod strips or passes unknowns)
     expect(schema.safeParse({ item_0: '', item_1: 'y' }).success).toBe(false);
   });
 });
 
-describe('static for-each — @value resolved in dataKey', () => {
-  it('resolves @value placeholder using the string value at each index', () => {
+describe('static for-each — {{#id.value}} resolved in dataKey', () => {
+  it('resolves {{#id.value}} placeholder using the string value at each index', () => {
     const schema = buildSchema(
       screen([
         {
@@ -1167,7 +1165,7 @@ describe('static for-each — @value resolved in dataKey', () => {
               componentFamily: 'response',
               template: 'text-input',
               props: {
-                dataKey: 'rating_@value',
+                dataKey: 'rating_{{#foods.value}}',
                 label: 'Rate it',
                 required: true,
               },
@@ -1180,7 +1178,7 @@ describe('static for-each — @value resolved in dataKey', () => {
     expect(schema.safeParse({ rating_pizza: '', rating_sushi: 'great' }).success).toBe(false);
   });
 
-  it('resolves both @index and @value when combined in dataKey', () => {
+  it('resolves both {{#id.index}} and {{#id.value}} when combined in dataKey', () => {
     const schema = buildSchema(
       screen([
         {
@@ -1194,7 +1192,7 @@ describe('static for-each — @value resolved in dataKey', () => {
               componentFamily: 'response',
               template: 'text-input',
               props: {
-                dataKey: 'item_@index_@value',
+                dataKey: 'item_{{#items.index}}_{{#items.value}}',
                 label: 'Item',
                 required: true,
               },

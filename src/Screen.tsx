@@ -1,14 +1,18 @@
-"use client";
+'use client';
 
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useForm } from 'react-hook-form';
 
-import { ScreenComponent } from "@/lib/components";
-import { FrameworkScreen } from "@/lib/screen";
-import { Context } from "@/lib/types";
-import { buildSchema, getSchemaShape } from "@/lib/validation";
-import { RenderComponent } from "./components/RenderComponent";
-import { DataSection } from "./Debug";
+import { ScreenComponent } from '@/lib/components';
+import { FrameworkScreen } from '@/lib/screen';
+import { Context } from '@/lib/types';
+import {
+  buildSchema,
+  getComponentFields,
+  getSchemaShape,
+} from '@/lib/validation';
+import { RenderComponent } from './components/RenderComponent';
+import { DataSection } from './Debug';
 
 type ScreenProps = {
   screen: FrameworkScreen;
@@ -23,28 +27,31 @@ function collectDefaults(
   values: Record<string, any> = {},
 ): Record<string, any> {
   for (const c of components) {
-    if (c.componentFamily !== "response") {
-      if (c.componentFamily === "layout" && c.template === "group") {
+    if (c.componentFamily !== 'response') {
+      if (c.componentFamily === 'layout' && c.template === 'group') {
         collectDefaults(c.props.components, context, values);
-      } else if (c.componentFamily === "control" && c.template === "conditional") {
+      } else if (
+        c.componentFamily === 'control' &&
+        c.template === 'conditional'
+      ) {
         collectDefaults([c.props.component], context, values);
         if (c.props.else) collectDefaults([c.props.else], context, values);
       } else if (
-        c.componentFamily === "control" &&
-        c.template === "for-each" &&
-        c.props.type === "static"
+        c.componentFamily === 'control' &&
+        c.template === 'for-each' &&
+        c.props.type === 'static'
       ) {
         const inner = c.props.component;
         for (let i = 0; i < c.props.values.length; i++) {
           let resolved: ScreenComponent;
-          if (inner.componentFamily === "response") {
+          if (inner.componentFamily === 'response') {
             resolved = {
               ...inner,
               props: {
                 ...inner.props,
                 dataKey: inner.props.dataKey
-                  .replace("@index", String(i))
-                  .replace("@value", c.props.values[i]),
+                  .replace(`{{#${c.props.id}.index}}`, String(i))
+                  .replace(`{{#${c.props.id}.value}}`, c.props.values[i]),
               },
             } as typeof inner;
           } else {
@@ -56,24 +63,24 @@ function collectDefaults(
       continue;
     }
     switch (c.template) {
-      case "radio":
-      case "dropdown":
-        values[c.props.dataKey] = "";
+      case 'radio':
+      case 'dropdown':
+        values[c.props.dataKey] = '';
         break;
-      case "checkboxes":
+      case 'checkboxes':
         values[c.props.dataKey] = [];
         break;
-      case "single-checkbox":
+      case 'single-checkbox':
         values[c.props.dataKey] = c.props.defaultValue ?? false;
         break;
-      case "slider":
+      case 'slider':
         values[c.props.dataKey] = null;
         break;
-      case "numeric-input":
+      case 'numeric-input':
         values[c.props.dataKey] = c.props.defaultValue ?? null;
         break;
       default:
-        values[c.props.dataKey] = "";
+        values[c.props.dataKey] = '';
     }
   }
   return values;
@@ -102,36 +109,48 @@ export function Screen({ screen, isLoading, onNext, context }: ScreenProps) {
     const orders = Object.fromEntries(
       Object.entries(shuffledOptions)
         .filter(([key]) => key in data)
-        .map(([key, opts]) => [`${key}__order`, (opts as Array<{ value: string }>).map((o) => o.value)]),
+        .map(([key, opts]) => [
+          `${key}__order`,
+          (opts as Array<{ value: string }>).map((o) => o.value),
+        ]),
     );
     onNext({ ...data, ...orders }).catch((err) =>
-      console.error("Failed to advance experiment:", err),
+      console.error('Failed to advance experiment:', err),
     );
   };
 
   return (
-    <form
-      className="h-full flex-1 flex flex-col gap-4"
-      key={screen.slug}
-      onSubmit={form.handleSubmit(onSubmit)}
-    >
-      {screen.components.map((component, i) => (
-        <RenderComponent
-          key={
-            component.componentFamily === "response"
-              ? component.props.dataKey
-              : i
-          }
-          component={component}
-          form={form}
-          context={context}
-          isLoading={isLoading}
-        />
-      ))}
-      <div className="flex flex-col gap-3">
-        <DataSection title="schema" data={getSchemaShape(screen)} />
-        <DataSection title="form" data={form.watch()} />
-      </div>
-    </form>
+    <>
+      <DataSection
+        title="schema"
+        data={Object.fromEntries(
+          screen.components
+            .flatMap(getComponentFields)
+            .map((f) => [f.dataKey, f.optional ? 'optional' : 'required']),
+        )}
+      />
+      <form
+        className="flex h-full flex-1 flex-col gap-4"
+        key={screen.slug}
+        onSubmit={form.handleSubmit(onSubmit)}
+      >
+        {screen.components.map((component, i) => (
+          <RenderComponent
+            key={
+              component.componentFamily === 'response'
+                ? component.props.dataKey
+                : i
+            }
+            component={component}
+            form={form}
+            context={context}
+            isLoading={isLoading}
+          />
+        ))}
+        <div className="flex flex-col gap-3">
+          <DataSection title="form" data={form.watch()} />
+        </div>
+      </form>
+    </>
   );
 }

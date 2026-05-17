@@ -313,9 +313,6 @@ describe("validation", () => {
   });
 });
 
-// Static for-each: @index and @value in dataKey are resolved at schema-build time
-// (validation.ts) and at render time (ForEach.tsx). Labels use {{#id.index}} / {{#id.value}}
-// syntax (resolved by resolveValuesInString).
 describe("static for-each — rendering and validation", () => {
   it("renders one input per static value with resolved labels", () => {
     renderScreen([
@@ -329,7 +326,7 @@ describe("static for-each — rendering and validation", () => {
           component: {
             componentFamily: "response",
             template: "text-input",
-            props: { dataKey: "lang_@index", label: "Language {{#langs.index}}", required: true },
+            props: { dataKey: "lang_{{#langs.index}}", label: "Language {{#langs.index}}", required: true },
           },
         },
       },
@@ -352,7 +349,7 @@ describe("static for-each — rendering and validation", () => {
             component: {
               componentFamily: "response",
               template: "text-input",
-              props: { dataKey: "lang_@index", label: "Language {{#langs.index}}", required: true },
+              props: { dataKey: "lang_{{#langs.index}}", label: "Language {{#langs.index}}", required: true },
             },
           },
         },
@@ -384,7 +381,7 @@ describe("static for-each — rendering and validation", () => {
             component: {
               componentFamily: "response",
               template: "text-input",
-              props: { dataKey: "lang_@index", label: "Language {{#langs.index}}", required: true },
+              props: { dataKey: "lang_{{#langs.index}}", label: "Language {{#langs.index}}", required: true },
             },
           },
         },
@@ -415,7 +412,7 @@ describe("static for-each — rendering and validation", () => {
             component: {
               componentFamily: "response",
               template: "text-input",
-              props: { dataKey: "rating_@value", label: "Rate {{#foods.value}}", required: true },
+              props: { dataKey: "rating_{{#foods.value}}", label: "Rate {{#foods.value}}", required: true },
             },
           },
         },

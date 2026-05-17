@@ -1,17 +1,17 @@
-import { z } from "zod";
-import { FrameworkScreen } from "./screen";
-import { hasRandomizedOptions, ResponseComponent } from "./components/response";
-import { ScreenComponent } from "./components";
-import { evaluateCondition } from "./conditions";
-import { ConditionalComponent } from "./components/control";
+import { z } from 'zod';
+import { FrameworkScreen } from './screen';
+import { hasRandomizedOptions, ResponseComponent } from './components/response';
+import { ScreenComponent } from './components';
+import { evaluateCondition } from './conditions';
+import { ConditionalComponent } from './components/control';
 
 function buildFieldSchema(component: ResponseComponent): z.ZodTypeAny {
   const { required = true, errorMessage } = component.props;
-  const msg = errorMessage ?? "This field is required";
+  const msg = errorMessage ?? 'This field is required';
 
   switch (component.template) {
-    case "text-input":
-    case "text-area": {
+    case 'text-input':
+    case 'text-area': {
       const { minLength, maxLength, pattern } = component.props;
       let base = z.string();
       if (required) base = base.min(1, msg);
@@ -30,24 +30,24 @@ function buildFieldSchema(component: ResponseComponent): z.ZodTypeAny {
       if (pattern)
         base = base.regex(
           new RegExp(pattern.value),
-          pattern.errorMessage ?? "Invalid format",
+          pattern.errorMessage ?? 'Invalid format',
         );
       return required ? base : base.optional();
     }
 
-    case "date-input":
-    case "time-input": {
+    case 'date-input':
+    case 'time-input': {
       const base = z.string();
       return required ? base.min(1, msg) : base.optional();
     }
 
-    case "dropdown":
-    case "radio": {
+    case 'dropdown':
+    case 'radio': {
       const base = z.string();
       return required ? base.min(1, msg) : base.optional();
     }
 
-    case "checkboxes": {
+    case 'checkboxes': {
       const { min, max } = component.props;
       let base = z.array(z.string());
       if (required || (min !== undefined && min > 0)) {
@@ -56,7 +56,7 @@ function buildFieldSchema(component: ResponseComponent): z.ZodTypeAny {
           errorMessage ??
             (min !== undefined && min > 1
               ? `Select at least ${min} options`
-              : "Please select at least one option"),
+              : 'Please select at least one option'),
         );
       }
       if (max !== undefined) {
@@ -65,12 +65,12 @@ function buildFieldSchema(component: ResponseComponent): z.ZodTypeAny {
       return base;
     }
 
-    case "likert-scale": {
+    case 'likert-scale': {
       const base = z.string();
       return required ? base.min(1, msg) : base.optional();
     }
 
-    case "numeric-input": {
+    case 'numeric-input': {
       const { min, max } = component.props;
       let base = z.coerce.number();
       if (min !== undefined)
@@ -80,7 +80,7 @@ function buildFieldSchema(component: ResponseComponent): z.ZodTypeAny {
       return required ? base : base.optional();
     }
 
-    case "slider": {
+    case 'slider': {
       const { min = 0, max = 100, minValue, maxValue } = component.props;
 
       const buildCoerceBase = () => {
@@ -120,7 +120,7 @@ function buildFieldSchema(component: ResponseComponent): z.ZodTypeAny {
       return z.union([z.null(), buildCoerceBase()]);
     }
 
-    case "single-checkbox": {
+    case 'single-checkbox': {
       const { shouldBe } = component.props;
       if (shouldBe !== undefined) {
         return z.boolean().refine((v) => v === shouldBe, {
@@ -134,13 +134,15 @@ function buildFieldSchema(component: ResponseComponent): z.ZodTypeAny {
   }
 }
 
-function collectResponsesInComponent(component: ScreenComponent): ResponseComponent[] {
+function collectResponsesInComponent(
+  component: ScreenComponent,
+): ResponseComponent[] {
   const result: ResponseComponent[] = [];
-  if (component.componentFamily === "response") {
+  if (component.componentFamily === 'response') {
     result.push(component);
   } else if (
-    component.componentFamily === "layout" &&
-    component.template === "group"
+    component.componentFamily === 'layout' &&
+    component.template === 'group'
   ) {
     for (const child of component.props.components) {
       collectResponsesInComponent(child).forEach((r) => result.push(r));
@@ -167,7 +169,7 @@ function collectFields(
   acc: Record<string, z.ZodTypeAny> = {},
 ): Record<string, z.ZodTypeAny> {
   for (const component of components) {
-    if (component.componentFamily === "response") {
+    if (component.componentFamily === 'response') {
       acc[component.props.dataKey] = buildFieldSchema(component);
       if (hasRandomizedOptions(component)) {
         acc[`${component.props.dataKey}__order`] = z
@@ -175,18 +177,18 @@ function collectFields(
           .optional();
       }
     } else if (
-      component.componentFamily === "layout" &&
-      component.template === "group"
+      component.componentFamily === 'layout' &&
+      component.template === 'group'
     ) {
       collectFields(component.props.components, acc);
     } else if (
-      component.componentFamily === "control" &&
-      component.template === "conditional"
+      component.componentFamily === 'control' &&
+      component.template === 'conditional'
     ) {
       // Nested response fields are optional in base schema;
       // superRefine enforces required rules when condition is true at submit time.
       const inner = component.props.component;
-      if (inner.componentFamily === "response") {
+      if (inner.componentFamily === 'response') {
         acc[inner.props.dataKey] = buildFieldSchema(inner).optional();
         if (hasRandomizedOptions(inner)) {
           acc[`${inner.props.dataKey}__order`] = z.array(z.string()).optional();
@@ -197,7 +199,7 @@ function collectFields(
       // Also handle else branch if present
       if (component.props.else) {
         const elseBranch = component.props.else;
-        if (elseBranch.componentFamily === "response") {
+        if (elseBranch.componentFamily === 'response') {
           if (!(elseBranch.props.dataKey in acc)) {
             acc[elseBranch.props.dataKey] =
               buildFieldSchema(elseBranch).optional();
@@ -212,16 +214,16 @@ function collectFields(
         }
       }
     } else if (
-      component.componentFamily === "control" &&
-      component.template === "for-each"
+      component.componentFamily === 'control' &&
+      component.template === 'for-each'
     ) {
-      if (component.props.type === "static") {
+      if (component.props.type === 'static') {
         const template = component.props.component;
-        if (template.componentFamily === "response") {
+        if (template.componentFamily === 'response') {
           for (let i = 0; i < component.props.values.length; i++) {
             const resolvedKey = template.props.dataKey
-              .replace("@index", String(i))
-              .replace("@value", component.props.values[i]);
+              .replace(`{{#${component.props.id}.index}}`, String(i))
+              .replace(`{{#${component.props.id}.value}}`, component.props.values[i]);
             acc[resolvedKey] = buildFieldSchema(template);
           }
         }
@@ -240,8 +242,8 @@ function collectConditionals(
   const result: ConditionalComponent[] = [];
   for (const component of components) {
     if (
-      component.componentFamily === "control" &&
-      component.template === "conditional"
+      component.componentFamily === 'control' &&
+      component.template === 'conditional'
     ) {
       result.push(component);
       // Recurse into nested conditionals
@@ -254,8 +256,8 @@ function collectConditionals(
         );
       }
     } else if (
-      component.componentFamily === "layout" &&
-      component.template === "group"
+      component.componentFamily === 'layout' &&
+      component.template === 'group'
     ) {
       collectConditionals(component.props.components).forEach((c) =>
         result.push(c),
@@ -263,6 +265,53 @@ function collectConditionals(
     }
   }
   return result;
+}
+
+type Field = { dataKey: string; optional: boolean };
+export function getComponentFields(component: ScreenComponent): Field[] {
+  switch (component.componentFamily) {
+    case 'content': {
+      return [];
+    }
+    case 'layout': {
+      if (component.template === 'group') {
+        return component.props.components.flatMap((c) => getComponentFields(c));
+      }
+      return [];
+    }
+    case 'response': {
+      return [{ dataKey: component.props.dataKey, optional: false }];
+    }
+    case 'control': {
+      switch (component.template) {
+        case 'conditional': {
+          const ifFields = getComponentFields(component.props.component).flat();
+          const elseFields = component.props.else
+            ? getComponentFields(component.props.else).flat()
+            : [];
+          return [...ifFields, ...elseFields].map((f) => ({
+            ...f,
+            optional: true,
+          }));
+        }
+        case 'for-each': {
+          if (component.props.type === 'static') {
+            const templateFields = getComponentFields(component.props.component);
+            return component.props.values.flatMap((value, index) =>
+              templateFields.map((f) => ({
+                ...f,
+                dataKey: f.dataKey
+                  .replace(`{{#${component.props.id}.index}}`, String(index))
+                  .replace(`{{#${component.props.id}.value}}`, value),
+              })),
+            );
+          }
+        }
+      }
+    }
+  }
+
+  return [];
 }
 
 export function buildSchema(screen: FrameworkScreen) {
@@ -287,7 +336,9 @@ export function buildSchema(screen: FrameworkScreen) {
 
       if (!conditionMet) continue;
 
-      const responses = collectResponsesInComponent(conditional.props.component);
+      const responses = collectResponsesInComponent(
+        conditional.props.component,
+      );
       for (const inner of responses) {
         const { required = true, errorMessage } = inner.props;
         if (!required) continue;
@@ -296,13 +347,13 @@ export function buildSchema(screen: FrameworkScreen) {
         const isEmpty =
           value === undefined ||
           value === null ||
-          value === "" ||
+          value === '' ||
           (Array.isArray(value) && value.length === 0);
 
         if (isEmpty) {
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
-            message: errorMessage ?? "This field is required",
+            message: errorMessage ?? 'This field is required',
             path: [inner.props.dataKey],
           });
         }
@@ -311,25 +362,28 @@ export function buildSchema(screen: FrameworkScreen) {
   }) as typeof baseSchema;
 }
 
-function describeResponseType(component: ResponseComponent, optional: boolean): string {
+function describeResponseType(
+  component: ResponseComponent,
+  optional: boolean,
+): string {
   const base = (() => {
     switch (component.template) {
-      case "text-input":
-      case "text-area":
-      case "date-input":
-      case "time-input":
-      case "dropdown":
-      case "radio":
-      case "likert-scale":
-        return "string";
-      case "checkboxes":
-        return "string[]";
-      case "numeric-input":
-        return "number";
-      case "slider":
-        return "null | number";
-      case "single-checkbox":
-        return "boolean";
+      case 'text-input':
+      case 'text-area':
+      case 'date-input':
+      case 'time-input':
+      case 'dropdown':
+      case 'radio':
+      case 'likert-scale':
+        return 'string';
+      case 'checkboxes':
+        return 'string[]';
+      case 'numeric-input':
+        return 'number';
+      case 'slider':
+        return 'null | number';
+      case 'single-checkbox':
+        return 'boolean';
     }
   })();
   return optional ? `${base}?` : base;
@@ -341,36 +395,40 @@ function collectFieldDescriptions(
   withinConditional = false,
 ): Record<string, string> {
   for (const component of components) {
-    if (component.componentFamily === "response") {
+    if (component.componentFamily === 'response') {
       const optional = withinConditional || !(component.props.required ?? true);
       acc[component.props.dataKey] = describeResponseType(component, optional);
       if (hasRandomizedOptions(component)) {
-        acc[`${component.props.dataKey}__order`] = "string[]?";
+        acc[`${component.props.dataKey}__order`] = 'string[]?';
       }
     } else if (
-      component.componentFamily === "layout" &&
-      component.template === "group"
+      component.componentFamily === 'layout' &&
+      component.template === 'group'
     ) {
-      collectFieldDescriptions(component.props.components, acc, withinConditional);
+      collectFieldDescriptions(
+        component.props.components,
+        acc,
+        withinConditional,
+      );
     } else if (
-      component.componentFamily === "control" &&
-      component.template === "conditional"
+      component.componentFamily === 'control' &&
+      component.template === 'conditional'
     ) {
       collectFieldDescriptions([component.props.component], acc, true);
       if (component.props.else) {
         collectFieldDescriptions([component.props.else], acc, true);
       }
     } else if (
-      component.componentFamily === "control" &&
-      component.template === "for-each" &&
-      component.props.type === "static"
+      component.componentFamily === 'control' &&
+      component.template === 'for-each' &&
+      component.props.type === 'static'
     ) {
       const template = component.props.component;
-      if (template.componentFamily === "response") {
+      if (template.componentFamily === 'response') {
         for (let i = 0; i < component.props.values.length; i++) {
           const key = template.props.dataKey
-            .replace("@index", String(i))
-            .replace("@value", component.props.values[i]);
+            .replace(`{{#${component.props.id}.index}}`, String(i))
+            .replace(`{{#${component.props.id}.value}}`, component.props.values[i]);
           acc[key] = describeResponseType(template, false);
         }
       }
@@ -379,6 +437,8 @@ function collectFieldDescriptions(
   return acc;
 }
 
-export function getSchemaShape(screen: FrameworkScreen): Record<string, string> {
+export function getSchemaShape(
+  screen: FrameworkScreen,
+): Record<string, string> {
   return collectFieldDescriptions(screen.components);
 }

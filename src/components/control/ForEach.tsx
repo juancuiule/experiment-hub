@@ -1,6 +1,5 @@
 "use client";
 
-import { ScreenComponent } from "@/lib/components";
 import { ForEachComponent } from "@/lib/components/control";
 import { mergeContext } from "@/lib/flow";
 import { getValue } from "@/lib/resolve";
@@ -44,24 +43,10 @@ export function ForEach({
           },
         });
 
-        const resolvedTemplate: ScreenComponent =
-          component.props.type === "static" &&
-          template.componentFamily === "response"
-            ? ({
-                ...template,
-                props: {
-                  ...template.props,
-                  dataKey: template.props.dataKey
-                    .replace("@index", String(index))
-                    .replace("@value", String(itemValue)),
-                },
-              } as typeof template)
-            : template;
-
         return (
           <Fragment key={`${component.props.id}-${itemValue}`}>
             {renderChild({
-              component: resolvedTemplate,
+              component: template,
               form,
               context: itemContext,
               isLoading,
