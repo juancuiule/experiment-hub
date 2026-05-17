@@ -1023,6 +1023,77 @@ describe('conditional — nested field included as optional in base schema', () 
   });
 });
 
+describe('conditional — group inside conditional', () => {
+  it('marks fields inside a conditional-wrapped group as optional (no error when condition is false)', () => {
+    const schema = buildSchema(
+      screen([
+        {
+          componentFamily: 'response',
+          template: 'radio',
+          props: { dataKey: 'trigger', label: 'Q', options: [], required: true },
+        },
+        {
+          componentFamily: 'control',
+          template: 'conditional',
+          props: {
+            if: { type: 'simple', operator: 'eq', dataKey: '$trigger', value: 'yes' },
+            component: {
+              componentFamily: 'layout',
+              template: 'group',
+              props: {
+                name: 'details',
+                components: [
+                  {
+                    componentFamily: 'response',
+                    template: 'text-input',
+                    props: { dataKey: 'detail', label: 'Detail', required: true },
+                  },
+                ],
+              },
+            },
+          },
+        },
+      ]),
+    );
+    expect(schema.safeParse({ trigger: 'no' }).success).toBe(true);
+  });
+
+  it('superRefine enforces required on fields inside a conditional-wrapped group when condition is true', () => {
+    const schema = buildSchema(
+      screen([
+        {
+          componentFamily: 'response',
+          template: 'radio',
+          props: { dataKey: 'trigger', label: 'Q', options: [], required: true },
+        },
+        {
+          componentFamily: 'control',
+          template: 'conditional',
+          props: {
+            if: { type: 'simple', operator: 'eq', dataKey: '$trigger', value: 'yes' },
+            component: {
+              componentFamily: 'layout',
+              template: 'group',
+              props: {
+                name: 'details',
+                components: [
+                  {
+                    componentFamily: 'response',
+                    template: 'text-input',
+                    props: { dataKey: 'detail', label: 'Detail', required: true },
+                  },
+                ],
+              },
+            },
+          },
+        },
+      ]),
+    );
+    expect(schema.safeParse({ trigger: 'yes', detail: '' }).success).toBe(false);
+    expect(schema.safeParse({ trigger: 'yes', detail: 'hello' }).success).toBe(true);
+  });
+});
+
 describe('static for-each — generates N schema entries', () => {
   it('creates one entry per static value with @index resolved', () => {
     const schema = buildSchema(

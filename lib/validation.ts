@@ -134,6 +134,34 @@ function buildFieldSchema(component: ResponseComponent): z.ZodTypeAny {
   }
 }
 
+function collectResponsesInComponent(component: ScreenComponent): ResponseComponent[] {
+  const result: ResponseComponent[] = [];
+  if (component.componentFamily === "response") {
+    result.push(component);
+  } else if (
+    component.componentFamily === "layout" &&
+    component.template === "group"
+  ) {
+    for (const child of component.props.components) {
+      collectResponsesInComponent(child).forEach((r) => result.push(r));
+    }
+  }
+  // Stop at nested conditionals — they appear separately in collectConditionals
+  return result;
+}
+
+function collectFieldsAsOptional(
+  component: ScreenComponent,
+  acc: Record<string, z.ZodTypeAny>,
+): void {
+  for (const r of collectResponsesInComponent(component)) {
+    acc[r.props.dataKey] = buildFieldSchema(r).optional();
+    if (hasRandomizedOptions(r)) {
+      acc[`${r.props.dataKey}__order`] = z.array(z.string()).optional();
+    }
+  }
+}
+
 function collectFields(
   components: ScreenComponent[],
   acc: Record<string, z.ZodTypeAny> = {},
@@ -160,8 +188,11 @@ function collectFields(
       const inner = component.props.component;
       if (inner.componentFamily === "response") {
         acc[inner.props.dataKey] = buildFieldSchema(inner).optional();
+        if (hasRandomizedOptions(inner)) {
+          acc[`${inner.props.dataKey}__order`] = z.array(z.string()).optional();
+        }
       } else {
-        collectFields([inner], acc);
+        collectFieldsAsOptional(inner, acc);
       }
       // Also handle else branch if present
       if (component.props.else) {
@@ -170,9 +201,14 @@ function collectFields(
           if (!(elseBranch.props.dataKey in acc)) {
             acc[elseBranch.props.dataKey] =
               buildFieldSchema(elseBranch).optional();
+            if (hasRandomizedOptions(elseBranch)) {
+              acc[`${elseBranch.props.dataKey}__order`] = z
+                .array(z.string())
+                .optional();
+            }
           }
         } else {
-          collectFields([elseBranch], acc);
+          collectFieldsAsOptional(elseBranch, acc);
         }
       }
     } else if (
@@ -252,8 +288,8 @@ export function buildSchema(screen: FrameworkScreen) {
 
       if (!conditionMet) continue;
 
-      const inner = conditional.props.component;
-      if (inner.componentFamily === "response") {
+      const responses = collectResponsesInComponent(conditional.props.component);
+      for (const inner of responses) {
         const { required = true, errorMessage } = inner.props;
         if (!required) continue;
 
