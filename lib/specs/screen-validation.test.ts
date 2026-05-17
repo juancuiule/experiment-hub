@@ -1,5 +1,5 @@
 import { FrameworkScreen } from '@/lib/screen';
-import { buildSchema } from '@/lib/validation';
+import { buildSchema } from '@/lib/screen-validation';
 import { describe, expect, it } from 'vitest';
 
 function screen(components: FrameworkScreen['components']): FrameworkScreen {
