@@ -1,27 +1,28 @@
-"use client";
+'use client';
 
-import { Audio } from "./content/Audio";
-import { Image } from "./content/Image";
-import { RichText } from "./content/RichText";
-import { Video } from "./content/Video";
-import { Conditional } from "./control/Conditional";
-import { ForEach } from "./control/ForEach";
-import { Button } from "./layout/Button";
-import { Group } from "./layout/Group";
-import { Checkboxes } from "./response/Checkboxes";
-import { DateInput } from "./response/DateInput";
-import { Dropdown } from "./response/Dropdown";
-import { LikertScale } from "./response/LikertScale";
-import { NumericInput } from "./response/NumericInput";
-import { Radio } from "./response/Radio";
-import { SingleCheckbox } from "./response/SingleCheckbox";
-import { Slider } from "./response/Slider";
-import { TextArea } from "./response/TextArea";
-import { TextInput } from "./response/TextInput";
-import { TimeInput } from "./response/TimeInput";
-import { RenderProps } from "./primitives";
-import { deepMerge } from "@/lib/flow";
-import { resolveValuesInString } from "@/lib/resolve";
+import { Audio } from './content/Audio';
+import { Image } from './content/Image';
+import { RichText } from './content/RichText';
+import { Video } from './content/Video';
+import { Conditional } from './control/Conditional';
+import { ForEach } from './control/ForEach';
+import { Button } from './layout/Button';
+import { Group } from './layout/Group';
+import { Checkboxes } from './response/Checkboxes';
+import { DateInput } from './response/DateInput';
+import { Dropdown } from './response/Dropdown';
+import { LikertScale } from './response/LikertScale';
+import { NumericInput } from './response/NumericInput';
+import { Radio } from './response/Radio';
+import { SingleCheckbox } from './response/SingleCheckbox';
+import { Slider } from './response/Slider';
+import { TextArea } from './response/TextArea';
+import { TextInput } from './response/TextInput';
+import { TimeInput } from './response/TimeInput';
+import { RenderProps } from './primitives';
+import { deepMerge } from '@/lib/flow';
+import { resolveValuesInString } from '@/lib/resolve';
+import { resolveCondition } from '@/lib/conditions';
 
 const renderChild = (props: RenderProps) => <RenderComponent {...props} />;
 
@@ -35,20 +36,20 @@ export function RenderComponent({
   const context = deepMerge(propContext, { screenData }); // Add form values to context for easier access in components
 
   switch (component.componentFamily) {
-    case "content": {
+    case 'content': {
       switch (component.template) {
-        case "rich-text":
+        case 'rich-text':
           return <RichText component={component} context={context} />;
-        case "image":
+        case 'image':
           return <Image component={component} context={context} />;
-        case "video":
+        case 'video':
           return <Video component={component} />;
-        case "audio":
+        case 'audio':
           return <Audio component={component} />;
       }
     }
 
-    case "response": {
+    case 'response': {
       const props = {
         form,
         context,
@@ -59,36 +60,42 @@ export function RenderComponent({
         }),
       };
       switch (component.template) {
-        case "text-input":
+        case 'text-input':
           return <TextInput {...props} />;
-        case "text-area":
+        case 'text-area':
           return <TextArea {...props} />;
-        case "date-input":
+        case 'date-input':
           return <DateInput {...props} />;
-        case "time-input":
+        case 'time-input':
           return <TimeInput {...props} />;
-        case "numeric-input":
+        case 'numeric-input':
           return <NumericInput {...props} />;
-        case "single-checkbox":
+        case 'single-checkbox':
           return <SingleCheckbox {...props} />;
-        case "checkboxes":
+        case 'checkboxes':
           return <Checkboxes {...props} />;
-        case "radio":
+        case 'radio':
           return <Radio {...props} />;
-        case "dropdown":
+        case 'dropdown':
           return <Dropdown {...props} />;
-        case "slider":
+        case 'slider':
           return <Slider {...props} />;
-        case "likert-scale":
+        case 'likert-scale':
           return <LikertScale {...props} />;
       }
     }
 
-    case "layout": {
+    case 'layout': {
       switch (component.template) {
-        case "button":
-          return <Button component={component} isLoading={isLoading} context={context} />;
-        case "group":
+        case 'button':
+          return (
+            <Button
+              component={component}
+              isLoading={isLoading}
+              context={context}
+            />
+          );
+        case 'group':
           return (
             <Group
               component={component}
@@ -101,19 +108,27 @@ export function RenderComponent({
       }
     }
 
-    case "control": {
+    case 'control': {
       switch (component.template) {
-        case "conditional":
+        case 'conditional': {
+          const props = {
+            form,
+            context,
+            component: deepMerge(component, {
+              props: {
+                if: resolveCondition(component.props.if, context),
+              },
+            }),
+          };
           return (
             <Conditional
-              component={component}
-              form={form}
-              context={context}
+              {...props}
               isLoading={isLoading}
               renderChild={renderChild}
             />
           );
-        case "for-each":
+        }
+        case 'for-each':
           return (
             <ForEach
               component={component}
@@ -128,7 +143,7 @@ export function RenderComponent({
   }
 
   return (
-    <pre className="text-xs my-2 bg-background-surface text-content-primary p-2 rounded">
+    <pre className="bg-background-surface text-content-primary my-2 rounded p-2 text-xs">
       <code>{JSON.stringify(component, null, 2)}</code>
     </pre>
   );

@@ -1,13 +1,13 @@
-"use client";
+'use client';
 
-import { SingleCheckboxComponent } from "@/lib/components/response";
-import { Context } from "@/lib/types";
-import * as CheckboxPrimitive from "@radix-ui/react-checkbox";
-import { Controller, UseFormReturn } from "react-hook-form";
-import { twMerge } from "tailwind-merge";
-import { Label } from "../Label";
-import { FieldError } from "../primitives";
-import { Check } from "lucide-react";
+import { SingleCheckboxComponent } from '@/lib/components/response';
+import { Context } from '@/lib/types';
+import * as CheckboxPrimitive from '@radix-ui/react-checkbox';
+import { Check } from 'lucide-react';
+import { Controller, UseFormReturn } from 'react-hook-form';
+import { twMerge } from 'tailwind-merge';
+import { Label } from '../Label';
+import { FieldError } from '../primitives';
 
 type Props = {
   component: SingleCheckboxComponent;
@@ -31,23 +31,23 @@ export function SingleCheckbox({ component, form, context }: Props) {
           <div className="flex items-start gap-2">
             <CheckboxPrimitive.Root
               id={`${dataKey}`}
-              checked={field.value}
+              checked={field.value ?? component.props.defaultValue ?? false}
               onCheckedChange={field.onChange}
               className={twMerge(
-                "size-4 border border-border-default rounded-sm",
-                "flex items-center justify-center shrink-0",
-                "data-[state=checked]:bg-content-active data-[state=checked]:border-content-active",
-                "transition duration-75 ease-out cursor-pointer active:scale-95",
-                "translate-y-0.5",
+                'border-border-default size-4 rounded-sm border',
+                'flex shrink-0 items-center justify-center',
+                'data-[state=checked]:bg-content-active data-[state=checked]:border-content-active',
+                'cursor-pointer transition duration-75 ease-out active:scale-95',
+                'translate-y-0.5',
               )}
             >
               <CheckboxPrimitive.Indicator>
-                <Check className="size-4 text-content-inverted" />
+                <Check className="text-content-inverted size-4" />
               </CheckboxPrimitive.Indicator>
             </CheckboxPrimitive.Root>
             <Label
               context={context}
-              className="leading-tight text-sm"
+              className="text-sm leading-tight"
               htmlFor={`${dataKey}`}
             >
               {component.props.label}
