@@ -874,8 +874,8 @@ describe('group — nested fields included in schema', () => {
   });
 });
 
-describe('conditional — nested field included as optional in base schema', () => {
-  it('conditional field is optional in the base schema (missing value passes)', () => {
+describe('conditional — nested field excluded from base schema, validated by Phase 2 only', () => {
+  it('conditional field is absent from the base schema (missing value passes via passthrough)', () => {
     const schema = buildSchema(
       screen([
         {
@@ -907,7 +907,7 @@ describe('conditional — nested field included as optional in base schema', () 
         },
       ]),
     );
-    // The conditional field is absent — base schema is optional, so it passes
+    // Conditional fields are not in the static schema — passthrough lets them through.
     expect(schema.safeParse({ answer: 'no' }).success).toBe(true);
   });
 

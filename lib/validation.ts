@@ -6,29 +6,25 @@ import { evaluateCondition } from './conditions';
 import { getValue } from './resolve';
 import { buildFieldSchema } from './field-schema';
 
-type FieldEntry = { component: ResponseComponent; dataKey: string; optional: boolean };
+type FieldEntry = { component: ResponseComponent; dataKey: string };
 
-// Pure recursive field collector, analogous to getComponentFields.
-function collectFieldEntries(
-  component: ScreenComponent,
-  optional = false,
-): FieldEntry[] {
+// Collects only always-present fields. Conditional branches are skipped here —
+// Phase 2 (superRefine / validateComponentTree) evaluates conditions at runtime.
+function collectFieldEntries(component: ScreenComponent): FieldEntry[] {
   if (component.componentFamily === 'response') {
-    return [{ component, dataKey: component.props.dataKey, optional }];
+    return [{ component, dataKey: component.props.dataKey }];
   }
   if (component.componentFamily === 'layout' && component.template === 'group') {
-    return component.props.components.flatMap((c) => collectFieldEntries(c, optional));
+    return component.props.components.flatMap((c) => collectFieldEntries(c));
   }
   if (component.componentFamily === 'control') {
     if (component.template === 'conditional') {
-      return [
-        ...collectFieldEntries(component.props.component, true),
-        ...(component.props.else ? collectFieldEntries(component.props.else, true) : []),
-      ];
+      // Conditional fields are validated at runtime by Phase 2 (superRefine).
+      return [];
     }
     if (component.template === 'for-each' && component.props.type === 'static') {
       return component.props.values.flatMap((value, index) =>
-        collectFieldEntries(component.props.component, optional).map((entry) => ({
+        collectFieldEntries(component.props.component).map((entry) => ({
           ...entry,
           dataKey: entry.dataKey
             .replaceAll(`{{#${component.props.id}.index}}`, String(index))
@@ -43,11 +39,11 @@ function collectFieldEntries(
 
 function collectFields(components: ScreenComponent[]): Record<string, z.ZodTypeAny> {
   const acc: Record<string, z.ZodTypeAny> = {};
-  for (const { component, dataKey, optional } of components.flatMap((c) =>
+  for (const { component, dataKey } of components.flatMap((c) =>
     collectFieldEntries(c),
   )) {
-    if (dataKey in acc) continue; // first entry wins (if/else branches may share a key)
-    acc[dataKey] = optional ? buildFieldSchema(component).optional() : buildFieldSchema(component);
+    if (dataKey in acc) continue; // guards against accidental dataKey collisions
+    acc[dataKey] = buildFieldSchema(component);
     if (hasRandomizedOptions(component)) {
       acc[`${dataKey}__order`] = z.array(z.string()).optional();
     }
