@@ -1,6 +1,6 @@
 'use client'
 
-import { ValidationError } from "@/lib/validate";
+import { ValidationError } from "@/lib/flow-validation";
 import { AlertTriangle, ArrowRightLeft, Box, Hash, LucideIcon, Split, Wallpaper } from "lucide-react";
 import { NodeTypeBadge } from "./nodeConfig";
 
