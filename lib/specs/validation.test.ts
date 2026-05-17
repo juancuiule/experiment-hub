@@ -1729,3 +1729,92 @@ describe('nested dynamic for-each — outer for-each context resolved in inner t
     expect(schema.safeParse({ countries: [] }).success).toBe(true);
   });
 });
+
+// ── Phase 2 constraint validation for conditional fields ──────────────────────
+
+describe('conditional field — full constraint validation in Phase 2', () => {
+  const constraintConditionalScreen = screen([
+    {
+      componentFamily: 'control',
+      template: 'conditional',
+      props: {
+        if: { type: 'simple', dataKey: '$show', operator: 'equals', value: 'yes' },
+        component: {
+          componentFamily: 'response',
+          template: 'text-input',
+          props: {
+            dataKey: 'email',
+            label: 'Email',
+            required: true,
+            pattern: { value: '^[^@]+@[^@]+$', errorMessage: 'Invalid email' },
+          },
+        },
+      },
+    },
+  ]);
+
+  it('passes when condition is false and field is absent', () => {
+    const schema = buildSchema(constraintConditionalScreen);
+    expect(schema.safeParse({ show: 'no' }).success).toBe(true);
+  });
+
+  it('passes when condition is true and field satisfies the pattern', () => {
+    const schema = buildSchema(constraintConditionalScreen);
+    expect(schema.safeParse({ show: 'yes', email: 'a@b.com' }).success).toBe(true);
+  });
+
+  it('fails when condition is true and field is empty', () => {
+    const schema = buildSchema(constraintConditionalScreen);
+    expect(schema.safeParse({ show: 'yes', email: '' }).success).toBe(false);
+  });
+
+  it('fails when condition is true and field violates the pattern', () => {
+    const schema = buildSchema(constraintConditionalScreen);
+    const result = schema.safeParse({ show: 'yes', email: 'not-an-email' });
+    expect(result.success).toBe(false);
+    const messages = result.error!.issues.map((i) => i.message);
+    expect(messages).toContain('Invalid email');
+  });
+});
+
+describe('dynamic for-each field — full constraint validation in Phase 2', () => {
+  const constraintDynamicScreen = screen([
+    {
+      componentFamily: 'control',
+      template: 'for-each',
+      props: {
+        type: 'dynamic',
+        id: 'item',
+        dataKey: '$items',
+        component: {
+          componentFamily: 'response',
+          template: 'text-input',
+          props: {
+            dataKey: 'note-{{#item.value}}',
+            label: 'Note',
+            required: true,
+            minLength: { value: 3, errorMessage: 'Too short' },
+          },
+        },
+      },
+    },
+  ]);
+
+  it('passes when all dynamic fields satisfy minLength', () => {
+    const schema = buildSchema(constraintDynamicScreen);
+    expect(schema.safeParse({ items: ['a', 'b'], 'note-a': 'hey', 'note-b': 'foo' }).success).toBe(true);
+  });
+
+  it('fails when a dynamic field violates minLength', () => {
+    const schema = buildSchema(constraintDynamicScreen);
+    const result = schema.safeParse({ items: ['a'], 'note-a': 'hi' });
+    expect(result.success).toBe(false);
+    const messages = result.error!.issues.map((i) => i.message);
+    expect(messages).toContain('Too short');
+  });
+
+  it('fails when a dynamic field is missing', () => {
+    const schema = buildSchema(constraintDynamicScreen);
+    expect(schema.safeParse({ items: ['a'] }).success).toBe(false);
+  });
+});

@@ -208,16 +208,25 @@ function validateComponentTree(
   if (component.componentFamily === 'response') {
     if (!dynamicMode) return;
     const { required = true, errorMessage } = component.props;
-    if (!required) return;
     const resolvedKey = resolveTemplateKey(component.props.dataKey, forEachCtx);
     const value = screenData[resolvedKey];
-    const isEmpty =
-      value === undefined ||
-      value === null ||
-      value === '' ||
-      (Array.isArray(value) && value.length === 0);
-    if (isEmpty) {
-      issues.push({ path: resolvedKey, message: errorMessage ?? 'This field is required' });
+
+    // Absent values bypass Zod's type checks entirely, so handle them first with
+    // the component's own errorMessage before falling through to the full schema.
+    if (value === undefined || value === null) {
+      if (required) {
+        issues.push({ path: resolvedKey, message: errorMessage ?? 'This field is required' });
+      }
+      return;
+    }
+
+    // Value is present — run the same rules as Phase 1 to catch constraint violations
+    // (minLength, maxLength, pattern, min/max, shouldBe, etc.).
+    const result = buildFieldSchema(component).safeParse(value);
+    if (!result.success) {
+      for (const issue of result.error.issues) {
+        issues.push({ path: resolvedKey, message: issue.message });
+      }
     }
     return;
   }

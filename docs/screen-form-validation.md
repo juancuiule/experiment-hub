@@ -140,14 +140,6 @@ At runtime this resolves to `$likes-apple` (or `$likes-banana`, etc.) based on t
 
 ---
 
-## Known limitations
-
-### Phase 2 empty check vs full type validation for conditional fields
-
-For fields inside conditionals, Phase 2 only checks whether the value is empty (undefined, null, empty string, or empty array). It does not re-run the full type and constraint rules from Phase 1 (e.g. regex pattern, min length). A conditional text-input with a regex constraint will have that constraint enforced only if the field is also present in the static schema — which it is not when `required: false`, or in complex nested layouts where the key cannot be statically determined. In practice this means format errors on conditional fields are not surfaced at submit time unless Phase 1 also covers them.
-
----
-
 ## Tests
 
 `lib/specs/validation.test.ts` covers the full module. The test groups map directly to the concepts above:
@@ -162,3 +154,5 @@ For fields inside conditionals, Phase 2 only checks whether the value is empty (
 - Conditional inside a static for-each — condition resolved per iteration using the loop's current value
 - Nested conditionals — inner condition only evaluated when the outer branch is entered
 - Nested dynamic for-each inside a static for-each — outer loop's value available when resolving inner template keys
+- Conditional field constraint validation — pattern/minLength/etc enforced in Phase 2 for fields in conditional branches
+- Dynamic for-each field constraint validation — same constraint checks applied to dynamically-resolved fields
