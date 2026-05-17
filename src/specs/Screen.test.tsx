@@ -313,6 +313,137 @@ describe("validation", () => {
   });
 });
 
+describe("group — nested field validation", () => {
+  it("blocks submit and shows error when a required field inside a group is empty", async () => {
+    const onNext = vi.fn().mockResolvedValue(undefined);
+    renderScreen(
+      [
+        {
+          componentFamily: "layout",
+          template: "group",
+          props: {
+            name: "demographics",
+            components: [
+              {
+                componentFamily: "response",
+                template: "text-input",
+                props: { dataKey: "fname", label: "First name", required: true },
+              },
+            ],
+          },
+        },
+        { componentFamily: "layout", template: "button", props: { text: "Submit" } },
+      ],
+      {},
+      onNext,
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "Submit" }));
+
+    expect(onNext).not.toHaveBeenCalled();
+    expect(screen.getByText("This field is required")).toBeInTheDocument();
+  });
+
+  it("submits when all required fields inside a group are filled", async () => {
+    const onNext = vi.fn().mockResolvedValue(undefined);
+    renderScreen(
+      [
+        {
+          componentFamily: "layout",
+          template: "group",
+          props: {
+            name: "demographics",
+            components: [
+              {
+                componentFamily: "response",
+                template: "text-input",
+                props: { dataKey: "fname", label: "First name", required: true },
+              },
+            ],
+          },
+        },
+        { componentFamily: "layout", template: "button", props: { text: "Submit" } },
+      ],
+      {},
+      onNext,
+    );
+
+    await userEvent.type(screen.getByLabelText("First name"), "Alice");
+    await userEvent.click(screen.getByRole("button", { name: "Submit" }));
+
+    expect(onNext).toHaveBeenCalledWith({ fname: "Alice" });
+  });
+});
+
+describe("conditional — nested field validation", () => {
+  const condComponents: FrameworkScreen["components"] = [
+    {
+      componentFamily: "response",
+      template: "radio",
+      props: {
+        dataKey: "choice",
+        label: "Choice",
+        options: [
+          { label: "Yes", value: "yes" },
+          { label: "No", value: "no" },
+        ],
+      },
+    },
+    {
+      componentFamily: "control",
+      template: "conditional",
+      props: {
+        if: { type: "simple", dataKey: "$choice", operator: "eq", value: "yes" },
+        component: {
+          componentFamily: "response",
+          template: "text-input",
+          props: { dataKey: "detail", label: "Please elaborate", required: true },
+        },
+      },
+    },
+    { componentFamily: "layout", template: "button", props: { text: "Submit" } },
+  ];
+
+  it("blocks submit with error on conditional field when condition is true and field is empty", async () => {
+    const onNext = vi.fn().mockResolvedValue(undefined);
+    renderScreen(condComponents, {}, onNext);
+
+    await userEvent.click(screen.getByLabelText("Yes"));
+    await userEvent.click(screen.getByRole("button", { name: "Submit" }));
+
+    expect(onNext).not.toHaveBeenCalled();
+    expect(screen.getByText("This field is required")).toBeInTheDocument();
+  });
+
+  it("does not show error for conditional field when condition is false", async () => {
+    const onNext = vi.fn().mockResolvedValue(undefined);
+    renderScreen(condComponents, {}, onNext);
+
+    await userEvent.click(screen.getByLabelText("No"));
+    await userEvent.click(screen.getByRole("button", { name: "Submit" }));
+
+    expect(onNext).toHaveBeenCalled();
+    expect(screen.queryByText("This field is required")).not.toBeInTheDocument();
+  });
+
+  it("submits when condition is true and conditional field is filled", async () => {
+    const onNext = vi.fn().mockResolvedValue(undefined);
+    renderScreen(condComponents, {}, onNext);
+
+    await userEvent.click(screen.getByLabelText("Yes"));
+    await userEvent.type(screen.getByLabelText("Please elaborate"), "Some detail");
+    await userEvent.click(screen.getByRole("button", { name: "Submit" }));
+
+    expect(onNext).toHaveBeenCalledWith({ choice: "yes", detail: "Some detail" });
+  });
+});
+
+// Note: static for-each schema validation is covered by unit tests in lib/specs/validation.test.ts.
+// Integration-level tests are not feasible here because the schema builder resolves `@index`
+// in dataKey at build time (producing lang_0, lang_1, …), while the runtime resolver
+// (resolveValuesInString) requires {{…}} syntax and leaves `@index` literals unchanged.
+// The two resolution systems are not connected, so rendered fields do not match schema keys.
+
 describe("data collection", () => {
   it("calls onNext with input value", async () => {
     const onNext = vi.fn().mockResolvedValue(undefined);
