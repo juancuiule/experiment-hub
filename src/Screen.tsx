@@ -42,7 +42,9 @@ function collectDefaults(
               ...inner,
               props: {
                 ...inner.props,
-                dataKey: inner.props.dataKey.replace("@index", String(i)),
+                dataKey: inner.props.dataKey
+                  .replace("@index", String(i))
+                  .replace("@value", c.props.values[i]),
               },
             } as typeof inner;
           } else {

@@ -313,6 +313,126 @@ describe("validation", () => {
   });
 });
 
+// Static for-each: @index and @value in dataKey are resolved at schema-build time
+// (validation.ts) and at render time (ForEach.tsx). Labels use {{#id.index}} / {{#id.value}}
+// syntax (resolved by resolveValuesInString).
+describe("static for-each — rendering and validation", () => {
+  it("renders one input per static value with resolved labels", () => {
+    renderScreen([
+      {
+        componentFamily: "control",
+        template: "for-each",
+        props: {
+          type: "static",
+          id: "langs",
+          values: ["en", "es"],
+          component: {
+            componentFamily: "response",
+            template: "text-input",
+            props: { dataKey: "lang_@index", label: "Language {{#langs.index}}", required: true },
+          },
+        },
+      },
+    ]);
+    expect(screen.getByLabelText("Language 0")).toBeInTheDocument();
+    expect(screen.getByLabelText("Language 1")).toBeInTheDocument();
+  });
+
+  it("blocks submit and shows error when a required static for-each field is empty", async () => {
+    const onNext = vi.fn().mockResolvedValue(undefined);
+    renderScreen(
+      [
+        {
+          componentFamily: "control",
+          template: "for-each",
+          props: {
+            type: "static",
+            id: "langs",
+            values: ["en", "es"],
+            component: {
+              componentFamily: "response",
+              template: "text-input",
+              props: { dataKey: "lang_@index", label: "Language {{#langs.index}}", required: true },
+            },
+          },
+        },
+        { componentFamily: "layout", template: "button", props: { text: "Submit" } },
+      ],
+      {},
+      onNext,
+    );
+
+    await userEvent.type(screen.getByLabelText("Language 0"), "English");
+    // Language 1 intentionally left empty
+    await userEvent.click(screen.getByRole("button", { name: "Submit" }));
+
+    expect(onNext).not.toHaveBeenCalled();
+    expect(screen.getByText("This field is required")).toBeInTheDocument();
+  });
+
+  it("submits with correctly resolved keys when all static for-each fields are filled", async () => {
+    const onNext = vi.fn().mockResolvedValue(undefined);
+    renderScreen(
+      [
+        {
+          componentFamily: "control",
+          template: "for-each",
+          props: {
+            type: "static",
+            id: "langs",
+            values: ["en", "es"],
+            component: {
+              componentFamily: "response",
+              template: "text-input",
+              props: { dataKey: "lang_@index", label: "Language {{#langs.index}}", required: true },
+            },
+          },
+        },
+        { componentFamily: "layout", template: "button", props: { text: "Submit" } },
+      ],
+      {},
+      onNext,
+    );
+
+    await userEvent.type(screen.getByLabelText("Language 0"), "English");
+    await userEvent.type(screen.getByLabelText("Language 1"), "Spanish");
+    await userEvent.click(screen.getByRole("button", { name: "Submit" }));
+
+    expect(onNext).toHaveBeenCalledWith({ lang_0: "English", lang_1: "Spanish" });
+  });
+
+  it("submits with @value resolved keys", async () => {
+    const onNext = vi.fn().mockResolvedValue(undefined);
+    renderScreen(
+      [
+        {
+          componentFamily: "control",
+          template: "for-each",
+          props: {
+            type: "static",
+            id: "foods",
+            values: ["pizza", "sushi"],
+            component: {
+              componentFamily: "response",
+              template: "text-input",
+              props: { dataKey: "rating_@value", label: "Rate {{#foods.value}}", required: true },
+            },
+          },
+        },
+        { componentFamily: "layout", template: "button", props: { text: "Submit" } },
+      ],
+      {},
+      onNext,
+    );
+
+    await userEvent.type(screen.getByLabelText("Rate pizza"), "great");
+    await userEvent.type(screen.getByLabelText("Rate sushi"), "ok");
+    await userEvent.click(screen.getByRole("button", { name: "Submit" }));
+
+    expect(onNext).toHaveBeenCalledWith({ rating_pizza: "great", rating_sushi: "ok" });
+  });
+});
+
 describe("group — nested field validation", () => {
   it("blocks submit and shows error when a required field inside a group is empty", async () => {
     const onNext = vi.fn().mockResolvedValue(undefined);
@@ -437,12 +557,6 @@ describe("conditional — nested field validation", () => {
     expect(onNext).toHaveBeenCalledWith({ choice: "yes", detail: "Some detail" });
   });
 });
-
-// Note: static for-each schema validation is covered by unit tests in lib/specs/validation.test.ts.
-// Integration-level tests are not feasible here because the schema builder resolves `@index`
-// in dataKey at build time (producing lang_0, lang_1, …), while the runtime resolver
-// (resolveValuesInString) requires {{…}} syntax and leaves `@index` literals unchanged.
-// The two resolution systems are not connected, so rendered fields do not match schema keys.
 
 describe("data collection", () => {
   it("calls onNext with input value", async () => {

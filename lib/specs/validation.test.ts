@@ -1152,6 +1152,62 @@ describe('static for-each — generates N schema entries', () => {
   });
 });
 
+describe('static for-each — @value resolved in dataKey', () => {
+  it('resolves @value placeholder using the string value at each index', () => {
+    const schema = buildSchema(
+      screen([
+        {
+          componentFamily: 'control',
+          template: 'for-each',
+          props: {
+            type: 'static',
+            id: 'foods',
+            values: ['pizza', 'sushi'],
+            component: {
+              componentFamily: 'response',
+              template: 'text-input',
+              props: {
+                dataKey: 'rating_@value',
+                label: 'Rate it',
+                required: true,
+              },
+            },
+          },
+        },
+      ]),
+    );
+    expect(schema.safeParse({ rating_pizza: 'good', rating_sushi: 'great' }).success).toBe(true);
+    expect(schema.safeParse({ rating_pizza: '', rating_sushi: 'great' }).success).toBe(false);
+  });
+
+  it('resolves both @index and @value when combined in dataKey', () => {
+    const schema = buildSchema(
+      screen([
+        {
+          componentFamily: 'control',
+          template: 'for-each',
+          props: {
+            type: 'static',
+            id: 'items',
+            values: ['a', 'b'],
+            component: {
+              componentFamily: 'response',
+              template: 'text-input',
+              props: {
+                dataKey: 'item_@index_@value',
+                label: 'Item',
+                required: true,
+              },
+            },
+          },
+        },
+      ]),
+    );
+    expect(schema.safeParse({ item_0_a: 'x', item_1_b: 'y' }).success).toBe(true);
+    expect(schema.safeParse({ item_0_a: '', item_1_b: 'y' }).success).toBe(false);
+  });
+});
+
 describe('dynamic for-each — gracefully skipped', () => {
   it('produces no entries for dynamic for-each', () => {
     const schema = buildSchema(
