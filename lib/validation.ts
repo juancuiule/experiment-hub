@@ -223,7 +223,10 @@ function collectFields(
           for (let i = 0; i < component.props.values.length; i++) {
             const resolvedKey = template.props.dataKey
               .replace(`{{#${component.props.id}.index}}`, String(i))
-              .replace(`{{#${component.props.id}.value}}`, component.props.values[i]);
+              .replace(
+                `{{#${component.props.id}.value}}`,
+                component.props.values[i],
+              );
             acc[resolvedKey] = buildFieldSchema(template);
           }
         }
@@ -267,20 +270,31 @@ function collectConditionals(
   return result;
 }
 
-type Field = { dataKey: string; optional: boolean };
+type Field = { dataKey: string; always: boolean; dynamic?: boolean };
 export function getComponentFields(component: ScreenComponent): Field[] {
   switch (component.componentFamily) {
     case 'content': {
+      // Content components don't have fields relevant to validation
       return [];
     }
     case 'layout': {
       if (component.template === 'group') {
+        // For groups, we aggregate fields from child components.
         return component.props.components.flatMap((c) => getComponentFields(c));
       }
       return [];
     }
     case 'response': {
-      return [{ dataKey: component.props.dataKey, optional: false }];
+      // For response components, we return the dataKey as a field.
+      // Validation will determine if it's required or optional.
+      // If they are nested in conditionals, they will be marked as
+      // not always present by the conditional case below.
+      return [
+        { dataKey: component.props.dataKey, always: true },
+        hasRandomizedOptions(component)
+          ? { dataKey: `${component.props.dataKey}__order`, always: true }
+          : null,
+      ].filter((f): f is Field => f !== null);
     }
     case 'control': {
       switch (component.template) {
@@ -289,14 +303,18 @@ export function getComponentFields(component: ScreenComponent): Field[] {
           const elseFields = component.props.else
             ? getComponentFields(component.props.else).flat()
             : [];
+          // This fields come from components that are only sometimes
+          // rendered, so we mark them as not always present.
           return [...ifFields, ...elseFields].map((f) => ({
             ...f,
-            optional: true,
+            always: false,
           }));
         }
         case 'for-each': {
+          const templateFields = getComponentFields(component.props.component);
           if (component.props.type === 'static') {
-            const templateFields = getComponentFields(component.props.component);
+            // Static for-each: we have index and value to resolve templates,
+            // so we can return fully resolved dataKeys for each iteration
             return component.props.values.flatMap((value, index) =>
               templateFields.map((f) => ({
                 ...f,
@@ -305,13 +323,18 @@ export function getComponentFields(component: ScreenComponent): Field[] {
                   .replace(`{{#${component.props.id}.value}}`, value),
               })),
             );
+          } else {
+            // Dynamic for-each: return dataKey as is with dynamic flag,
+            // since we can't resolve it statically
+            return templateFields.map((f) => ({
+              ...f,
+              dynamic: true,
+            }));
           }
         }
       }
     }
   }
-
-  return [];
 }
 
 export function buildSchema(screen: FrameworkScreen) {
@@ -428,7 +451,10 @@ function collectFieldDescriptions(
         for (let i = 0; i < component.props.values.length; i++) {
           const key = template.props.dataKey
             .replace(`{{#${component.props.id}.index}}`, String(i))
-            .replace(`{{#${component.props.id}.value}}`, component.props.values[i]);
+            .replace(
+              `{{#${component.props.id}.value}}`,
+              component.props.values[i],
+            );
           acc[key] = describeResponseType(template, false);
         }
       }

@@ -31,7 +31,7 @@ export function SingleCheckbox({ component, form, context }: Props) {
           <div className="flex items-start gap-2">
             <CheckboxPrimitive.Root
               id={`${dataKey}`}
-              checked={field.value}
+              checked={field.value ?? false}
               onCheckedChange={field.onChange}
               className={twMerge(
                 "size-4 border border-border-default rounded-sm",

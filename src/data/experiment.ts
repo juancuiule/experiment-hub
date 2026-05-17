@@ -1270,68 +1270,27 @@ export const experiment: ExperimentFlow = {
       slug: 'terms',
       components: [
         {
-          componentFamily: 'content',
-          template: 'rich-text',
-          props: {
-            content:
-              '# Pandemia, conciencias y sustancias \n\n > alguna cosa dentro de un blockquote',
-          },
-        },
-        {
           componentFamily: 'response',
-          template: 'dropdown',
+          template: 'checkboxes',
           props: {
-            label: '¿En qué ciudad vivís actualmente?',
-            dataKey: 'city',
+            label: '¿Cuál de estos países conoces?',
+            dataKey: 'countries-known',
+            randomize: true,
             options: [
-              { label: 'Buenos Aires', value: 'buenos-aires' },
-              { label: 'Córdoba', value: 'cordoba' },
-              { label: 'Rosario', value: 'rosario' },
-              { label: 'Mendoza', value: 'mendoza' },
-              { label: 'Otra', value: 'otra' },
+              { label: 'Argentina', value: 'argentina' },
+              { label: 'Brasil', value: 'brasil' },
+              { label: 'Chile', value: 'chile' },
+              { label: 'Colombia', value: 'colombia' },
+              { label: 'Ecuador', value: 'ecuador' },
             ],
           },
         },
         {
-          componentFamily: 'content',
-          template: 'rich-text',
-          props: {
-            content:
-              'El objetivo de este experimento es tratar de entender mejor cómo algunos aspectos de nuestra personalidad, la realización (o no) de práctica contemplativas como el rezo y la meditación y el consumo (o no) de distintas sustancias psicoactivas se relacionan con la forma en la que atravesamos el aislamiento durante la pandemia.',
-          },
-        },
-        {
-          componentFamily: 'content',
-          template: 'rich-text',
-          props: {
-            content:
-              'Esta encuesta no está dirigida específicamente a meditadores expertas, practicantes religiosos o consumidores de estas sustancias, sino que nos interesa entender a las personas y sus conciencia en toda su diversidad, y cómo se relaciona esa diversidad con el espectro de posibles reacciones ante la situación actual.  Mientras más distintas seamos las personas participantes, más vamos a poder aprender.',
-          },
-        },
-        {
-          componentFamily: 'content',
-          template: 'rich-text',
-          props: {
-            content:
-              'Tu participación es voluntaria y todos tus datos están anonimizados y van a ser usados para intentar construir conocimiento científico nuevo.',
-          },
-        },
-        {
-          componentFamily: 'content',
-          template: 'rich-text',
-          props: {
-            content:
-              'La finalidad del estudio es puramente académica y de ninguna manera incentiva al consumo de sustancias psicoactivas, aunque tampoco lo juzgamos. Estamos para aprender.',
-          },
-        },
-        {
           componentFamily: 'response',
-          template: 'single-checkbox',
+          template: 'slider',
           props: {
-            label: 'Estoy de acuerdo y acepto participar de este estudio',
-            dataKey: 'consent',
-            required: true,
-            defaultValue: false,
+            label: '¿De 0 a 100, cuánto?',
+            dataKey: 'consent-slider',
           },
         },
         {
@@ -1340,31 +1299,214 @@ export const experiment: ExperimentFlow = {
           props: {
             if: {
               type: 'simple',
-              dataKey: '$consent',
-              operator: 'eq',
-              value: true,
+              dataKey: '$consent-slider',
+              operator: 'gte',
+              value: 70,
             },
             component: {
-              id: 'start-button',
-              componentFamily: 'layout',
-              template: 'button',
+              componentFamily: 'response',
+              template: 'single-checkbox',
               props: {
-                text: 'Empezar',
-                alignBottom: true,
+                label: 'Sí, 70 o más...',
+                dataKey: 'consent-more',
+                defaultValue: true,
               },
             },
             else: {
-              id: 'start-button',
               componentFamily: 'layout',
-              template: 'button',
+              template: 'group',
               props: {
-                text: 'Empezar',
-                alignBottom: true,
-                disabled: true,
+                name: 'consent-not-enough',
+                components: [
+                  {
+                    componentFamily: 'content',
+                    template: 'rich-text',
+                    props: { content: 'No llegaste a 70' },
+                  },
+                  {
+                    componentFamily: 'control',
+                    template: 'for-each',
+                    props: {
+                      id: 'for-each-countries-known',
+                      type: 'dynamic',
+                      dataKey: '$countries-known',
+                      component: {
+                        componentFamily: 'response',
+                        template: 'single-checkbox',
+                        props: {
+                          label:
+                            'Viajaste más de una vez a {{#for-each-countries-known.value}}?',
+                          dataKey:
+                            'traveled-{{#for-each-countries-known.value}}',
+                          defaultValue: false,
+                        },
+                      },
+                    },
+                  },
+                ],
               },
             },
           },
         },
+        {
+          componentFamily: 'control',
+          template: 'for-each',
+          props: {
+            id: 'for-each-fruit',
+            type: 'static',
+            values: ['apple', 'banana', 'kiwi'],
+            component: {
+              componentFamily: 'layout',
+              template: 'group',
+              props: {
+                name: 'fruit-group-{{#for-each-fruit.index}}',
+                components: [
+                  {
+                    componentFamily: 'content',
+                    template: 'rich-text',
+                    props: { content: 'Fruit: {{#for-each-fruit.value}}' },
+                  },
+                  {
+                    componentFamily: 'response',
+                    template: 'single-checkbox',
+                    props: {
+                      label: 'Do you like {{#for-each-fruit.value}}?',
+                      dataKey: 'likes-{{#for-each-fruit.value}}',
+                      defaultValue: false,
+                    },
+                  },
+                  {
+                    componentFamily: 'control',
+                    template: 'conditional',
+                    props: {
+                      if: {
+                        type: 'simple',
+                        dataKey: '$likes-{{#for-each-fruit.value}}',
+                        operator: 'eq',
+                        value: true,
+                      },
+                      component: {
+                        componentFamily: 'response',
+                        template: 'single-checkbox',
+                        props: {
+                          label:
+                            'Do you eat {{#for-each-fruit.value}} regularly?',
+                          dataKey: 'eats-{{#for-each-fruit.value}}',
+                          defaultValue: false,
+                        },
+                      },
+                    },
+                  },
+                  {
+                    componentFamily: 'control',
+                    template: 'for-each',
+                    props: {
+                      id: 'for-each-visited-country',
+                      type: 'dynamic',
+                      dataKey: '$countries-known',
+                      component: {
+                        componentFamily: 'response',
+                        template: 'single-checkbox',
+                        props: {
+                          label:
+                            'Did you eat {{#for-each-fruit.value}} in {{#for-each-visited-country.value}}?',
+                          dataKey:
+                            'ate-{{#for-each-fruit.value}}-in-{{#for-each-visited-country.value}}',
+                          defaultValue: false,
+                        },
+                      },
+                    },
+                  },
+                ],
+              },
+            },
+          },
+        },
+        {
+          componentFamily: 'layout',
+          template: 'button',
+          props: { text: 'Empezar' },
+        },
+        // {
+        //   componentFamily: 'content',
+        //   template: 'rich-text',
+        //   props: {
+        //     content: '# Pandemia, conciencias y sustancias',
+        //   },
+        // },
+        // {
+        //   componentFamily: 'content',
+        //   template: 'rich-text',
+        //   props: {
+        //     content:
+        //       'El objetivo de este experimento es tratar de entender mejor cómo algunos aspectos de nuestra personalidad, la realización (o no) de práctica contemplativas como el rezo y la meditación y el consumo (o no) de distintas sustancias psicoactivas se relacionan con la forma en la que atravesamos el aislamiento durante la pandemia.',
+        //   },
+        // },
+        // {
+        //   componentFamily: 'content',
+        //   template: 'rich-text',
+        //   props: {
+        //     content:
+        //       'Esta encuesta no está dirigida específicamente a meditadores expertas, practicantes religiosos o consumidores de estas sustancias, sino que nos interesa entender a las personas y sus conciencia en toda su diversidad, y cómo se relaciona esa diversidad con el espectro de posibles reacciones ante la situación actual.  Mientras más distintas seamos las personas participantes, más vamos a poder aprender.',
+        //   },
+        // },
+        // {
+        //   componentFamily: 'content',
+        //   template: 'rich-text',
+        //   props: {
+        //     content:
+        //       'Tu participación es voluntaria y todos tus datos están anonimizados y van a ser usados para intentar construir conocimiento científico nuevo.',
+        //   },
+        // },
+        // {
+        //   componentFamily: 'content',
+        //   template: 'rich-text',
+        //   props: {
+        //     content:
+        //       'La finalidad del estudio es puramente académica y de ninguna manera incentiva al consumo de sustancias psicoactivas, aunque tampoco lo juzgamos. Estamos para aprender.',
+        //   },
+        // },
+        // {
+        //   componentFamily: 'response',
+        //   template: 'single-checkbox',
+        //   props: {
+        //     label: 'Estoy de acuerdo y acepto participar de este estudio',
+        //     dataKey: 'consent',
+        //     required: true,
+        //     defaultValue: false,
+        //   },
+        // },
+        // {
+        //   componentFamily: 'control',
+        //   template: 'conditional',
+        //   props: {
+        //     if: {
+        //       type: 'simple',
+        //       dataKey: '$consent',
+        //       operator: 'eq',
+        //       value: true,
+        //     },
+        //     component: {
+        //       id: 'start-button',
+        //       componentFamily: 'layout',
+        //       template: 'button',
+        //       props: {
+        //         text: 'Empezar',
+        //         alignBottom: true,
+        //       },
+        //     },
+        //     else: {
+        //       id: 'start-button',
+        //       componentFamily: 'layout',
+        //       template: 'button',
+        //       props: {
+        //         text: 'Empezar',
+        //         alignBottom: true,
+        //         disabled: true,
+        //       },
+        //     },
+        //   },
+        // },
       ],
     },
     {

@@ -1,4 +1,4 @@
-import { getValue } from "./resolve";
+import { getValue, resolveValuesInString } from "./resolve";
 import { Context } from "./types";
 
 export type BaseOperator = "lt" | "lte" | "gt" | "gte" | "eq" | "neq";
@@ -40,6 +40,37 @@ function evaluateBaseOperator(op: BaseOperator, a: any, b: any): boolean {
 
 export function isBaseOperator(operator: Operator): operator is BaseOperator {
   return ["lt", "lte", "gt", "gte", "eq", "neq"].includes(operator);
+}
+
+// Resolves {{...}} interpolations in dataKeys within a condition tree before evaluation
+export function resolveCondition(
+  condition: Condition,
+  context: Context,
+): Condition {
+  if (condition.type === "simple") {
+    return {
+      ...condition,
+      dataKey: resolveValuesInString(
+        condition.dataKey,
+        context,
+      ) as SimpleCondition["dataKey"],
+    };
+  }
+  if (condition.type === "and" || condition.type === "or") {
+    return {
+      ...condition,
+      conditions: condition.conditions.map((c) =>
+        resolveCondition(c, context),
+      ),
+    };
+  }
+  if (condition.type === "not") {
+    return {
+      ...condition,
+      condition: resolveCondition(condition.condition, context),
+    };
+  }
+  return condition;
 }
 
 export function evaluateCondition(

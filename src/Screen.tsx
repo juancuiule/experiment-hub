@@ -126,7 +126,7 @@ export function Screen({ screen, isLoading, onNext, context }: ScreenProps) {
         data={Object.fromEntries(
           screen.components
             .flatMap(getComponentFields)
-            .map((f) => [f.dataKey, f.optional ? 'optional' : 'required']),
+            .map((f) => [f.dataKey, f.always ? 'always' : 'sometimes']),
         )}
       />
       <form

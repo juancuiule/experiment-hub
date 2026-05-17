@@ -1,7 +1,7 @@
-import { Option, OptionsSource } from "./components/response";
-import { Context } from "./types";
+import { Option, OptionsSource } from './components/response';
+import { Context } from './types';
 
-type Prefix = "$$" | "@" | "$" | "#";
+type Prefix = '$$' | '@' | '$' | '#';
 
 /*
 template syntax:
@@ -27,7 +27,8 @@ export function resolveValuesInString(text: string, context: Context): string {
 export function getPrefixAndPath(
   text: string,
 ): { prefix: Prefix; path: string } | null {
-  const regex = /^(\$\$|\$|@|#)([a-zA-Z0-9_.\-]+)$/;
+  const regex =
+    /^(\$\$|\$|@|#)((?:[a-zA-Z0-9_.\-]|\{\{(?:\$\$|\$|@|#)[a-zA-Z0-9_.\-]+\}\})+)$/;
   const match = text.match(regex);
   if (match) {
     const [, prefix, path] = match;
@@ -38,7 +39,7 @@ export function getPrefixAndPath(
 
 export function getPath(text: string, record: Record<string, any>): any {
   return text
-    .split(".")
+    .split('.')
     .reduce((obj, key) => (obj == null ? undefined : obj[key]), record);
 }
 
@@ -50,7 +51,7 @@ export function resolveOptionsSource(
   const value = getValue(options, context);
   if (!Array.isArray(value)) return [];
   return value.map((item: unknown) =>
-    typeof item === "string" ? { label: item, value: item } : (item as Option),
+    typeof item === 'string' ? { label: item, value: item } : (item as Option),
   );
 }
 
@@ -59,17 +60,17 @@ export function resolveInterpolatedImageUrl(
   context: Context,
 ): string | null {
   const resolved = resolveValuesInString(template, context).trim();
-  if (!resolved || resolved.startsWith("//")) return null;
+  if (!resolved || resolved.startsWith('//')) return null;
   if (
-    resolved.startsWith("/") ||
-    resolved.startsWith("./") ||
-    resolved.startsWith("../")
+    resolved.startsWith('/') ||
+    resolved.startsWith('./') ||
+    resolved.startsWith('../')
   ) {
     return resolved;
   }
   try {
     const parsed = new URL(resolved);
-    return parsed.protocol === "http:" || parsed.protocol === "https:"
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:'
       ? resolved
       : null;
   } catch {
@@ -80,22 +81,24 @@ export function resolveInterpolatedImageUrl(
 export function getValue(key: string, context: Context) {
   const { data = {}, screenData, loopData = {} } = context;
 
-  const { prefix, path } = getPrefixAndPath(key) || {};
+  const resolvedKey = resolveValuesInString(key, context);
+  const { prefix, path } = getPrefixAndPath(resolvedKey) || {};
+
   if (!prefix || !path) {
     throw new Error(`Invalid key format: ${key}`);
   }
 
   switch (prefix) {
-    case "$": {
+    case '$': {
       return getPath(path, screenData ?? {});
     }
-    case "$$": {
+    case '$$': {
       return getPath(path, data);
     }
-    case "@": {
+    case '@': {
       return getPath(path, loopData);
     }
-    case "#": {
+    case '#': {
       return getPath(path, screenData?.foreachData || {});
     }
   }
