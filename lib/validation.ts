@@ -63,18 +63,17 @@ function resolveTemplateKey(key: string, ctx: ForEachCtx): string {
   );
 }
 
-// Recursively validates required fields, entering "dynamic mode" on the first conditional
-// branch or dynamic for-each iteration encountered. dynamicMode=false means Phase 1 (Zod
-// static schema) is already responsible for the field; we only add issues in dynamic mode.
+// dynamic=false: field belongs to the static Phase 1 schema, skip.
+// dynamic=true: inside a conditional branch or dynamic for-each — Phase 2 owns validation.
 function validateComponentTree(
   component: ScreenComponent,
   screenData: Record<string, any>,
   forEachCtx: ForEachCtx,
-  dynamicMode: boolean,
+  dynamic: boolean,
   issues: Array<{ path: string; message: string }>,
 ): void {
   if (component.componentFamily === 'response') {
-    if (!dynamicMode) return;
+    if (!dynamic) return;
     const { required = true, errorMessage } = component.props;
     const resolvedKey = resolveTemplateKey(component.props.dataKey, forEachCtx);
     const value = screenData[resolvedKey];
@@ -101,7 +100,7 @@ function validateComponentTree(
 
   if (component.componentFamily === 'layout' && component.template === 'group') {
     for (const child of component.props.components) {
-      validateComponentTree(child, screenData, forEachCtx, dynamicMode, issues);
+      validateComponentTree(child, screenData, forEachCtx, dynamic, issues);
     }
     return;
   }
@@ -127,7 +126,7 @@ function validateComponentTree(
       if (component.props.type === 'static') {
         component.props.values.forEach((value, index) => {
           const newCtx = { ...forEachCtx, [component.props.id]: { value, index } };
-          validateComponentTree(component.props.component, screenData, newCtx, dynamicMode, issues);
+          validateComponentTree(component.props.component, screenData, newCtx, dynamic, issues);
         });
       } else {
         const context = {
