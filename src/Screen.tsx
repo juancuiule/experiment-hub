@@ -6,7 +6,7 @@ import { useForm } from "react-hook-form";
 import { ScreenComponent } from "@/lib/components";
 import { FrameworkScreen } from "@/lib/screen";
 import { Context } from "@/lib/types";
-import { buildSchema } from "@/lib/validation";
+import { buildSchema, getSchemaShape } from "@/lib/validation";
 import { RenderComponent } from "./components/RenderComponent";
 import { DataSection } from "./Debug";
 
@@ -129,6 +129,7 @@ export function Screen({ screen, isLoading, onNext, context }: ScreenProps) {
         />
       ))}
       <div className="flex flex-col gap-3">
+        <DataSection title="schema" data={getSchemaShape(screen)} />
         <DataSection title="form" data={form.watch()} />
       </div>
     </form>

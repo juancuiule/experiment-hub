@@ -310,3 +310,75 @@ export function buildSchema(screen: FrameworkScreen) {
     }
   }) as typeof baseSchema;
 }
+
+function describeResponseType(component: ResponseComponent, optional: boolean): string {
+  const base = (() => {
+    switch (component.template) {
+      case "text-input":
+      case "text-area":
+      case "date-input":
+      case "time-input":
+      case "dropdown":
+      case "radio":
+      case "likert-scale":
+        return "string";
+      case "checkboxes":
+        return "string[]";
+      case "numeric-input":
+        return "number";
+      case "slider":
+        return "null | number";
+      case "single-checkbox":
+        return "boolean";
+    }
+  })();
+  return optional ? `${base}?` : base;
+}
+
+function collectFieldDescriptions(
+  components: ScreenComponent[],
+  acc: Record<string, string> = {},
+  withinConditional = false,
+): Record<string, string> {
+  for (const component of components) {
+    if (component.componentFamily === "response") {
+      const optional = withinConditional || !(component.props.required ?? true);
+      acc[component.props.dataKey] = describeResponseType(component, optional);
+      if (hasRandomizedOptions(component)) {
+        acc[`${component.props.dataKey}__order`] = "string[]?";
+      }
+    } else if (
+      component.componentFamily === "layout" &&
+      component.template === "group"
+    ) {
+      collectFieldDescriptions(component.props.components, acc, withinConditional);
+    } else if (
+      component.componentFamily === "control" &&
+      component.template === "conditional"
+    ) {
+      collectFieldDescriptions([component.props.component], acc, true);
+      if (component.props.else) {
+        collectFieldDescriptions([component.props.else], acc, true);
+      }
+    } else if (
+      component.componentFamily === "control" &&
+      component.template === "for-each" &&
+      component.props.type === "static"
+    ) {
+      const template = component.props.component;
+      if (template.componentFamily === "response") {
+        for (let i = 0; i < component.props.values.length; i++) {
+          const key = template.props.dataKey
+            .replace("@index", String(i))
+            .replace("@value", component.props.values[i]);
+          acc[key] = describeResponseType(template, false);
+        }
+      }
+    }
+  }
+  return acc;
+}
+
+export function getSchemaShape(screen: FrameworkScreen): Record<string, string> {
+  return collectFieldDescriptions(screen.components);
+}
