@@ -1738,7 +1738,7 @@ describe('conditional field — full constraint validation in Phase 2', () => {
       componentFamily: 'control',
       template: 'conditional',
       props: {
-        if: { type: 'simple', dataKey: '$show', operator: 'equals', value: 'yes' },
+        if: { type: 'simple', dataKey: '$show', operator: 'eq', value: 'yes' },
         component: {
           componentFamily: 'response',
           template: 'text-input',
