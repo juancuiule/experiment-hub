@@ -6,11 +6,7 @@ import { useForm } from 'react-hook-form';
 import { ScreenComponent } from '@/lib/components';
 import { FrameworkScreen } from '@/lib/screen';
 import { Context } from '@/lib/types';
-import {
-  buildSchema,
-  getComponentFields,
-  getSchemaShape,
-} from '@/lib/validation';
+import { buildSchema, getComponentFields } from '@/lib/validation';
 import { RenderComponent } from './components/RenderComponent';
 import { DataSection } from './Debug';
 
@@ -20,6 +16,37 @@ type ScreenProps = {
   onNext: (data?: Record<string, any>) => Promise<void>;
   context: Context;
 };
+
+function resolveForEachComponent(
+  component: ScreenComponent,
+  id: string,
+  value: string,
+  index: number,
+): ScreenComponent {
+  if (component.componentFamily === 'response') {
+    return {
+      ...component,
+      props: {
+        ...component.props,
+        dataKey: component.props.dataKey
+          .replaceAll(`{{#${id}.index}}`, String(index))
+          .replaceAll(`{{#${id}.value}}`, value),
+      },
+    } as typeof component;
+  }
+  if (component.componentFamily === 'layout' && component.template === 'group') {
+    return {
+      ...component,
+      props: {
+        ...component.props,
+        components: component.props.components.map((c) =>
+          resolveForEachComponent(c, id, value, index),
+        ),
+      },
+    } as typeof component;
+  }
+  return component;
+}
 
 function collectDefaults(
   components: ScreenComponent[],
@@ -41,22 +68,13 @@ function collectDefaults(
         c.template === 'for-each' &&
         c.props.type === 'static'
       ) {
-        const inner = c.props.component;
         for (let i = 0; i < c.props.values.length; i++) {
-          let resolved: ScreenComponent;
-          if (inner.componentFamily === 'response') {
-            resolved = {
-              ...inner,
-              props: {
-                ...inner.props,
-                dataKey: inner.props.dataKey
-                  .replace(`{{#${c.props.id}.index}}`, String(i))
-                  .replace(`{{#${c.props.id}.value}}`, c.props.values[i]),
-              },
-            } as typeof inner;
-          } else {
-            resolved = inner;
-          }
+          const resolved = resolveForEachComponent(
+            c.props.component,
+            c.props.id,
+            c.props.values[i],
+            i,
+          );
           collectDefaults([resolved], context, values);
         }
       }

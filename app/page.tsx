@@ -44,9 +44,9 @@ export default async function Home(props: Props) {
 
   return (
     <>
-      {/* <StateDebug /> */}
+      <StateDebug />
       <Experiment startingNode={startingNode} />
-      {/* <DataDebug /> */}
+      <DataDebug />
     </>
   );
 }

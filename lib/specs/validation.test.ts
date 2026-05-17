@@ -1030,13 +1030,23 @@ describe('conditional — group inside conditional', () => {
         {
           componentFamily: 'response',
           template: 'radio',
-          props: { dataKey: 'trigger', label: 'Q', options: [], required: true },
+          props: {
+            dataKey: 'trigger',
+            label: 'Q',
+            options: [],
+            required: true,
+          },
         },
         {
           componentFamily: 'control',
           template: 'conditional',
           props: {
-            if: { type: 'simple', operator: 'eq', dataKey: '$trigger', value: 'yes' },
+            if: {
+              type: 'simple',
+              operator: 'eq',
+              dataKey: '$trigger',
+              value: 'yes',
+            },
             component: {
               componentFamily: 'layout',
               template: 'group',
@@ -1046,7 +1056,11 @@ describe('conditional — group inside conditional', () => {
                   {
                     componentFamily: 'response',
                     template: 'text-input',
-                    props: { dataKey: 'detail', label: 'Detail', required: true },
+                    props: {
+                      dataKey: 'detail',
+                      label: 'Detail',
+                      required: true,
+                    },
                   },
                 ],
               },
@@ -1064,13 +1078,23 @@ describe('conditional — group inside conditional', () => {
         {
           componentFamily: 'response',
           template: 'radio',
-          props: { dataKey: 'trigger', label: 'Q', options: [], required: true },
+          props: {
+            dataKey: 'trigger',
+            label: 'Q',
+            options: [],
+            required: true,
+          },
         },
         {
           componentFamily: 'control',
           template: 'conditional',
           props: {
-            if: { type: 'simple', operator: 'eq', dataKey: '$trigger', value: 'yes' },
+            if: {
+              type: 'simple',
+              operator: 'eq',
+              dataKey: '$trigger',
+              value: 'yes',
+            },
             component: {
               componentFamily: 'layout',
               template: 'group',
@@ -1080,7 +1104,11 @@ describe('conditional — group inside conditional', () => {
                   {
                     componentFamily: 'response',
                     template: 'text-input',
-                    props: { dataKey: 'detail', label: 'Detail', required: true },
+                    props: {
+                      dataKey: 'detail',
+                      label: 'Detail',
+                      required: true,
+                    },
                   },
                 ],
               },
@@ -1089,8 +1117,12 @@ describe('conditional — group inside conditional', () => {
         },
       ]),
     );
-    expect(schema.safeParse({ trigger: 'yes', detail: '' }).success).toBe(false);
-    expect(schema.safeParse({ trigger: 'yes', detail: 'hello' }).success).toBe(true);
+    expect(schema.safeParse({ trigger: 'yes', detail: '' }).success).toBe(
+      false,
+    );
+    expect(schema.safeParse({ trigger: 'yes', detail: 'hello' }).success).toBe(
+      true,
+    );
   });
 });
 
@@ -1139,7 +1171,11 @@ describe('static for-each — generates N schema entries', () => {
             component: {
               componentFamily: 'response',
               template: 'text-input',
-              props: { dataKey: 'item_{{#items.index}}', label: 'Item', required: true },
+              props: {
+                dataKey: 'item_{{#items.index}}',
+                label: 'Item',
+                required: true,
+              },
             },
           },
         },
@@ -1174,8 +1210,12 @@ describe('static for-each — {{#id.value}} resolved in dataKey', () => {
         },
       ]),
     );
-    expect(schema.safeParse({ rating_pizza: 'good', rating_sushi: 'great' }).success).toBe(true);
-    expect(schema.safeParse({ rating_pizza: '', rating_sushi: 'great' }).success).toBe(false);
+    expect(
+      schema.safeParse({ rating_pizza: 'good', rating_sushi: 'great' }).success,
+    ).toBe(true);
+    expect(
+      schema.safeParse({ rating_pizza: '', rating_sushi: 'great' }).success,
+    ).toBe(false);
   });
 
   it('resolves both {{#id.index}} and {{#id.value}} when combined in dataKey', () => {
@@ -1201,8 +1241,12 @@ describe('static for-each — {{#id.value}} resolved in dataKey', () => {
         },
       ]),
     );
-    expect(schema.safeParse({ item_0_a: 'x', item_1_b: 'y' }).success).toBe(true);
-    expect(schema.safeParse({ item_0_a: '', item_1_b: 'y' }).success).toBe(false);
+    expect(schema.safeParse({ item_0_a: 'x', item_1_b: 'y' }).success).toBe(
+      true,
+    );
+    expect(schema.safeParse({ item_0_a: '', item_1_b: 'y' }).success).toBe(
+      false,
+    );
   });
 });
 
@@ -1220,7 +1264,11 @@ describe('dynamic for-each — no static schema entries', () => {
             component: {
               componentFamily: 'response',
               template: 'text-input',
-              props: { dataKey: 'item-{{#items.value}}', label: 'Item', required: true },
+              props: {
+                dataKey: 'item-{{#items.value}}',
+                label: 'Item',
+                required: true,
+              },
             },
           },
         },
@@ -1232,7 +1280,12 @@ describe('dynamic for-each — no static schema entries', () => {
 });
 
 describe('dynamic for-each — validates resolved fields at submit time', () => {
-  function forEachScreen(sourceKey: `$${string}` | `$$${string}`, id: string, dataKey: string, required = true) {
+  function forEachScreen(
+    sourceKey: `$${string}` | `$$${string}`,
+    id: string,
+    dataKey: string,
+    required = true,
+  ) {
     return screen([
       {
         componentFamily: 'control',
@@ -1252,23 +1305,42 @@ describe('dynamic for-each — validates resolved fields at submit time', () => 
   }
 
   it('passes when all resolved required fields are filled', () => {
-    const schema = buildSchema(forEachScreen('$fruits', 'fe', 'like-{{#fe.value}}'));
-    expect(schema.safeParse({ fruits: ['apple', 'banana'], 'like-apple': 'yes', 'like-banana': 'yes' }).success).toBe(true);
+    const schema = buildSchema(
+      forEachScreen('$fruits', 'fe', 'like-{{#fe.value}}'),
+    );
+    expect(
+      schema.safeParse({
+        fruits: ['apple', 'banana'],
+        'like-apple': 'yes',
+        'like-banana': 'yes',
+      }).success,
+    ).toBe(true);
   });
 
   it('fails when a resolved required field is absent', () => {
-    const schema = buildSchema(forEachScreen('$fruits', 'fe', 'like-{{#fe.value}}'));
+    const schema = buildSchema(
+      forEachScreen('$fruits', 'fe', 'like-{{#fe.value}}'),
+    );
     // like-banana is missing
-    expect(schema.safeParse({ fruits: ['apple', 'banana'], 'like-apple': 'yes' }).success).toBe(false);
+    expect(
+      schema.safeParse({ fruits: ['apple', 'banana'], 'like-apple': 'yes' })
+        .success,
+    ).toBe(false);
   });
 
   it('fails when a resolved required field is empty string', () => {
-    const schema = buildSchema(forEachScreen('$fruits', 'fe', 'like-{{#fe.value}}'));
-    expect(schema.safeParse({ fruits: ['apple'], 'like-apple': '' }).success).toBe(false);
+    const schema = buildSchema(
+      forEachScreen('$fruits', 'fe', 'like-{{#fe.value}}'),
+    );
+    expect(
+      schema.safeParse({ fruits: ['apple'], 'like-apple': '' }).success,
+    ).toBe(false);
   });
 
   it('reports error on the resolved key path', () => {
-    const schema = buildSchema(forEachScreen('$fruits', 'fe', 'like-{{#fe.value}}'));
+    const schema = buildSchema(
+      forEachScreen('$fruits', 'fe', 'like-{{#fe.value}}'),
+    );
     const result = schema.safeParse({ fruits: ['apple'], 'like-apple': '' });
     expect(result.success).toBe(false);
     if (!result.success) {
@@ -1289,7 +1361,13 @@ describe('dynamic for-each — validates resolved fields at submit time', () => 
             component: {
               componentFamily: 'response',
               template: 'radio',
-              props: { dataKey: 'like-{{#fe.value}}', label: 'Pick', options: [], required: true, errorMessage: 'Please pick one' },
+              props: {
+                dataKey: 'like-{{#fe.value}}',
+                label: 'Pick',
+                options: [],
+                required: true,
+                errorMessage: 'Please pick one',
+              },
             },
           },
         },
@@ -1298,40 +1376,85 @@ describe('dynamic for-each — validates resolved fields at submit time', () => 
     const result = schema.safeParse({ fruits: ['apple'], 'like-apple': '' });
     expect(result.success).toBe(false);
     if (!result.success) {
-      expect(result.error.flatten().fieldErrors['like-apple']).toContain('Please pick one');
+      expect(result.error.flatten().fieldErrors['like-apple']).toContain(
+        'Please pick one',
+      );
     }
   });
 
   it('produces no errors when source array is empty', () => {
-    const schema = buildSchema(forEachScreen('$fruits', 'fe', 'like-{{#fe.value}}'));
+    const schema = buildSchema(
+      forEachScreen('$fruits', 'fe', 'like-{{#fe.value}}'),
+    );
     expect(schema.safeParse({ fruits: [] }).success).toBe(true);
   });
 
   it('produces no errors when source key is absent', () => {
-    const schema = buildSchema(forEachScreen('$fruits', 'fe', 'like-{{#fe.value}}'));
+    const schema = buildSchema(
+      forEachScreen('$fruits', 'fe', 'like-{{#fe.value}}'),
+    );
     expect(schema.safeParse({}).success).toBe(true);
   });
 
   it('skips validation when template field is not required', () => {
-    const schema = buildSchema(forEachScreen('$fruits', 'fe', 'like-{{#fe.value}}', false));
-    expect(schema.safeParse({ fruits: ['apple', 'banana'] }).success).toBe(true);
+    const schema = buildSchema(
+      forEachScreen('$fruits', 'fe', 'like-{{#fe.value}}', false),
+    );
+    expect(schema.safeParse({ fruits: ['apple', 'banana'] }).success).toBe(
+      true,
+    );
   });
 
   it('resolves {{#id.index}} in template dataKey', () => {
-    const schema = buildSchema(forEachScreen('$fruits', 'fe', 'like-{{#fe.index}}'));
-    expect(schema.safeParse({ fruits: ['apple', 'banana'], 'like-0': 'yes', 'like-1': 'yes' }).success).toBe(true);
-    expect(schema.safeParse({ fruits: ['apple', 'banana'], 'like-0': 'yes', 'like-1': '' }).success).toBe(false);
+    const schema = buildSchema(
+      forEachScreen('$fruits', 'fe', 'like-{{#fe.index}}'),
+    );
+    expect(
+      schema.safeParse({
+        fruits: ['apple', 'banana'],
+        'like-0': 'yes',
+        'like-1': 'yes',
+      }).success,
+    ).toBe(true);
+    expect(
+      schema.safeParse({
+        fruits: ['apple', 'banana'],
+        'like-0': 'yes',
+        'like-1': '',
+      }).success,
+    ).toBe(false);
   });
 
   it('resolves both {{#id.value}} and {{#id.index}} in the same dataKey', () => {
-    const schema = buildSchema(forEachScreen('$fruits', 'fe', 'like-{{#fe.index}}-{{#fe.value}}'));
-    expect(schema.safeParse({ fruits: ['apple', 'banana'], 'like-0-apple': 'yes', 'like-1-banana': 'yes' }).success).toBe(true);
-    expect(schema.safeParse({ fruits: ['apple', 'banana'], 'like-0-apple': 'yes', 'like-1-banana': '' }).success).toBe(false);
+    const schema = buildSchema(
+      forEachScreen('$fruits', 'fe', 'like-{{#fe.index}}-{{#fe.value}}'),
+    );
+    expect(
+      schema.safeParse({
+        fruits: ['apple', 'banana'],
+        'like-0-apple': 'yes',
+        'like-1-banana': 'yes',
+      }).success,
+    ).toBe(true);
+    expect(
+      schema.safeParse({
+        fruits: ['apple', 'banana'],
+        'like-0-apple': 'yes',
+        'like-1-banana': '',
+      }).success,
+    ).toBe(false);
   });
 
   it('validates each iteration independently — only the missing one fails', () => {
-    const schema = buildSchema(forEachScreen('$fruits', 'fe', 'like-{{#fe.value}}'));
-    const result = schema.safeParse({ fruits: ['apple', 'banana', 'kiwi'], 'like-apple': 'yes', 'like-banana': '', 'like-kiwi': 'yes' });
+    const schema = buildSchema(
+      forEachScreen('$fruits', 'fe', 'like-{{#fe.value}}'),
+    );
+    const result = schema.safeParse({
+      fruits: ['apple', 'banana', 'kiwi'],
+      'like-apple': 'yes',
+      'like-banana': '',
+      'like-kiwi': 'yes',
+    });
     expect(result.success).toBe(false);
     if (!result.success) {
       const errors = result.error.flatten().fieldErrors;
@@ -1362,7 +1485,12 @@ describe('dynamic for-each — template nested inside a group', () => {
                   {
                     componentFamily: 'response',
                     template: 'radio',
-                    props: { dataKey: 'like-{{#fe.value}}', label: 'Like?', options: [], required: true },
+                    props: {
+                      dataKey: 'like-{{#fe.value}}',
+                      label: 'Like?',
+                      options: [],
+                      required: true,
+                    },
                   },
                 ],
               },
@@ -1371,8 +1499,12 @@ describe('dynamic for-each — template nested inside a group', () => {
         },
       ]),
     );
-    expect(schema.safeParse({ fruits: ['apple'], 'like-apple': 'yes' }).success).toBe(true);
-    expect(schema.safeParse({ fruits: ['apple'], 'like-apple': '' }).success).toBe(false);
+    expect(
+      schema.safeParse({ fruits: ['apple'], 'like-apple': 'yes' }).success,
+    ).toBe(true);
+    expect(
+      schema.safeParse({ fruits: ['apple'], 'like-apple': '' }).success,
+    ).toBe(false);
   });
 });
 
@@ -1396,11 +1528,21 @@ describe('dynamic for-each — nested inside conditional else branch', () => {
           componentFamily: 'control',
           template: 'conditional',
           props: {
-            if: { type: 'simple', dataKey: '$score', operator: 'gte', value: 70 },
+            if: {
+              type: 'simple',
+              dataKey: '$score',
+              operator: 'gte',
+              value: 70,
+            },
             component: {
               componentFamily: 'response',
               template: 'single-checkbox',
-              props: { dataKey: 'high-score', label: 'High', defaultValue: true, required: false },
+              props: {
+                dataKey: 'high-score',
+                label: 'High',
+                defaultValue: true,
+                required: false,
+              },
             },
             else: {
               componentFamily: 'control',
@@ -1412,7 +1554,12 @@ describe('dynamic for-each — nested inside conditional else branch', () => {
                 component: {
                   componentFamily: 'response',
                   template: 'radio',
-                  props: { dataKey: 'visited-{{#fe.value}}', label: 'Visited?', options: [], required: true },
+                  props: {
+                    dataKey: 'visited-{{#fe.value}}',
+                    label: 'Visited?',
+                    options: [],
+                    required: true,
+                  },
                 },
               },
             },
@@ -1421,8 +1568,20 @@ describe('dynamic for-each — nested inside conditional else branch', () => {
       ]),
     );
     // score < 70 → else branch active; countries resolved; visited-france filled
-    expect(schema.safeParse({ score: 50, countries: ['france'], 'visited-france': 'yes' }).success).toBe(true);
-    expect(schema.safeParse({ score: 50, countries: ['france'], 'visited-france': '' }).success).toBe(false);
+    expect(
+      schema.safeParse({
+        score: 50,
+        countries: ['france'],
+        'visited-france': 'yes',
+      }).success,
+    ).toBe(true);
+    expect(
+      schema.safeParse({
+        score: 50,
+        countries: ['france'],
+        'visited-france': '',
+      }).success,
+    ).toBe(false);
   });
 });
 
@@ -1551,17 +1710,32 @@ describe('conditional inside static for-each', () => {
               {
                 componentFamily: 'response',
                 template: 'single-checkbox',
-                props: { dataKey: 'likes-{{#fe.value}}', label: 'Like?', defaultValue: false, required: false },
+                props: {
+                  dataKey: 'likes-{{#fe.value}}',
+                  label: 'Like?',
+                  defaultValue: false,
+                  required: false,
+                },
               },
               {
                 componentFamily: 'control',
                 template: 'conditional',
                 props: {
-                  if: { type: 'simple', dataKey: '$likes-{{#fe.value}}', operator: 'eq', value: true },
+                  if: {
+                    type: 'simple',
+                    dataKey: '$likes-{{#fe.value}}',
+                    operator: 'eq',
+                    value: true,
+                  },
                   component: {
                     componentFamily: 'response',
                     template: 'radio',
-                    props: { dataKey: 'eats-{{#fe.value}}', label: 'Eat regularly?', options: [], required: true },
+                    props: {
+                      dataKey: 'eats-{{#fe.value}}',
+                      label: 'Eat regularly?',
+                      options: [],
+                      required: true,
+                    },
                   },
                 },
               },
@@ -1575,21 +1749,44 @@ describe('conditional inside static for-each', () => {
   it('skips the follow-up when the condition is false for that iteration', () => {
     const schema = buildSchema(likesThenEatsScreen);
     // likes-apple=false → condition false → eats-apple not required
-    expect(schema.safeParse({ 'likes-apple': false, 'likes-banana': false }).success).toBe(true);
+    expect(
+      schema.safeParse({ 'likes-apple': false, 'likes-banana': false }).success,
+    ).toBe(true);
   });
 
   it('enforces the follow-up only for iterations where the condition is true', () => {
     const schema = buildSchema(likesThenEatsScreen);
     // likes-apple=true → eats-apple required; likes-banana=false → eats-banana not required
-    expect(schema.safeParse({ 'likes-apple': true, 'likes-banana': false, 'eats-apple': 'yes' }).success).toBe(true);
-    expect(schema.safeParse({ 'likes-apple': true, 'likes-banana': false }).success).toBe(false);
+    expect(
+      schema.safeParse({
+        'likes-apple': true,
+        'likes-banana': false,
+        'eats-apple': 'yes',
+      }).success,
+    ).toBe(true);
+    expect(
+      schema.safeParse({ 'likes-apple': true, 'likes-banana': false }).success,
+    ).toBe(false);
   });
 
   it('enforces follow-ups independently per iteration', () => {
     const schema = buildSchema(likesThenEatsScreen);
     // both likes = true → both eats required
-    expect(schema.safeParse({ 'likes-apple': true, 'likes-banana': true, 'eats-apple': 'yes', 'eats-banana': 'yes' }).success).toBe(true);
-    expect(schema.safeParse({ 'likes-apple': true, 'likes-banana': true, 'eats-apple': 'yes' }).success).toBe(false);
+    expect(
+      schema.safeParse({
+        'likes-apple': true,
+        'likes-banana': true,
+        'eats-apple': 'yes',
+        'eats-banana': 'yes',
+      }).success,
+    ).toBe(true);
+    expect(
+      schema.safeParse({
+        'likes-apple': true,
+        'likes-banana': true,
+        'eats-apple': 'yes',
+      }).success,
+    ).toBe(false);
   });
 });
 
@@ -1605,7 +1802,12 @@ describe('nested conditionals — hierarchical evaluation', () => {
           componentFamily: 'control',
           template: 'conditional',
           props: {
-            if: { type: 'simple', dataKey: '$inner', operator: 'eq', value: 'yes' },
+            if: {
+              type: 'simple',
+              dataKey: '$inner',
+              operator: 'eq',
+              value: 'yes',
+            },
             component: {
               componentFamily: 'response',
               template: 'text-input',
@@ -1629,8 +1831,12 @@ describe('nested conditionals — hierarchical evaluation', () => {
 
   it('enforces the inner field only when both conditions are true', () => {
     const schema = buildSchema(nestedScreen);
-    expect(schema.safeParse({ outer: 'yes', inner: 'yes', deep: '' }).success).toBe(false);
-    expect(schema.safeParse({ outer: 'yes', inner: 'yes', deep: 'filled' }).success).toBe(true);
+    expect(
+      schema.safeParse({ outer: 'yes', inner: 'yes', deep: '' }).success,
+    ).toBe(false);
+    expect(
+      schema.safeParse({ outer: 'yes', inner: 'yes', deep: 'filled' }).success,
+    ).toBe(true);
   });
 });
 
@@ -1651,7 +1857,12 @@ describe('dynamic for-each inside conditional — only validated when branch is 
             component: {
               componentFamily: 'response',
               template: 'radio',
-              props: { dataKey: 'pick-{{#fe.value}}', label: 'Pick', options: [], required: true },
+              props: {
+                dataKey: 'pick-{{#fe.value}}',
+                label: 'Pick',
+                options: [],
+                required: true,
+              },
             },
           },
         },
@@ -1662,13 +1873,22 @@ describe('dynamic for-each inside conditional — only validated when branch is 
   it('does not validate dynamic for-each fields when the condition is false', () => {
     const schema = buildSchema(conditionalForEachScreen);
     // show=no → branch inactive → pick-apple not required even though items has values
-    expect(schema.safeParse({ show: 'no', items: ['apple'], 'pick-apple': '' }).success).toBe(true);
+    expect(
+      schema.safeParse({ show: 'no', items: ['apple'], 'pick-apple': '' })
+        .success,
+    ).toBe(true);
   });
 
   it('validates dynamic for-each fields when the condition is true', () => {
     const schema = buildSchema(conditionalForEachScreen);
-    expect(schema.safeParse({ show: 'yes', items: ['apple'], 'pick-apple': 'x' }).success).toBe(true);
-    expect(schema.safeParse({ show: 'yes', items: ['apple'], 'pick-apple': '' }).success).toBe(false);
+    expect(
+      schema.safeParse({ show: 'yes', items: ['apple'], 'pick-apple': 'x' })
+        .success,
+    ).toBe(true);
+    expect(
+      schema.safeParse({ show: 'yes', items: ['apple'], 'pick-apple': '' })
+        .success,
+    ).toBe(false);
   });
 });
 
@@ -1708,20 +1928,24 @@ describe('nested dynamic for-each — outer for-each context resolved in inner t
 
   it('resolves both outer and inner placeholders in the template key', () => {
     const schema = buildSchema(nestedForEachScreen);
-    expect(schema.safeParse({
-      countries: ['france'],
-      'ate-apple-in-france': true,
-      'ate-banana-in-france': true,
-    }).success).toBe(true);
+    expect(
+      schema.safeParse({
+        countries: ['france'],
+        'ate-apple-in-france': true,
+        'ate-banana-in-france': true,
+      }).success,
+    ).toBe(true);
   });
 
   it('fails when a resolved key from either loop combination is missing', () => {
     const schema = buildSchema(nestedForEachScreen);
     // ate-banana-in-france is absent
-    expect(schema.safeParse({
-      countries: ['france'],
-      'ate-apple-in-france': true,
-    }).success).toBe(false);
+    expect(
+      schema.safeParse({
+        countries: ['france'],
+        'ate-apple-in-france': true,
+      }).success,
+    ).toBe(false);
   });
 
   it('produces no errors when the inner source array is empty', () => {
@@ -1738,7 +1962,7 @@ describe('conditional field — full constraint validation in Phase 2', () => {
       componentFamily: 'control',
       template: 'conditional',
       props: {
-        if: { type: 'simple', dataKey: '$show', operator: 'equals', value: 'yes' },
+        if: { type: 'simple', dataKey: '$show', operator: 'eq', value: 'yes' },
         component: {
           componentFamily: 'response',
           template: 'text-input',
@@ -1760,7 +1984,9 @@ describe('conditional field — full constraint validation in Phase 2', () => {
 
   it('passes when condition is true and field satisfies the pattern', () => {
     const schema = buildSchema(constraintConditionalScreen);
-    expect(schema.safeParse({ show: 'yes', email: 'a@b.com' }).success).toBe(true);
+    expect(schema.safeParse({ show: 'yes', email: 'a@b.com' }).success).toBe(
+      true,
+    );
   });
 
   it('fails when condition is true and field is empty', () => {
@@ -1774,6 +2000,130 @@ describe('conditional field — full constraint validation in Phase 2', () => {
     expect(result.success).toBe(false);
     const messages = result.error!.issues.map((i) => i.message);
     expect(messages).toContain('Invalid email');
+  });
+
+  it('fails when condition is true and required field is completely absent (Phase 2 specific)', () => {
+    const schema = buildSchema(constraintConditionalScreen);
+    // show='yes' → condition should be true → superRefine must enforce email required
+    // No 'email' key at all → undefined → Phase 1 lets it pass (optional), Phase 2 must catch it
+    expect(schema.safeParse({ show: 'yes' }).success).toBe(false);
+  });
+});
+
+describe('static for-each — all occurrences of placeholder replaced in dataKey', () => {
+  it('replaces all occurrences of {{#id.value}} in a static for-each dataKey', () => {
+    const schema = buildSchema(
+      screen([
+        {
+          componentFamily: 'control',
+          template: 'for-each',
+          props: {
+            type: 'static',
+            id: 'fe',
+            values: ['apple'],
+            component: {
+              componentFamily: 'response',
+              template: 'text-input',
+              props: {
+                dataKey: '{{#fe.value}}-{{#fe.value}}',
+                label: 'Test',
+                required: true,
+              },
+            },
+          },
+        },
+      ]),
+    );
+    // Both occurrences must resolve: 'apple-apple', not 'apple-{{#fe.value}}'
+    expect(schema.safeParse({ 'apple-apple': 'x' }).success).toBe(true);
+  });
+
+  it('replaces all occurrences of {{#id.index}} in a static for-each dataKey', () => {
+    const schema = buildSchema(
+      screen([
+        {
+          componentFamily: 'control',
+          template: 'for-each',
+          props: {
+            type: 'static',
+            id: 'fe',
+            values: ['apple'],
+            component: {
+              componentFamily: 'response',
+              template: 'text-input',
+              props: {
+                dataKey: '{{#fe.index}}-{{#fe.index}}',
+                label: 'Test',
+                required: true,
+              },
+            },
+          },
+        },
+      ]),
+    );
+    // Both occurrences must resolve: '0-0', not '0-{{#fe.index}}'
+    expect(schema.safeParse({ '0-0': 'x' }).success).toBe(true);
+  });
+});
+
+describe('dynamic for-each — all occurrences of placeholder replaced in template key', () => {
+  it('replaces all occurrences of {{#id.value}} in a dynamic for-each template dataKey', () => {
+    const schema = buildSchema(
+      screen([
+        {
+          componentFamily: 'control',
+          template: 'for-each',
+          props: {
+            type: 'dynamic',
+            id: 'fe',
+            dataKey: '$fruits',
+            component: {
+              componentFamily: 'response',
+              template: 'radio',
+              props: {
+                dataKey: '{{#fe.value}}-{{#fe.value}}',
+                label: 'Pick',
+                options: [],
+                required: true,
+              },
+            },
+          },
+        },
+      ]),
+    );
+    // resolveTemplateKey must replace both occurrences: 'apple-apple', not 'apple-{{#fe.value}}'
+    expect(
+      schema.safeParse({ fruits: ['apple'], 'apple-apple': 'yes' }).success,
+    ).toBe(true);
+  });
+
+  it('replaces all occurrences of {{#id.index}} in a dynamic for-each template dataKey', () => {
+    const schema = buildSchema(
+      screen([
+        {
+          componentFamily: 'control',
+          template: 'for-each',
+          props: {
+            type: 'dynamic',
+            id: 'fe',
+            dataKey: '$fruits',
+            component: {
+              componentFamily: 'response',
+              template: 'radio',
+              props: {
+                dataKey: '{{#fe.index}}-{{#fe.index}}',
+                label: 'Pick',
+                options: [],
+                required: true,
+              },
+            },
+          },
+        },
+      ]),
+    );
+    expect(schema.safeParse({ fruits: ['apple'], '0-0': 'yes' }).success).toBe(
+      true,
+    );
   });
 });
 
@@ -1802,7 +2152,10 @@ describe('dynamic for-each field — full constraint validation in Phase 2', () 
 
   it('passes when all dynamic fields satisfy minLength', () => {
     const schema = buildSchema(constraintDynamicScreen);
-    expect(schema.safeParse({ items: ['a', 'b'], 'note-a': 'hey', 'note-b': 'foo' }).success).toBe(true);
+    expect(
+      schema.safeParse({ items: ['a', 'b'], 'note-a': 'hey', 'note-b': 'foo' })
+        .success,
+    ).toBe(true);
   });
 
   it('fails when a dynamic field violates minLength', () => {

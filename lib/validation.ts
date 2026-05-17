@@ -159,8 +159,8 @@ function collectFieldEntries(
         collectFieldEntries(component.props.component, optional).map((entry) => ({
           ...entry,
           dataKey: entry.dataKey
-            .replace(`{{#${component.props.id}.index}}`, String(index))
-            .replace(`{{#${component.props.id}.value}}`, value),
+            .replaceAll(`{{#${component.props.id}.index}}`, String(index))
+            .replaceAll(`{{#${component.props.id}.value}}`, value),
         })),
       );
     }
@@ -190,7 +190,7 @@ type ForEachCtx = Record<string, { value: string; index: number }>;
 function resolveTemplateKey(key: string, ctx: ForEachCtx): string {
   return Object.entries(ctx).reduce(
     (k, [id, { value, index }]) =>
-      k.replace(`{{#${id}.value}}`, value).replace(`{{#${id}.index}}`, String(index)),
+      k.replaceAll(`{{#${id}.value}}`, value).replaceAll(`{{#${id}.index}}`, String(index)),
     key,
   );
 }
@@ -327,8 +327,8 @@ export function getComponentFields(component: ScreenComponent): Field[] {
               templateFields.map((f) => ({
                 ...f,
                 dataKey: f.dataKey
-                  .replace(`{{#${component.props.id}.index}}`, String(index))
-                  .replace(`{{#${component.props.id}.value}}`, value),
+                  .replaceAll(`{{#${component.props.id}.index}}`, String(index))
+                  .replaceAll(`{{#${component.props.id}.value}}`, value),
               })),
             );
           } else {

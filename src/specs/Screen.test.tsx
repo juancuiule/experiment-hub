@@ -1001,3 +1001,95 @@ describe("for-each", () => {
     );
   });
 });
+
+describe("static for-each — group template with resolved default keys", () => {
+  it("submits with resolved default values for checkboxes inside a group template", async () => {
+    const onNext = vi.fn().mockResolvedValue(undefined);
+    renderScreen(
+      [
+        {
+          componentFamily: "control",
+          template: "for-each",
+          props: {
+            type: "static",
+            id: "fe",
+            values: ["apple", "banana"],
+            component: {
+              componentFamily: "layout",
+              template: "group",
+              props: {
+                name: "group-{{#fe.index}}",
+                components: [
+                  {
+                    componentFamily: "response",
+                    template: "single-checkbox",
+                    props: {
+                      dataKey: "likes-{{#fe.value}}",
+                      label: "Like {{#fe.value}}?",
+                      defaultValue: false,
+                      required: false,
+                    },
+                  },
+                ],
+              },
+            },
+          },
+        },
+        { componentFamily: "layout", template: "button", props: { text: "Submit" } },
+      ],
+      {},
+      onNext,
+    );
+
+    // submit without touching anything — defaults must use resolved keys
+    await userEvent.click(screen.getByRole("button", { name: "Submit" }));
+
+    expect(onNext).toHaveBeenCalledWith({
+      "likes-apple": false,
+      "likes-banana": false,
+    });
+  });
+
+  it("blocks submit when a required radio inside a group template is empty", async () => {
+    const onNext = vi.fn().mockResolvedValue(undefined);
+    renderScreen(
+      [
+        {
+          componentFamily: "control",
+          template: "for-each",
+          props: {
+            type: "static",
+            id: "fe",
+            values: ["apple", "banana"],
+            component: {
+              componentFamily: "layout",
+              template: "group",
+              props: {
+                name: "group-{{#fe.index}}",
+                components: [
+                  {
+                    componentFamily: "response",
+                    template: "radio",
+                    props: {
+                      dataKey: "pick-{{#fe.value}}",
+                      label: "Pick {{#fe.value}}",
+                      options: [{ label: "Yes", value: "yes" }],
+                      required: true,
+                    },
+                  },
+                ],
+              },
+            },
+          },
+        },
+        { componentFamily: "layout", template: "button", props: { text: "Submit" } },
+      ],
+      {},
+      onNext,
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "Submit" }));
+
+    expect(onNext).not.toHaveBeenCalled();
+  });
+});
