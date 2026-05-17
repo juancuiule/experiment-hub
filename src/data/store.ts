@@ -3,24 +3,25 @@ import {
   startExperiment,
   traverseWithTiming,
 } from '@/lib/flow';
-import { FlowStep } from '@/lib/types';
+import { ExperimentFlow, FlowStep } from '@/lib/types';
 import { create } from 'zustand';
-import { experiment } from './experiment';
+import { experiment as defaultExperiment } from './experiment';
 
 type ExperimentStore = {
   step: FlowStep | null;
   isLoading: boolean;
-  start: (startNodeId?: string) => Promise<void>;
+  start: (startNodeId?: string, experimentOverride?: ExperimentFlow) => Promise<void>;
   next: (data?: Record<string, any>) => Promise<void>;
 };
 
 export const useExperimentStore = create<ExperimentStore>()((set, get) => ({
   step: null,
   isLoading: false,
-  start: async (startNodeId?: string) => {
+  start: async (startNodeId?: string, experimentOverride?: ExperimentFlow) => {
+    const exp = experimentOverride ?? defaultExperiment;
     set({ isLoading: true });
     try {
-      const step = await startExperiment(experiment, startNodeId).then(
+      const step = await startExperiment(exp, startNodeId).then(
         recordEnteredAt,
       );
       set({ step });
