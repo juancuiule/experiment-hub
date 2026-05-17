@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation';
-import { validateExperiment } from '@/lib/validate';
+import { validateExperiment } from '@/lib/flow-validation';
 import Experiment from '@/src/Experiment';
 import { ValidationErrors } from '@/src/ValidationErrors';
 
