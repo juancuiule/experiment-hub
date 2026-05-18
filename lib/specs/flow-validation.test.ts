@@ -650,7 +650,7 @@ describe('@ reference checks', () => {
               componentFamily: 'response',
               template: 'likert-scale',
               props: {
-                dataKey: 'score',
+                dataKey: 'score-{{@loop.value}}',
                 label: 'Rate {{@loop.value}}',
                 options: [
                   { label: 'Low', value: '1' },
@@ -791,7 +791,10 @@ describe('$$ reference checks', () => {
             {
               componentFamily: 'response',
               template: 'text-input',
-              props: { dataKey: 'note', label: '{{$$path-info.demographics.age}}' },
+              props: {
+                dataKey: 'note',
+                label: '{{$$path-info.demographics.age}}',
+              },
             },
           ],
         },

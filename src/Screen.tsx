@@ -4,8 +4,10 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 
 import { ScreenComponent } from '@/lib/components';
+import { mergeContext } from '@/lib/flow';
 import { FrameworkScreen } from '@/lib/screen';
 import { buildSchema, inspectFields } from '@/lib/screen-validation';
+import { resolveValuesInString } from '@/lib/resolve';
 import { Context } from '@/lib/types';
 import { RenderComponent } from './components/RenderComponent';
 import { DataSection } from './Debug';
@@ -39,24 +41,26 @@ function collectDefaults(
       ) {
         const inner = c.props.component;
         for (let i = 0; i < c.props.values.length; i++) {
+          const subContext = mergeContext(context, {
+            screenData: {
+              foreachData: {
+                [c.props.id]: { index: i, value: c.props.values[i] },
+              },
+            },
+          });
           let resolved: ScreenComponent;
           if (inner.componentFamily === 'response') {
             resolved = {
               ...inner,
               props: {
                 ...inner.props,
-                dataKey: inner.props.dataKey
-                  .replaceAll(`{{#${c.props.id}.index}}`, String(i))
-                  .replaceAll(
-                    `{{#${c.props.id}.value}}`,
-                    String(c.props.values[i]),
-                  ),
+                dataKey: resolveValuesInString(inner.props.dataKey, subContext),
               },
             } as typeof inner;
           } else {
             resolved = inner;
           }
-          collectDefaults([resolved], context, values);
+          collectDefaults([resolved], subContext, values);
         }
       }
       continue;
@@ -94,7 +98,7 @@ function buildDefaultValues(
 
 export function Screen({ screen, isLoading, onNext, context }: ScreenProps) {
   const form = useForm<Record<string, any>>({
-    resolver: zodResolver(buildSchema(screen)),
+    resolver: zodResolver(buildSchema(screen, context)),
     // TODO: this defaultValues are only valid at initial render
     // if a component is added/removed during the screen, the defaultValues won't be updated
     // because we are using shouldUnregister: true, when a component is removed, its value will be removed from the form state
@@ -109,7 +113,7 @@ export function Screen({ screen, isLoading, onNext, context }: ScreenProps) {
       Object.entries(shuffledOptions)
         .filter(([key]) => key in data)
         .map(([key, opts]) => [
-          `${key}__order`,
+          `${key}:order`,
           (opts as Array<{ value: string }>).map((o) => o.value),
         ]),
     );
@@ -121,7 +125,7 @@ export function Screen({ screen, isLoading, onNext, context }: ScreenProps) {
   return (
     <>
       <pre className="text-xxs mb-4 text-wrap">
-        <code>{inspectFields(screen.components).join('\n')}</code>
+        <code>{inspectFields(screen.components, context).join('\n')}</code>
       </pre>
       <form
         className="flex h-full flex-1 flex-col gap-4"

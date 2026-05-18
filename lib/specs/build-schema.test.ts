@@ -1,7 +1,11 @@
 import { Condition } from '@/lib/conditions';
 import { ScreenComponent } from '@/lib/components';
-import { collectDescriptors, buildSchemaFromDescriptors } from '@/lib/screen-validation';
+import { collectDescriptors as _collectDescriptors, buildSchemaFromDescriptors } from '@/lib/screen-validation';
 import { describe, expect, it } from 'vitest';
+
+function collectDescriptors(components: ScreenComponent[], enclosingCondition: Condition | null) {
+  return _collectDescriptors(components, { data: {} }, enclosingCondition);
+}
 
 describe('collectDescriptors — response', () => {
   it('emits one descriptor with correct key and no condition', () => {
@@ -31,7 +35,7 @@ describe('collectDescriptors — response', () => {
     expect(result[0].condition).toEqual(cond);
   });
 
-  it('emits synthetic __order descriptor for randomized radio', () => {
+  it('emits synthetic :order descriptor for randomized radio', () => {
     const c: ScreenComponent = {
       componentFamily: 'response',
       template: 'radio',
@@ -45,14 +49,14 @@ describe('collectDescriptors — response', () => {
     const result = collectDescriptors([c], null);
     expect(result).toHaveLength(2);
     expect(result[1]).toMatchObject({
-      key: 'choice__order',
+      key: 'choice:order',
       synthetic: true,
       dynamic: false,
       condition: null,
     });
   });
 
-  it('synthetic __order inherits enclosingCondition', () => {
+  it('synthetic :order inherits enclosingCondition', () => {
     const cond: Condition = { type: 'simple', operator: 'eq', dataKey: '$x', value: '1' };
     const c: ScreenComponent = {
       componentFamily: 'response',
@@ -316,7 +320,7 @@ describe('collectDescriptors — static for-each', () => {
     expect(result[0].condition).toEqual(outer);
   });
 
-  it('synthetic __order inherits dynamic:false from static for-each', () => {
+  it('synthetic :order inherits dynamic:false from static for-each', () => {
     const c: ScreenComponent = {
       componentFamily: 'control',
       template: 'for-each',
@@ -338,7 +342,7 @@ describe('collectDescriptors — static for-each', () => {
     };
     const result = collectDescriptors([c], null);
     expect(result).toHaveLength(2);
-    expect(result[1]).toMatchObject({ key: 'pick_0__order', synthetic: true, dynamic: false });
+    expect(result[1]).toMatchObject({ key: 'pick_0:order', synthetic: true, dynamic: false });
   });
 });
 
@@ -404,7 +408,7 @@ describe('collectDescriptors — dynamic for-each', () => {
     expect(result[0].condition).toEqual(cond);
   });
 
-  it('synthetic __order from dynamic for-each is also dynamic', () => {
+  it('synthetic :order from dynamic for-each is also dynamic', () => {
     const c: ScreenComponent = {
       componentFamily: 'control',
       template: 'for-each',
@@ -426,7 +430,7 @@ describe('collectDescriptors — dynamic for-each', () => {
     };
     const result = collectDescriptors([c], null);
     expect(result).toHaveLength(2);
-    expect(result[1]).toMatchObject({ synthetic: true, dynamic: true, key: 'pick-{{#items.value}}__order' });
+    expect(result[1]).toMatchObject({ synthetic: true, dynamic: true, key: 'pick-{{#items.value}}:order' });
   });
 });
 
@@ -443,7 +447,7 @@ describe('buildSchemaFromDescriptors — base shape', () => {
     expect(schema.safeParse({ name: '' }).success).toBe(false);
   });
 
-  it('synthetic __order field accepts array of strings', () => {
+  it('synthetic :order field accepts array of strings', () => {
     const c: ScreenComponent = {
       componentFamily: 'response',
       template: 'radio',
@@ -451,7 +455,7 @@ describe('buildSchemaFromDescriptors — base shape', () => {
     };
     const descriptors = collectDescriptors([c], null);
     const schema = buildSchemaFromDescriptors(descriptors, { data: {} });
-    expect(schema.safeParse({ choice: 'a', choice__order: ['b', 'a'] }).success).toBe(true);
+    expect(schema.safeParse({ choice: 'a', 'choice:order': ['b', 'a'] }).success).toBe(true);
   });
 
   it('conditional field is z.any().optional() in base shape — accepts any value', () => {

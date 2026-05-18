@@ -1,9 +1,13 @@
 import { FrameworkScreen } from '@/lib/screen';
-import { buildSchema } from '@/lib/screen-validation';
+import { buildSchema as _buildSchema } from '@/lib/screen-validation';
 import { describe, expect, it } from 'vitest';
 
 function screen(components: FrameworkScreen['components']): FrameworkScreen {
   return { slug: 'test', components };
+}
+
+function buildSchema(s: FrameworkScreen) {
+  return _buildSchema(s, { data: {} });
 }
 
 describe('text-input', () => {
@@ -1137,8 +1141,8 @@ describe('dynamic for-each — gracefully skipped', () => {
   });
 });
 
-describe('randomize __order key', () => {
-  it('does not strip __order from validated data for randomize:true radio', () => {
+describe('randomize :order key', () => {
+  it('does not strip :order from validated data for randomize:true radio', () => {
     const screen: FrameworkScreen = {
       slug: 'test',
       components: [
@@ -1158,12 +1162,12 @@ describe('randomize __order key', () => {
       ],
     };
     const schema = buildSchema(screen);
-    const result = schema.safeParse({ choice: 'a', choice__order: ['b', 'a'] });
+    const result = schema.safeParse({ choice: 'a', 'choice:order': ['b', 'a'] });
     expect(result.success).toBe(true);
-    expect(result.data?.choice__order).toEqual(['b', 'a']);
+    expect(result.data?.['choice:order']).toEqual(['b', 'a']);
   });
 
-  it('does not strip __order from validated data for randomize:true checkboxes', () => {
+  it('does not strip :order from validated data for randomize:true checkboxes', () => {
     const screen: FrameworkScreen = {
       slug: 'test',
       components: [
@@ -1183,12 +1187,12 @@ describe('randomize __order key', () => {
       ],
     };
     const schema = buildSchema(screen);
-    const result = schema.safeParse({ picks: ['a'], picks__order: ['b', 'a'] });
+    const result = schema.safeParse({ picks: ['a'], 'picks:order': ['b', 'a'] });
     expect(result.success).toBe(true);
-    expect(result.data?.picks__order).toEqual(['b', 'a']);
+    expect(result.data?.['picks:order']).toEqual(['b', 'a']);
   });
 
-  it('does not strip __order from validated data for randomize:true dropdown', () => {
+  it('does not strip :order from validated data for randomize:true dropdown', () => {
     const screen: FrameworkScreen = {
       slug: 'test',
       components: [
@@ -1210,15 +1214,15 @@ describe('randomize __order key', () => {
     const schema = buildSchema(screen);
     const result = schema.safeParse({
       selected: 'a',
-      selected__order: ['b', 'a'],
+      'selected:order': ['b', 'a'],
     });
     expect(result.success).toBe(true);
-    expect(result.data?.selected__order).toEqual(['b', 'a']);
+    expect(result.data?.['selected:order']).toEqual(['b', 'a']);
   });
 
   // TODO: fix this test, it's not beignt stripped becuase
   // we need to keep that .passthrough() in zod schema for dynamic for-each
-  // it("strips __order for non-randomized fields (Zod default strip behaviour)", () => {
+  // it("strips :order for non-randomized fields (Zod default strip behaviour)", () => {
   //   const screen: FrameworkScreen = {
   //     slug: "test",
   //     components: [
@@ -1234,8 +1238,8 @@ describe('randomize __order key', () => {
   //     ],
   //   };
   //   const schema = buildSchema(screen);
-  //   const result = schema.safeParse({ choice: "a", choice__order: ["a"] });
+  //   const result = schema.safeParse({ choice: "a", 'choice:order': ["a"] });
   //   expect(result.success).toBe(true);
-  //   expect(result.data).not.toHaveProperty("choice__order");
+  //   expect(result.data).not.toHaveProperty("choice:order");
   // });
 });

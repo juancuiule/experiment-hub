@@ -1,19 +1,16 @@
 import { z } from 'zod';
-import { FrameworkScreen } from './screen';
-import { hasRandomizedOptions, ResponseComponent } from './components/response';
 import { ScreenComponent } from './components';
-import { evaluateCondition, Condition, resolveCondition } from './conditions';
+import { hasRandomizedOptions, ResponseComponent } from './components/response';
+import { Condition, evaluateCondition, resolveCondition } from './conditions';
 import { buildFieldSchema } from './field-schema';
+import { mergeContext } from './flow';
+import { getValue, resolveValuesInString } from './resolve';
+import { FrameworkScreen } from './screen';
 import { Context } from './types';
-import { resolveValuesInString, getValue } from './resolve';
 
-
-export function buildSchema(
-  screen: FrameworkScreen,
-  context?: Pick<Context, 'data'>,
-) {
-  const descriptors = collectDescriptors(screen.components, null);
-  return buildSchemaFromDescriptors(descriptors, context ?? { data: {} });
+export function buildSchema(screen: FrameworkScreen, context: Context) {
+  const descriptors = collectDescriptors(screen.components, context, null);
+  return buildSchemaFromDescriptors(descriptors, context);
 }
 
 // ─── Descriptor-based pipeline ───────────────────────────────────────────────
@@ -24,10 +21,34 @@ type ForEachMeta = {
 };
 
 type FieldDescriptor =
-  | { key: string; synthetic: false; dynamic: false; source: ResponseComponent; condition: Condition | null }
-  | { key: string; synthetic: false; dynamic: true; source: ResponseComponent; condition: Condition | null; foreach: ForEachMeta }
-  | { key: string; synthetic: true; dynamic: false; condition: Condition | null }
-  | { key: string; synthetic: true; dynamic: true; condition: Condition | null; foreach: ForEachMeta };
+  | {
+      key: string;
+      synthetic: false;
+      dynamic: false;
+      source: ResponseComponent;
+      condition: Condition | null;
+    }
+  | {
+      key: string;
+      synthetic: false;
+      dynamic: true;
+      source: ResponseComponent;
+      condition: Condition | null;
+      foreach: ForEachMeta;
+    }
+  | {
+      key: string;
+      synthetic: true;
+      dynamic: false;
+      condition: Condition | null;
+    }
+  | {
+      key: string;
+      synthetic: true;
+      dynamic: true;
+      condition: Condition | null;
+      foreach: ForEachMeta;
+    };
 
 function and(a: Condition | null, b: Condition): Condition {
   return a === null ? b : { type: 'and', conditions: [a, b] };
@@ -35,19 +56,24 @@ function and(a: Condition | null, b: Condition): Condition {
 
 export function collectDescriptors(
   components: ScreenComponent[],
+  context: Context,
   enclosingCondition: Condition | null,
 ): FieldDescriptor[] {
-  return components.flatMap((c) => collectDescriptor(c, enclosingCondition));
+  return components.flatMap((component) =>
+    collectDescriptor(component, context, enclosingCondition),
+  );
 }
 
 function collectDescriptor(
   component: ScreenComponent,
+  context: Context,
   enclosingCondition: Condition | null,
 ): FieldDescriptor[] {
   switch (component.componentFamily) {
     case 'response': {
+      const key = resolveValuesInString(component.props.dataKey, context);
       const base: FieldDescriptor = {
-        key: component.props.dataKey,
+        key,
         synthetic: false,
         dynamic: false,
         source: component,
@@ -56,7 +82,7 @@ function collectDescriptor(
       const descriptors: FieldDescriptor[] = [base];
       if (hasRandomizedOptions(component)) {
         descriptors.push({
-          key: `${component.props.dataKey}__order`,
+          key: `${key}:order`,
           synthetic: true,
           dynamic: false,
           condition: enclosingCondition,
@@ -67,7 +93,11 @@ function collectDescriptor(
 
     case 'layout': {
       if (component.template === 'group') {
-        return collectDescriptors(component.props.components, enclosingCondition);
+        return collectDescriptors(
+          component.props.components,
+          context,
+          enclosingCondition,
+        );
       }
       return [];
     }
@@ -80,12 +110,17 @@ function collectDescriptor(
       if (component.template === 'conditional') {
         const ifDescriptors = collectDescriptors(
           [component.props.component],
+          context,
           and(enclosingCondition, component.props.if),
         );
         const elseDescriptors = component.props.else
           ? collectDescriptors(
               [component.props.else],
-              and(enclosingCondition, { type: 'not', condition: component.props.if }),
+              context,
+              and(enclosingCondition, {
+                type: 'not',
+                condition: component.props.if,
+              }),
             )
           : [];
         return [...ifDescriptors, ...elseDescriptors];
@@ -94,31 +129,52 @@ function collectDescriptor(
       if (component.template === 'for-each') {
         if (component.props.type === 'static') {
           return component.props.values.flatMap((value, index) => {
-            const inner = collectDescriptors([component.props.component], enclosingCondition);
-            const subCtx: Context = {
-              screenData: { foreachData: { [component.props.id]: { index, value } } },
-              data: {},
-              loopData: {},
-            };
+            const inner = collectDescriptors(
+              [component.props.component],
+              context,
+              enclosingCondition,
+            );
+            const subContext = mergeContext(context, {
+              screenData: {
+                foreachData: { [component.props.id]: { index, value } },
+              },
+            });
             return inner.map((descriptor) => {
-              const resolvedKey = resolveValuesInString(descriptor.key, subCtx);
+              const resolvedKey = resolveValuesInString(
+                descriptor.key,
+                subContext,
+              );
               const resolvedCondition =
                 descriptor.condition !== null
-                  ? resolveCondition(descriptor.condition, subCtx)
+                  ? resolveCondition(descriptor.condition, subContext)
                   : null;
-              return { ...descriptor, key: resolvedKey, condition: resolvedCondition, dynamic: false } as FieldDescriptor;
+              return {
+                ...descriptor,
+                key: resolvedKey,
+                condition: resolvedCondition,
+                dynamic: false,
+              } as FieldDescriptor;
             });
           });
         }
 
         // dynamic
-        const inner = collectDescriptors([component.props.component], enclosingCondition);
+        const inner = collectDescriptors(
+          [component.props.component],
+          context,
+          enclosingCondition,
+        );
         const meta: ForEachMeta = {
           id: component.props.id,
           dataKey: component.props.dataKey,
         };
         return inner.map(
-          (descriptor) => ({ ...descriptor, dynamic: true, foreach: meta }) as FieldDescriptor,
+          (descriptor) =>
+            ({
+              ...descriptor,
+              dynamic: true,
+              foreach: meta,
+            }) as FieldDescriptor,
         );
       }
 
@@ -148,8 +204,11 @@ export function buildSchemaFromDescriptors(
   const baseSchema = z.object(shape).passthrough();
 
   const staticConditional = descriptors.filter(
-    (d): d is Extract<FieldDescriptor, { dynamic: false; synthetic: false }> & { condition: Condition } =>
-      !d.dynamic && !d.synthetic && d.condition !== null,
+    (
+      d,
+    ): d is Extract<FieldDescriptor, { dynamic: false; synthetic: false }> & {
+      condition: Condition;
+    } => !d.dynamic && !d.synthetic && d.condition !== null,
   );
   const dynamicDescriptors = descriptors.filter(
     (d): d is Extract<FieldDescriptor, { dynamic: true }> => d.dynamic,
@@ -173,7 +232,10 @@ export function buildSchemaFromDescriptors(
       );
       if (!result.success) {
         for (const issue of result.error.issues) {
-          ctx.addIssue({ ...issue, path: [descriptor.key, ...(issue.path ?? [])] });
+          ctx.addIssue({
+            ...issue,
+            path: [descriptor.key, ...(issue.path ?? [])],
+          });
         }
       }
     }
@@ -188,7 +250,9 @@ export function buildSchemaFromDescriptors(
         const value = values[index];
 
         const existingForeachData =
-          ((fullContext.screenData as Record<string, unknown>)?.['foreachData'] as Record<string, unknown>) ?? {};
+          ((fullContext.screenData as Record<string, unknown>)?.[
+            'foreachData'
+          ] as Record<string, unknown>) ?? {};
 
         const loopCtx: Context = {
           ...fullContext,
@@ -207,7 +271,10 @@ export function buildSchemaFromDescriptors(
             ? resolveCondition(descriptor.condition, loopCtx)
             : null;
 
-        if (resolvedCondition !== null && !evaluateCondition(resolvedCondition, loopCtx)) {
+        if (
+          resolvedCondition !== null &&
+          !evaluateCondition(resolvedCondition, loopCtx)
+        ) {
           continue;
         }
 
@@ -216,7 +283,10 @@ export function buildSchemaFromDescriptors(
         );
         if (!result.success) {
           for (const issue of result.error.issues) {
-            ctx.addIssue({ ...issue, path: [concreteKey, ...(issue.path ?? [])] });
+            ctx.addIssue({
+              ...issue,
+              path: [concreteKey, ...(issue.path ?? [])],
+            });
           }
         }
       }
@@ -226,30 +296,47 @@ export function buildSchemaFromDescriptors(
 
 /// New iteration
 
-export function inspectFields(components: ScreenComponent[]): string[] {
+export function inspectFields(
+  components: ScreenComponent[],
+  context: Context,
+): string[] {
   // The idea of this function is to detect every dataKey
   // that we may get from this screen. We need to consider complex
   // nesting cases involving conditionls/groups/for-eachs.
-  return components.flatMap(inspectComponent);
+  return components.flatMap((component) =>
+    inspectComponent(component, context),
+  );
 }
 
-function inspectComponent(component: ScreenComponent): string[] {
+function inspectComponent(
+  component: ScreenComponent,
+  context: Context,
+): string[] {
   switch (component.componentFamily) {
     case 'response': {
-      return [component.props.dataKey];
+      if (hasRandomizedOptions(component)) {
+        return [
+          resolveValuesInString(component.props.dataKey, context),
+          `${resolveValuesInString(component.props.dataKey, context)}:order`,
+        ];
+      }
+      return [resolveValuesInString(component.props.dataKey, context)];
     }
     case 'layout': {
       if (component.template === 'group') {
-        return inspectFields(component.props.components);
+        return inspectFields(component.props.components, context);
       }
       return [];
     }
     case 'control': {
       switch (component.template) {
         case 'conditional': {
-          const innerKeys = inspectComponent(component.props.component);
+          const innerKeys = inspectComponent(
+            component.props.component,
+            context,
+          );
           const elseKeys = component.props.else
-            ? inspectComponent(component.props.else)
+            ? inspectComponent(component.props.else, context)
             : [];
           return [...innerKeys, ...elseKeys].map(
             (key) => `<conditional id=${component.id}>${key}</conditional>`,
@@ -257,7 +344,10 @@ function inspectComponent(component: ScreenComponent): string[] {
         }
         case 'for-each': {
           const id = component.props.id;
-          const templateKeys = inspectComponent(component.props.component);
+          const templateKeys = inspectComponent(
+            component.props.component,
+            context,
+          );
           if (component.props.type === 'static') {
             // If it's a static for-each, we can resolve the dataKeys by unrolling it
             const values = component.props.values;
