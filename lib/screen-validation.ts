@@ -1,149 +1,223 @@
 import { z } from 'zod';
 import { FrameworkScreen } from './screen';
-import { hasRandomizedOptions } from './components/response';
+import { hasRandomizedOptions, ResponseComponent } from './components/response';
 import { ScreenComponent } from './components';
-import { evaluateCondition } from './conditions';
-import { ConditionalComponent } from './components/control';
+import { evaluateCondition, Condition, resolveCondition } from './conditions';
 import { buildFieldSchema } from './field-schema';
+import { Context } from './types';
+import { resolveValuesInString, getValue } from './resolve';
 
-function collectFields(
-  components: ScreenComponent[],
-  acc: Record<string, z.ZodTypeAny> = {},
-): Record<string, z.ZodTypeAny> {
-  for (const component of components) {
-    if (component.componentFamily === 'response') {
-      acc[component.props.dataKey] = buildFieldSchema(component);
-      if (hasRandomizedOptions(component)) {
-        acc[`${component.props.dataKey}__order`] = z
-          .array(z.string())
-          .optional();
-      }
-    } else if (
-      component.componentFamily === 'layout' &&
-      component.template === 'group'
-    ) {
-      collectFields(component.props.components, acc);
-    } else if (
-      component.componentFamily === 'control' &&
-      component.template === 'conditional'
-    ) {
-      // Nested response fields are optional in base schema;
-      // superRefine enforces required rules when condition is true at submit time.
-      const inner = component.props.component;
-      if (inner.componentFamily === 'response') {
-        acc[inner.props.dataKey] = buildFieldSchema(inner).optional();
-      } else {
-        collectFields([inner], acc);
-      }
-      // Also handle else branch if present
-      if (component.props.else) {
-        const elseBranch = component.props.else;
-        if (elseBranch.componentFamily === 'response') {
-          if (!(elseBranch.props.dataKey in acc)) {
-            acc[elseBranch.props.dataKey] =
-              buildFieldSchema(elseBranch).optional();
-          }
-        } else {
-          collectFields([elseBranch], acc);
-        }
-      }
-    } else if (
-      component.componentFamily === 'control' &&
-      component.template === 'for-each'
-    ) {
-      if (component.props.type === 'static') {
-        const template = component.props.component;
-        if (template.componentFamily === 'response') {
-          for (let i = 0; i < component.props.values.length; i++) {
-            const resolvedKey = template.props.dataKey
-              .replaceAll(`{{#${component.props.id}.index}}`, String(i))
-              .replaceAll(
-                `{{#${component.props.id}.value}}`,
-                String(component.props.values[i]),
-              );
-            acc[resolvedKey] = buildFieldSchema(template);
-          }
-        }
-        // dynamic for-each: skip — dataKey is not statically resolvable
-      }
-    }
-  }
-  return acc;
+
+export function buildSchema(
+  screen: FrameworkScreen,
+  context?: Pick<Context, 'data'>,
+) {
+  const descriptors = collectDescriptors(screen.components, null);
+  return buildSchemaFromDescriptors(descriptors, context ?? { data: {} });
 }
 
-function collectConditionals(
+// ─── Descriptor-based pipeline ───────────────────────────────────────────────
+
+type ForEachMeta = {
+  id: string;
+  dataKey: `$$${string}` | `$${string}`;
+};
+
+type FieldDescriptor =
+  | { key: string; synthetic: false; dynamic: false; source: ResponseComponent; condition: Condition | null }
+  | { key: string; synthetic: false; dynamic: true; source: ResponseComponent; condition: Condition | null; foreach: ForEachMeta }
+  | { key: string; synthetic: true; dynamic: false; condition: Condition | null }
+  | { key: string; synthetic: true; dynamic: true; condition: Condition | null; foreach: ForEachMeta };
+
+function and(a: Condition | null, b: Condition): Condition {
+  return a === null ? b : { type: 'and', conditions: [a, b] };
+}
+
+export function collectDescriptors(
   components: ScreenComponent[],
-): ConditionalComponent[] {
-  // Known limitation: a for-each wrapping a conditional is not recursed here (deferred).
-  // Known limitation: the else branch of a conditional is not enforced in superRefine (deferred).
-  const result: ConditionalComponent[] = [];
-  for (const component of components) {
-    if (
-      component.componentFamily === 'control' &&
-      component.template === 'conditional'
-    ) {
-      result.push(component);
-      // Recurse into nested conditionals
-      collectConditionals([component.props.component]).forEach((c) =>
-        result.push(c),
-      );
-      if (component.props.else) {
-        collectConditionals([component.props.else]).forEach((c) =>
-          result.push(c),
+  enclosingCondition: Condition | null,
+): FieldDescriptor[] {
+  return components.flatMap((c) => collectDescriptor(c, enclosingCondition));
+}
+
+function collectDescriptor(
+  component: ScreenComponent,
+  enclosingCondition: Condition | null,
+): FieldDescriptor[] {
+  switch (component.componentFamily) {
+    case 'response': {
+      const base: FieldDescriptor = {
+        key: component.props.dataKey,
+        synthetic: false,
+        dynamic: false,
+        source: component,
+        condition: enclosingCondition,
+      };
+      const descriptors: FieldDescriptor[] = [base];
+      if (hasRandomizedOptions(component)) {
+        descriptors.push({
+          key: `${component.props.dataKey}__order`,
+          synthetic: true,
+          dynamic: false,
+          condition: enclosingCondition,
+        });
+      }
+      return descriptors;
+    }
+
+    case 'layout': {
+      if (component.template === 'group') {
+        return collectDescriptors(component.props.components, enclosingCondition);
+      }
+      return [];
+    }
+
+    case 'content': {
+      return [];
+    }
+
+    case 'control': {
+      if (component.template === 'conditional') {
+        const ifDescriptors = collectDescriptors(
+          [component.props.component],
+          and(enclosingCondition, component.props.if),
+        );
+        const elseDescriptors = component.props.else
+          ? collectDescriptors(
+              [component.props.else],
+              and(enclosingCondition, { type: 'not', condition: component.props.if }),
+            )
+          : [];
+        return [...ifDescriptors, ...elseDescriptors];
+      }
+
+      if (component.template === 'for-each') {
+        if (component.props.type === 'static') {
+          return component.props.values.flatMap((value, index) => {
+            const inner = collectDescriptors([component.props.component], enclosingCondition);
+            const subCtx: Context = {
+              screenData: { foreachData: { [component.props.id]: { index, value } } },
+              data: {},
+              loopData: {},
+            };
+            return inner.map((descriptor) => {
+              const resolvedKey = resolveValuesInString(descriptor.key, subCtx);
+              const resolvedCondition =
+                descriptor.condition !== null
+                  ? resolveCondition(descriptor.condition, subCtx)
+                  : null;
+              return { ...descriptor, key: resolvedKey, condition: resolvedCondition, dynamic: false } as FieldDescriptor;
+            });
+          });
+        }
+
+        // dynamic
+        const inner = collectDescriptors([component.props.component], enclosingCondition);
+        const meta: ForEachMeta = {
+          id: component.props.id,
+          dataKey: component.props.dataKey,
+        };
+        return inner.map(
+          (descriptor) => ({ ...descriptor, dynamic: true, foreach: meta }) as FieldDescriptor,
         );
       }
-    } else if (
-      component.componentFamily === 'layout' &&
-      component.template === 'group'
-    ) {
-      collectConditionals(component.props.components).forEach((c) =>
-        result.push(c),
-      );
+
+      return [];
     }
   }
-  return result;
 }
 
-export function buildSchema(screen: FrameworkScreen) {
-  const shape = collectFields(screen.components);
-  // passthrough() preserves keys not in shape (e.g. dynamic for-each fields whose dataKey
-  // is a runtime template). Remove once buildSchema handles dynamic for-each statically.
+export function buildSchemaFromDescriptors(
+  descriptors: FieldDescriptor[],
+  context: Pick<Context, 'data'>,
+) {
+  const shape: Record<string, z.ZodTypeAny> = {};
+
+  for (const descriptor of descriptors) {
+    if (descriptor.dynamic) continue;
+
+    if (descriptor.synthetic) {
+      shape[descriptor.key] = z.array(z.string()).optional();
+    } else if (descriptor.condition === null) {
+      shape[descriptor.key] = buildFieldSchema(descriptor.source);
+    } else {
+      shape[descriptor.key] = z.any().optional();
+    }
+  }
+
   const baseSchema = z.object(shape).passthrough();
 
-  const conditionals = collectConditionals(screen.components);
-  if (conditionals.length === 0) {
+  const staticConditional = descriptors.filter(
+    (d): d is Extract<FieldDescriptor, { dynamic: false; synthetic: false }> & { condition: Condition } =>
+      !d.dynamic && !d.synthetic && d.condition !== null,
+  );
+  const dynamicDescriptors = descriptors.filter(
+    (d): d is Extract<FieldDescriptor, { dynamic: true }> => d.dynamic,
+  );
+
+  if (staticConditional.length === 0 && dynamicDescriptors.length === 0) {
     return baseSchema;
   }
 
   return baseSchema.superRefine((data, ctx) => {
-    for (const conditional of conditionals) {
-      const condition = conditional.props.if;
-      const conditionMet = evaluateCondition(condition, {
-        screenData: data as Record<string, any>,
-        data: {},
-        loopData: {},
-      });
+    const fullContext: Context = {
+      screenData: data as Record<string, unknown>,
+      data: context.data ?? {},
+      loopData: {},
+    };
 
-      if (!conditionMet) continue;
+    for (const descriptor of staticConditional) {
+      if (!evaluateCondition(descriptor.condition, fullContext)) continue;
+      const result = buildFieldSchema(descriptor.source).safeParse(
+        (data as Record<string, unknown>)[descriptor.key],
+      );
+      if (!result.success) {
+        for (const issue of result.error.issues) {
+          ctx.addIssue({ ...issue, path: [descriptor.key, ...(issue.path ?? [])] });
+        }
+      }
+    }
 
-      const inner = conditional.props.component;
-      if (inner.componentFamily === 'response') {
-        const { required = true, errorMessage } = inner.props;
-        if (!required) continue;
+    for (const descriptor of dynamicDescriptors) {
+      if (descriptor.synthetic) continue;
 
-        const value = data[inner.props.dataKey];
-        const isEmpty =
-          value === undefined ||
-          value === null ||
-          value === '' ||
-          (Array.isArray(value) && value.length === 0);
+      const values = getValue(descriptor.foreach.dataKey, fullContext);
+      if (!Array.isArray(values)) continue;
 
-        if (isEmpty) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: errorMessage ?? 'This field is required',
-            path: [inner.props.dataKey],
-          });
+      for (let index = 0; index < values.length; index++) {
+        const value = values[index];
+
+        const existingForeachData =
+          ((fullContext.screenData as Record<string, unknown>)?.['foreachData'] as Record<string, unknown>) ?? {};
+
+        const loopCtx: Context = {
+          ...fullContext,
+          screenData: {
+            ...(fullContext.screenData as Record<string, unknown>),
+            foreachData: {
+              ...existingForeachData,
+              [descriptor.foreach.id]: { index, value },
+            } as Record<string, { index: number; value: any }>,
+          },
+        };
+
+        const concreteKey = resolveValuesInString(descriptor.key, loopCtx);
+        const resolvedCondition =
+          descriptor.condition !== null
+            ? resolveCondition(descriptor.condition, loopCtx)
+            : null;
+
+        if (resolvedCondition !== null && !evaluateCondition(resolvedCondition, loopCtx)) {
+          continue;
+        }
+
+        const result = buildFieldSchema(descriptor.source).safeParse(
+          (data as Record<string, unknown>)[concreteKey],
+        );
+        if (!result.success) {
+          for (const issue of result.error.issues) {
+            ctx.addIssue({ ...issue, path: [concreteKey, ...(issue.path ?? [])] });
+          }
         }
       }
     }
