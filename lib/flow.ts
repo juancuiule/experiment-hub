@@ -10,7 +10,11 @@ import {
 } from './edges';
 import { hasRandomizedOptions, Option } from './components/response';
 import { BranchNode, Fork, ForkNode, FrameworkNode } from './nodes';
-import { getValue, resolveOptionsSource } from './resolve';
+import {
+  getValue,
+  resolveOptionsSource,
+  resolveValuesInString,
+} from './resolve';
 import {
   Context,
   ExperimentFlow,
@@ -110,10 +114,11 @@ function computeShuffledOptions(
       hasRandomizedOptions(component)
     ) {
       const { dataKey } = component.props;
-      if (inLoop && !component.props.reshuffleInLoop && previous[dataKey]) {
-        result[dataKey] = previous[dataKey];
+      const key = resolveValuesInString(dataKey, context);
+      if (inLoop && !component.props.reshuffleInLoop && previous[key]) {
+        result[key] = previous[key];
       } else {
-        result[dataKey] = shuffle(
+        result[key] = shuffle(
           resolveOptionsSource(component.props.options, context),
         );
       }
