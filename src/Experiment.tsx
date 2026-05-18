@@ -1,10 +1,10 @@
-"use client";
-import { getActiveState } from "@/lib/flow";
-import { ExperimentFlow } from "@/lib/types";
-import { Screen } from "@/src/Screen";
-import Stepper from "@/src/components/Stepper";
-import { useExperimentStore } from "@/src/data/store";
-import { useEffect } from "react";
+'use client';
+import { getActiveState } from '@/lib/flow';
+import { ExperimentFlow } from '@/lib/types';
+import { Screen } from '@/src/Screen';
+import Stepper from '@/src/components/Stepper';
+import { useExperimentStore } from '@/src/data/store';
+import { useEffect } from 'react';
 
 type Props = {
   startingNode?: string;
@@ -24,7 +24,7 @@ export default function Experiment(props: Props) {
   if (!step) {
     return (
       <>
-        <h1 className="text-2xl font-semibold mb-6">Experiment</h1>
+        <h1 className="mb-6 text-2xl font-semibold">Experiment</h1>
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -33,7 +33,7 @@ export default function Experiment(props: Props) {
         >
           <button
             type="submit"
-            className="w-full h-10 bg-background-inverted text-content-inverted uppercase text-sm font-medium tracking-wide rounded-sm hover:bg-background-inverted/80 active:scale-[0.98] disabled:active:scale-100 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition duration-150 ease-out"
+            className="bg-background-inverted text-content-inverted hover:bg-background-inverted/80 h-10 w-full cursor-pointer rounded-sm text-sm font-medium tracking-wide uppercase transition duration-150 ease-out active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100"
           >
             Start
           </button>
@@ -44,10 +44,10 @@ export default function Experiment(props: Props) {
 
   const activeState = getActiveState(step.state);
 
-  if (activeState.type === "end") {
+  if (activeState.type === 'end') {
     return (
       <>
-        <h1 className="text-2xl font-semibold mb-2">All done!</h1>
+        <h1 className="mb-2 text-2xl font-semibold">All done!</h1>
         <p className="text-content-secondary mb-8">
           Thanks for completing the experiment.
         </p>
@@ -55,19 +55,19 @@ export default function Experiment(props: Props) {
     );
   }
 
-  if (activeState.type === "in-node" && activeState.node.type === "screen") {
+  if (activeState.type === 'in-node' && activeState.node.type === 'screen') {
     const slug = activeState.node.props.slug;
     const screen = step.experiment.screens?.find((s) => s.slug === slug);
     return (
       <>
-        {step.state.type === "in-path" && step.state.node.props.stepper && (
+        {step.state.type === 'in-path' && step.state.node.props.stepper && (
           <Stepper
             config={step.state.node.props.stepper}
             step={step.state.step}
             total={step.state.children.length}
           />
         )}
-        {step.state.type === "in-loop" && step.state.node.props.stepper && (
+        {step.state.type === 'in-loop' && step.state.node.props.stepper && (
           <Stepper
             config={step.state.node.props.stepper}
             step={step.state.index}
@@ -76,7 +76,12 @@ export default function Experiment(props: Props) {
         )}
         {screen ? (
           <Screen
-            key={[screen.slug, ...Object.entries(step.context.loopData ?? {}).map(([id, item]) => `${id}:${item.index}`)].join("|")}
+            key={[
+              screen.slug,
+              ...Object.entries(step.context.loopData ?? {}).map(
+                ([id, item]) => `${id}:${item.index}`,
+              ),
+            ].join('|')}
             screen={screen}
             isLoading={isLoading}
             onNext={next}
