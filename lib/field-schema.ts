@@ -39,11 +39,18 @@ export function buildFieldSchema(component: ResponseComponent): z.ZodTypeAny {
 
     case 'dropdown':
     case 'radio': {
+      // TODO: add validation to check that selected options is
+      // one of valid ones (component.props.options).
+      // This requires option resolution in case of dynamic
+      // options reference
       const base = z.string();
       return required ? base.min(1, msg) : base.optional();
     }
 
     case 'checkboxes': {
+      // TODO: add validation to check that selected options are among
+      // the valid ones (component.props.options). This requires option
+      // resolution in case of dynamic options reference
       const { min, max } = component.props;
       let base = z.array(z.string());
       if (required || (min !== undefined && min > 0)) {
@@ -62,6 +69,8 @@ export function buildFieldSchema(component: ResponseComponent): z.ZodTypeAny {
     }
 
     case 'likert-scale': {
+      // TODO: add validation to check that selected option is among
+      // the valid ones (component.props.options).
       const base = z.string();
       return required ? base.min(1, msg) : base.optional();
     }
