@@ -152,7 +152,6 @@ function collectDescriptor(
                 ...descriptor,
                 key: resolvedKey,
                 condition: resolvedCondition,
-                dynamic: false,
               } as FieldDescriptor;
             });
           });

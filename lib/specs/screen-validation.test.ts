@@ -1141,6 +1141,50 @@ describe('dynamic for-each — gracefully skipped', () => {
   });
 });
 
+describe('dynamic for-each nested inside static for-each', () => {
+  it('validates dynamic fields with outer static key resolved and inner dynamic key resolved at runtime', () => {
+    const schema = _buildSchema(
+      screen([
+        {
+          componentFamily: 'control',
+          template: 'for-each',
+          props: {
+            type: 'static',
+            id: 'outer',
+            values: ['a', 'b'],
+            component: {
+              componentFamily: 'control',
+              template: 'for-each',
+              props: {
+                type: 'dynamic',
+                id: 'inner',
+                dataKey: '$$items',
+                component: {
+                  componentFamily: 'response',
+                  template: 'text-input',
+                  props: {
+                    dataKey: '{{#outer.value}}_{{#inner.index}}',
+                    label: 'Item',
+                    required: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      ]),
+      { data: { items: ['x', 'y'] } },
+    );
+    // outer values ['a','b'] × inner dynamic ['x','y'] → a_0, a_1, b_0, b_1
+    expect(
+      schema.safeParse({ a_0: 'v', a_1: 'v', b_0: 'v', b_1: 'v' }).success,
+    ).toBe(true);
+    expect(
+      schema.safeParse({ a_0: '', a_1: 'v', b_0: 'v', b_1: 'v' }).success,
+    ).toBe(false);
+  });
+});
+
 describe('randomize :order key', () => {
   it('does not strip :order from validated data for randomize:true radio', () => {
     const screen: FrameworkScreen = {
