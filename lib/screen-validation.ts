@@ -248,21 +248,13 @@ export function buildSchemaFromDescriptors(
       for (let index = 0; index < values.length; index++) {
         const value = values[index];
 
-        const existingForeachData =
-          ((fullContext.screenData as Record<string, unknown>)?.[
-            'foreachData'
-          ] as Record<string, unknown>) ?? {};
-
-        const loopCtx: Context = {
-          ...fullContext,
+        const loopCtx = mergeContext(fullContext, {
           screenData: {
-            ...(fullContext.screenData as Record<string, unknown>),
             foreachData: {
-              ...existingForeachData,
               [descriptor.foreach.id]: { index, value },
-            } as Record<string, { index: number; value: any }>,
+            },
           },
-        };
+        });
 
         const concreteKey = resolveValuesInString(descriptor.key, loopCtx);
         const resolvedCondition =
