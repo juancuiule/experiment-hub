@@ -352,11 +352,12 @@ function inspectComponent(
             // If it's a static for-each, we can resolve the dataKeys by unrolling it
             const values = component.props.values;
             return values.flatMap((value, index) => {
-              return templateKeys.map((key) => {
-                return key
-                  .replace(`{{#${id}.index}}`, String(index))
-                  .replace(`{{#${id}.value}}`, String(value));
+              const subContext = mergeContext(context, {
+                screenData: {
+                  foreachData: { [id]: { index, value } },
+                },
               });
+              return templateKeys.map((key) => resolveValuesInString(key, subContext));
             });
           } else {
             // If it's a dynamic one we can only save the template of the dataKey and handle it at runtime
