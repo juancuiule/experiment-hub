@@ -1,5 +1,8 @@
 'use client';
 
+import { resolveCondition } from '@/lib/conditions';
+import { deepMerge } from '@/lib/flow';
+import { resolveValuesInString } from '@/lib/resolve';
 import { Audio } from './content/Audio';
 import { Image } from './content/Image';
 import { RichText } from './content/RichText';
@@ -8,6 +11,7 @@ import { Conditional } from './control/Conditional';
 import { ForEach } from './control/ForEach';
 import { Button } from './layout/Button';
 import { Group } from './layout/Group';
+import { RenderProps } from './primitives';
 import { Checkboxes } from './response/Checkboxes';
 import { DateInput } from './response/DateInput';
 import { Dropdown } from './response/Dropdown';
@@ -19,10 +23,6 @@ import { Slider } from './response/Slider';
 import { TextArea } from './response/TextArea';
 import { TextInput } from './response/TextInput';
 import { TimeInput } from './response/TimeInput';
-import { RenderProps } from './primitives';
-import { deepMerge } from '@/lib/flow';
-import { resolveValuesInString } from '@/lib/resolve';
-import { resolveCondition } from '@/lib/conditions';
 
 const renderChild = (props: RenderProps) => <RenderComponent {...props} />;
 
