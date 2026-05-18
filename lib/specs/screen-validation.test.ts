@@ -1116,6 +1116,96 @@ describe('static for-each — generates N schema entries', () => {
   });
 });
 
+describe('dynamic for-each with randomized component — :order key validated', () => {
+  it('accepts a string array for the :order key', () => {
+    const schema = _buildSchema(
+      screen([
+        {
+          componentFamily: 'control',
+          template: 'for-each',
+          props: {
+            type: 'dynamic',
+            id: 'items',
+            dataKey: '$$items',
+            component: {
+              componentFamily: 'response',
+              template: 'radio',
+              props: {
+                dataKey: 'pick_{{#items.index}}',
+                label: 'Pick',
+                options: [{ label: 'A', value: 'a' }, { label: 'B', value: 'b' }],
+                randomize: true,
+              },
+            },
+          },
+        },
+      ]),
+      { data: { items: ['x'] } },
+    );
+    expect(
+      schema.safeParse({ pick_0: 'a', 'pick_0:order': ['b', 'a'] }).success,
+    ).toBe(true);
+  });
+
+  it('rejects a missing :order key (required when randomized)', () => {
+    const schema = _buildSchema(
+      screen([
+        {
+          componentFamily: 'control',
+          template: 'for-each',
+          props: {
+            type: 'dynamic',
+            id: 'items',
+            dataKey: '$$items',
+            component: {
+              componentFamily: 'response',
+              template: 'radio',
+              props: {
+                dataKey: 'pick_{{#items.index}}',
+                label: 'Pick',
+                options: [{ label: 'A', value: 'a' }],
+                randomize: true,
+              },
+            },
+          },
+        },
+      ]),
+      { data: { items: ['x'] } },
+    );
+    expect(schema.safeParse({ pick_0: 'a' }).success).toBe(false);
+  });
+
+  it('rejects a non-array :order value', () => {
+    const schema = _buildSchema(
+      screen([
+        {
+          componentFamily: 'control',
+          template: 'for-each',
+          props: {
+            type: 'dynamic',
+            id: 'items',
+            dataKey: '$$items',
+            component: {
+              componentFamily: 'response',
+              template: 'radio',
+              props: {
+                dataKey: 'pick_{{#items.index}}',
+                label: 'Pick',
+                options: [{ label: 'A', value: 'a' }],
+                randomize: true,
+              },
+            },
+          },
+        },
+      ]),
+      { data: { items: ['x'] } },
+    );
+    expect(
+      schema.safeParse({ pick_0: 'a', 'pick_0:order': 'not-an-array' }).success,
+    ).toBe(false);
+  });
+});
+
 describe('dynamic for-each — gracefully skipped', () => {
   it('produces no entries for dynamic for-each', () => {
     const schema = buildSchema(

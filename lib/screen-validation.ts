@@ -192,7 +192,7 @@ export function buildSchemaFromDescriptors(
     if (descriptor.dynamic) continue;
 
     if (descriptor.synthetic) {
-      shape[descriptor.key] = z.array(z.string()).optional();
+      shape[descriptor.key] = z.array(z.string());
     } else if (descriptor.condition === null) {
       shape[descriptor.key] = buildFieldSchema(descriptor.source);
     } else {
@@ -240,8 +240,6 @@ export function buildSchemaFromDescriptors(
     }
 
     for (const descriptor of dynamicDescriptors) {
-      if (descriptor.synthetic) continue;
-
       const values = getValue(descriptor.foreach.dataKey, fullContext);
       if (!Array.isArray(values)) continue;
 
@@ -257,6 +255,22 @@ export function buildSchemaFromDescriptors(
         });
 
         const concreteKey = resolveValuesInString(descriptor.key, loopCtx);
+
+        if (descriptor.synthetic) {
+          const result = z.array(z.string()).safeParse(
+            (data as Record<string, unknown>)[concreteKey],
+          );
+          if (!result.success) {
+            for (const issue of result.error.issues) {
+              ctx.addIssue({
+                ...issue,
+                path: [concreteKey, ...(issue.path ?? [])],
+              });
+            }
+          }
+          continue;
+        }
+
         const resolvedCondition =
           descriptor.condition !== null
             ? resolveCondition(descriptor.condition, loopCtx)
