@@ -128,12 +128,12 @@ function collectDescriptor(
 
       if (component.template === 'for-each') {
         if (component.props.type === 'static') {
+          const inner = collectDescriptors(
+            [component.props.component],
+            context,
+            enclosingCondition,
+          );
           return component.props.values.flatMap((value, index) => {
-            const inner = collectDescriptors(
-              [component.props.component],
-              context,
-              enclosingCondition,
-            );
             const subContext = mergeContext(context, {
               screenData: {
                 foreachData: { [component.props.id]: { index, value } },
@@ -365,6 +365,7 @@ function inspectComponent(
           }
         }
       }
+      return [];
     }
     case 'content': {
       // Content components don't have dataKeys
