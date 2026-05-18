@@ -55,10 +55,12 @@ function collectFields(
         const template = component.props.component;
         if (template.componentFamily === 'response') {
           for (let i = 0; i < component.props.values.length; i++) {
-            const resolvedKey = template.props.dataKey.replace(
-              '@index',
-              String(i),
-            );
+            const resolvedKey = template.props.dataKey
+              .replaceAll(`{{#${component.props.id}.index}}`, String(i))
+              .replaceAll(
+                `{{#${component.props.id}.value}}`,
+                String(component.props.values[i]),
+              );
             acc[resolvedKey] = buildFieldSchema(template);
           }
         }

@@ -651,7 +651,7 @@ describe('@ reference checks', () => {
               template: 'likert-scale',
               props: {
                 dataKey: 'score',
-                label: 'Rate @value',
+                label: 'Rate {{@loop.value}}',
                 options: [
                   { label: 'Low', value: '1' },
                   { label: 'Medium', value: '2' },
@@ -677,7 +677,7 @@ describe('@ reference checks', () => {
             {
               componentFamily: 'response',
               template: 'text-input',
-              props: { dataKey: 'name', label: 'Hi @value' },
+              props: { dataKey: 'name', label: 'Hi {{@loop.value}}' },
             },
           ],
         },
@@ -700,7 +700,7 @@ describe('@ reference checks', () => {
             {
               componentFamily: 'content',
               template: 'rich-text',
-              props: { content: '## @value' },
+              props: { content: '## {{@loop.value}}' },
             },
           ],
         },
@@ -732,7 +732,7 @@ describe('$$ reference checks', () => {
             {
               componentFamily: 'response',
               template: 'text-input',
-              props: { dataKey: 'note', label: 'Hi $$welcome.name' },
+              props: { dataKey: 'note', label: 'Hi {{$$welcome.name}}' },
             },
           ],
         },
@@ -752,7 +752,7 @@ describe('$$ reference checks', () => {
             {
               componentFamily: 'response',
               template: 'text-input',
-              props: { dataKey: 'name', label: 'Hi $$other.name' },
+              props: { dataKey: 'name', label: 'Hi {{$$other.name}}' },
             },
           ],
         },
@@ -791,7 +791,7 @@ describe('$$ reference checks', () => {
             {
               componentFamily: 'response',
               template: 'text-input',
-              props: { dataKey: 'note', label: '$$path-info.demographics.age' },
+              props: { dataKey: 'note', label: '{{$$path-info.demographics.age}}' },
             },
           ],
         },
@@ -865,7 +865,7 @@ describe('$$ reference checks', () => {
             {
               componentFamily: 'response',
               template: 'text-input',
-              props: { dataKey: 'x', label: '$$branch-yes.extra' },
+              props: { dataKey: 'x', label: '{{$$branch-yes.extra}}' },
             },
           ],
         },
@@ -930,7 +930,7 @@ describe('$$ reference checks', () => {
             {
               componentFamily: 'response',
               template: 'text-input',
-              props: { dataKey: 'x', label: '$$before.answer' },
+              props: { dataKey: 'x', label: '{{$$before.answer}}' },
             },
           ],
         },
@@ -1048,7 +1048,7 @@ describe('condition reference checks', () => {
                 config: {
                   type: 'simple',
                   operator: 'eq',
-                  dataKey: '@value',
+                  dataKey: '@loop.value',
                   value: 'y',
                 },
               },

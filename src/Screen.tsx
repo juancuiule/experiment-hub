@@ -45,7 +45,12 @@ function collectDefaults(
               ...inner,
               props: {
                 ...inner.props,
-                dataKey: inner.props.dataKey.replace('@index', String(i)),
+                dataKey: inner.props.dataKey
+                  .replaceAll(`{{#${c.props.id}.index}}`, String(i))
+                  .replaceAll(
+                    `{{#${c.props.id}.value}}`,
+                    String(c.props.values[i]),
+                  ),
               },
             } as typeof inner;
           } else {

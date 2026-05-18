@@ -1038,7 +1038,7 @@ describe('static for-each — generates N schema entries', () => {
               componentFamily: 'response',
               template: 'text-input',
               props: {
-                dataKey: 'sport_@index',
+                dataKey: 'sport_{{#sports.index}}',
                 label: 'Sport',
                 required: true,
               },
@@ -1055,6 +1055,37 @@ describe('static for-each — generates N schema entries', () => {
     ).toBe(false);
   });
 
+  it('creates one entry per static value with value token resolved', () => {
+    const schema = buildSchema(
+      screen([
+        {
+          componentFamily: 'control',
+          template: 'for-each',
+          props: {
+            type: 'static',
+            id: 'fruits',
+            values: ['apple', 'banana'],
+            component: {
+              componentFamily: 'response',
+              template: 'text-input',
+              props: {
+                dataKey: 'like-{{#fruits.value}}',
+                label: 'Like',
+                required: true,
+              },
+            },
+          },
+        },
+      ]),
+    );
+    expect(
+      schema.safeParse({ 'like-apple': 'yes', 'like-banana': 'yes' }).success,
+    ).toBe(true);
+    expect(
+      schema.safeParse({ 'like-apple': '', 'like-banana': 'yes' }).success,
+    ).toBe(false);
+  });
+
   it('generates exactly N keys matching values length', () => {
     const schema = buildSchema(
       screen([
@@ -1068,7 +1099,7 @@ describe('static for-each — generates N schema entries', () => {
             component: {
               componentFamily: 'response',
               template: 'text-input',
-              props: { dataKey: 'item_@index', label: 'Item', required: true },
+              props: { dataKey: 'item_{{#items.index}}', label: 'Item', required: true },
             },
           },
         },
@@ -1095,7 +1126,7 @@ describe('dynamic for-each — gracefully skipped', () => {
             component: {
               componentFamily: 'response',
               template: 'text-input',
-              props: { dataKey: 'item_@index', label: 'Item', required: true },
+              props: { dataKey: 'item_{{#items.index}}', label: 'Item', required: true },
             },
           },
         },

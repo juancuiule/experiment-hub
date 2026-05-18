@@ -359,7 +359,14 @@ function checkReferences(flow: ExperimentFlow): ValidationError[] {
   }
 
   function extractTokens(text: string): string[] {
-    return [...text.matchAll(/(\$\$[\w.-]+|@[\w.]+)/g)].map((m) => m[0]);
+    // Wrapped interpolations in label/content strings: {{$$foo.bar}}, {{@foo.bar}}
+    const wrapped = [...text.matchAll(/\{\{(\$\$|@)([\w.\-]+)\}\}/g)].map(
+      (m) => `${m[1]}${m[2]}`,
+    );
+    if (wrapped.length > 0) return wrapped;
+    // Bare reference: entire string is a direct key (condition dataKeys)
+    const m = text.match(/^(\$\$|@)([\w.\-]+)$/);
+    return m ? [`${m[1]}${m[2]}`] : [];
   }
 
   function checkText(
