@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form';
 
 import { ScreenComponent } from '@/lib/components';
 import { FrameworkScreen } from '@/lib/screen';
-import { buildSchema } from '@/lib/screen-validation';
+import { buildSchema, inspectFields } from '@/lib/screen-validation';
 import { Context } from '@/lib/types';
 import { RenderComponent } from './components/RenderComponent';
 import { DataSection } from './Debug';
@@ -114,27 +114,32 @@ export function Screen({ screen, isLoading, onNext, context }: ScreenProps) {
   };
 
   return (
-    <form
-      className="flex h-full flex-1 flex-col gap-4"
-      key={screen.slug}
-      onSubmit={form.handleSubmit(onSubmit)}
-    >
-      {screen.components.map((component, i) => (
-        <RenderComponent
-          key={
-            component.componentFamily === 'response'
-              ? component.props.dataKey
-              : i
-          }
-          component={component}
-          form={form}
-          context={context}
-          isLoading={isLoading}
-        />
-      ))}
-      <div className="flex flex-col gap-3">
-        <DataSection title="form" data={form.watch()} />
-      </div>
-    </form>
+    <>
+      <pre className="text-xxs mb-4 text-wrap">
+        <code>{inspectFields(screen.components).join('\n')}</code>
+      </pre>
+      <form
+        className="flex h-full flex-1 flex-col gap-4"
+        key={screen.slug}
+        onSubmit={form.handleSubmit(onSubmit)}
+      >
+        {screen.components.map((component, i) => (
+          <RenderComponent
+            key={
+              component.componentFamily === 'response'
+                ? component.props.dataKey
+                : i
+            }
+            component={component}
+            form={form}
+            context={context}
+            isLoading={isLoading}
+          />
+        ))}
+        <div className="mt-auto flex flex-col gap-3">
+          <DataSection title="form" data={form.watch()} />
+        </div>
+      </form>
+    </>
   );
 }

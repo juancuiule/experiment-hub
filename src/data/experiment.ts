@@ -1120,7 +1120,7 @@ export const path: ExperimentFlow = {
   ],
 };
 
-export const experiment: ExperimentFlow = {
+export const __experiment: ExperimentFlow = {
   nodes: [
     { id: 'start', type: 'start' },
     { id: 'screen-terms', type: 'screen', props: { slug: 'terms' } },
@@ -1804,6 +1804,158 @@ export const experiment: ExperimentFlow = {
           props: {
             text: 'Continuar',
             alignBottom: true,
+          },
+        },
+      ],
+    },
+  ],
+};
+
+export const experiment: ExperimentFlow = {
+  nodes: [
+    { id: 'start', type: 'start' },
+    { id: 'screen-components', type: 'screen', props: { slug: 'components' } },
+  ],
+  edges: [{ type: 'sequential', from: 'start', to: 'screen-components' }],
+  screens: [
+    {
+      slug: 'components',
+      components: [
+        {
+          componentFamily: 'response',
+          template: 'checkboxes',
+          props: {
+            label: '¿Cuál de estos países visitaste alguna vez?',
+            dataKey: 'visited-countries',
+            options: [
+              { label: 'Argentina', value: 'argentina' },
+              { label: 'Brasil', value: 'brasil' },
+              { label: 'Chile', value: 'chile' },
+              { label: 'Uruguay', value: 'uruguay' },
+            ],
+          },
+        },
+        {
+          componentFamily: 'control',
+          template: 'conditional',
+          id: 'if-visited-countries',
+          props: {
+            if: {
+              type: 'simple',
+              dataKey: '$visited-countries',
+              operator: 'length-gt',
+              value: 0,
+            },
+            component: {
+              componentFamily: 'control',
+              template: 'for-each',
+              props: {
+                id: 'for-each-visited-country',
+                type: 'dynamic',
+                dataKey: '$visited-countries',
+                component: {
+                  componentFamily: 'layout',
+                  template: 'group',
+                  props: {
+                    name: 'visited-country-{{#for-each-visited-country.value}}',
+                    components: [
+                      {
+                        componentFamily: 'content',
+                        template: 'rich-text',
+                        props: {
+                          content:
+                            '- Visitaste **{{#for-each-visited-country.value}}**',
+                        },
+                      },
+                      {
+                        componentFamily: 'response',
+                        template: 'radio',
+                        props: {
+                          label:
+                            '¿Recomendarías visitar {{#for-each-visited-country.value}}?',
+                          dataKey:
+                            'recommend-{{#for-each-visited-country.value}}',
+                          options: [
+                            { label: 'Sí', value: 'yes' },
+                            { label: 'No', value: 'no' },
+                          ],
+                        },
+                      },
+                      {
+                        componentFamily: 'control',
+                        template: 'conditional',
+                        id: 'if-not-recommend-visited-country',
+                        props: {
+                          if: {
+                            type: 'simple',
+                            dataKey:
+                              '$recommend-{{#for-each-visited-country.value}}',
+                            operator: 'eq',
+                            value: 'no',
+                          },
+                          component: {
+                            componentFamily: 'response',
+                            template: 'text-input',
+                            props: {
+                              label:
+                                '¿Por qué no recomendarías visitar {{#for-each-visited-country.value}}?',
+                              dataKey:
+                                'reason-not-recommend-{{#for-each-visited-country.value}}',
+                            },
+                          },
+                        },
+                      },
+                    ],
+                  },
+                },
+              },
+            },
+          },
+        },
+        {
+          componentFamily: 'control',
+          template: 'for-each',
+          props: {
+            id: 'for-each-fruit',
+            type: 'static',
+            values: ['kiwi', 'banana', 'apple'],
+            component: {
+              componentFamily: 'layout',
+              template: 'group',
+              props: {
+                name: 'fruit-{{#for-each-fruit.value}}',
+                components: [
+                  {
+                    componentFamily: 'content',
+                    template: 'rich-text',
+                    props: {
+                      content: '### {{#for-each-fruit.value}}',
+                    },
+                  },
+                  {
+                    componentFamily: 'content',
+                    template: 'image',
+                    props: {
+                      url: '/fruits/{{#for-each-fruit.value}}.png',
+                      alt: '{{#for-each-fruit.value}} image',
+                      className: 'w-4 mx-auto',
+                    },
+                  },
+                  {
+                    componentFamily: 'response',
+                    template: 'radio',
+                    props: {
+                      label: '¿Te gusta la {{#for-each-fruit.value}}?',
+                      dataKey: 'like-{{#for-each-fruit.value}}',
+                      options: [
+                        { label: 'Sí', value: 'yes' },
+                        { label: 'No', value: 'no' },
+                      ],
+                    },
+                  },
+                ],
+              },
+            },
           },
         },
       ],

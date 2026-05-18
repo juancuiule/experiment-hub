@@ -147,3 +147,61 @@ export function buildSchema(screen: FrameworkScreen) {
     }
   }) as typeof baseSchema;
 }
+
+/// New iteration
+
+export function inspectFields(components: ScreenComponent[]): string[] {
+  // The idea of this function is to detect every dataKey
+  // that we may get from this screen. We need to consider complex
+  // nesting cases involving conditionls/groups/for-eachs.
+  return components.flatMap(inspectComponent);
+}
+
+function inspectComponent(component: ScreenComponent): string[] {
+  switch (component.componentFamily) {
+    case 'response': {
+      return [component.props.dataKey];
+    }
+    case 'layout': {
+      if (component.template === 'group') {
+        return inspectFields(component.props.components);
+      }
+      return [];
+    }
+    case 'control': {
+      switch (component.template) {
+        case 'conditional': {
+          const innerKeys = inspectComponent(component.props.component);
+          const elseKeys = component.props.else
+            ? inspectComponent(component.props.else)
+            : [];
+          return [...innerKeys, ...elseKeys].map(
+            (key) => `<conditional id=${component.id}>${key}</conditional>`,
+          );
+        }
+        case 'for-each': {
+          const id = component.props.id;
+          const templateKeys = inspectComponent(component.props.component);
+          if (component.props.type === 'static') {
+            // If it's a static for-each, we can resolve the dataKeys by unrolling it
+            const values = component.props.values;
+            return values.flatMap((value, index) => {
+              return templateKeys.map((key) => {
+                return key
+                  .replace(`{{#${id}.index}}`, String(index))
+                  .replace(`{{#${id}.value}}`, String(value));
+              });
+            });
+          } else {
+            // If it's a dynamic one we can only save the template of the dataKey and handle it at runtime
+            return templateKeys.map((key) => `<dynamic-for-each:${key}>`);
+          }
+        }
+      }
+    }
+    case 'content': {
+      // Content components don't have dataKeys
+      return [];
+    }
+  }
+}
