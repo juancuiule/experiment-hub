@@ -62,6 +62,7 @@ Collects a numeric value within a range.
 - `minLabel?: string` — label shown at the minimum end
 - `maxLabel?: string` — label shown at the maximum end
 - `showValue?: boolean` — whether to display the current numeric value once the participant has interacted
+- `tooltip?: true | { prefix?: string; suffix?: string }` — shows the current value in a tooltip above the slider thumb. Pass `true` for a plain numeric tooltip, or an object to add a `prefix` and/or `suffix` (e.g. `{ suffix: "%" }` renders `"42%"`).
 
 Validation (each with its own `errorMessage`):
 - `required?: boolean` — when `true`, the participant must actively move the slider before advancing (null check). This is the standard `required` behaviour: "filled" for a slider means "interacted with".
@@ -130,35 +131,40 @@ Collected value: `string`
 Collects a single selection from a dropdown list.
 
 - `label: string`
-- `options: Option[]` — array of `{ label: string; value: string }` objects
+- `options: OptionsSource` — the option list. Accepts:
+  - `Option[]` — explicit array of `{ label: string; value: string }` objects
+  - `` `$$screen.dataKey` `` — reference to experiment-wide collected data (must be an array of options)
+  - `` `@field` `` — field from the current loop iteration value
+  - `` `$field` `` — current screen's live form value
+  - `` `%name` `` — named shared option set defined in `ExperimentFlow.options`
 - `randomize?: boolean` — if true, the order of options is shuffled for each participant.
 - `reshuffleInLoop?: boolean` — when used inside a loop and `randomize: true`, controls whether the options are reshuffled on each loop iteration (`true`, default) or keep the first shuffled order (`false`).
 
-Collected value: `{ value: string }` always. When `randomize: true`, an `order: string[]` field is added containing the shuffled option sequence. Reference `$$screen.dataKey.value` in branch conditions and answer piping.
+Collected value: `string` — the `value` of the selected option, stored directly under the `dataKey`. Reference as `$$screenSlug.dataKey` in branch conditions and answer piping. When `randomize: true`, the shuffled option order is stored as a parallel key `dataKey:order` (e.g. `pick:order`) containing a `string[]` of values in the displayed order.
 
 ### `radio`
 
 Collects a single selection displayed as a radio button list.
 
 - `label: string`
-- `options: Option[]` — array of `{ label: string; value: string }` objects
+- `options: OptionsSource` — the option list. Accepts the same variants as `dropdown` above.
 - `randomize?: boolean` — if true, the order of options is shuffled for each participant.
 - `reshuffleInLoop?: boolean` — when used inside a loop and `randomize: true`, controls whether the options are reshuffled on each loop iteration (`true`, default) or keep the first shuffled order (`false`).
 
-Collected value: `{ value: string }` always. When `randomize: true`, an `order: string[]` field is added. Reference `$$screen.dataKey.value` in branch conditions and answer piping.
+Collected value: `string` — the `value` of the selected option. Reference as `$$screenSlug.dataKey`. When `randomize: true`, the shuffled order is stored as `dataKey:order`.
 
 ### `checkboxes`
 
 Collects one or more selections from a list of checkboxes.
 
 - `label: string`
-- `options: Option[]` — array of `{ label: string; value: string }` objects
+- `options: OptionsSource` — the option list. Accepts the same variants as `dropdown` above.
 - `min?: number` — minimum number of options that must be selected
 - `max?: number` — maximum number of options that can be selected
 - `randomize?: boolean` — if true, the order of options is shuffled for each participant.
 - `reshuffleInLoop?: boolean` — when used inside a loop and `randomize: true`, controls whether the options are reshuffled on each loop iteration (`true`, default) or keep the first shuffled order (`false`).
 
-Collected value: `{ value: string[] }` always. When `randomize: true`, an `order: string[]` field is added. Reference `$$screen.dataKey.value` in branch conditions and answer piping.
+Collected value: `string[]` — array of selected option values. Reference as `$$screenSlug.dataKey`. When `randomize: true`, the shuffled order is stored as `dataKey:order`.
 
 ### `numeric-input`
 
@@ -178,7 +184,9 @@ Collected value: `number`
 Collects a response on a symmetric agree/disagree or frequency scale. Replaces the `rating` component with a more flexible and semantically accurate structure for psychometric measurements.
 
 - `label: string` — the question or statement being rated
-- `options: LikertOption[]` — ordered array of scale points, each as `{ label: string; value: string }`. The researcher defines all points explicitly, allowing asymmetric, custom-labeled, or numeric scales of any length.
+- `options: LikertOptionsSource` — the scale points. Accepts:
+  - `LikertOption[]` — explicit ordered array, each as `{ value: string; label?: string }`. The researcher defines all points explicitly, allowing asymmetric, custom-labeled, or numeric scales of any length.
+  - `` `%name` `` — named shared option set defined in `ExperimentFlow.options` (must contain `LikertOption` objects)
 
 The `options` array determines the scale length and labels entirely. A 5-point Likert scale would have 5 items, a 7-point would have 7, etc. There is no enforced symmetry — the researcher is responsible for defining a meaningful scale.
 
@@ -209,27 +217,69 @@ Control components add conditional rendering and iteration logic within a single
 
 ### `conditional`
 
-Renders a single component only when a condition is met. Uses `ConditionConfig` (see below) to define the condition.
+Renders a component only when a condition is met. Uses the full `Condition` type (the same composable structure used by `branch` nodes).
 
-- `operator: Operator` — the comparison operator (see ConditionConfig Operators)
-- `dataKey` — a `$$`, `@` or `$` reference to the value to evaluate (see Data Keys)
-- `value: string | number | boolean` — the value to compare against
-- `component: ScreenComponent` — the component to render if the condition is true
+- `if: Condition` — the condition to evaluate. Accepts a `SimpleCondition` or any compound type (`and`, `or`, `not`). See ConditionConfig Operators below.
+- `component: ScreenComponent` — the component to render when the condition is `true`
+- `else?: ScreenComponent` — optional component to render when the condition is `false`
 
-> **Note:** The flat `{ operator, dataKey, value }` shape here will eventually be unified with the `ConditionConfig` nested structure used by `branch` nodes for consistency.
+Example:
+```ts
+{
+  componentFamily: "control",
+  template: "conditional",
+  props: {
+    if: { type: "simple", operator: "eq", dataKey: "$hasChildren", value: true },
+    component: { componentFamily: "response", template: "numeric-input", props: { label: "How many?", dataKey: "childCount" } },
+  },
+}
+```
 
 ### `for-each`
 
 Renders a component template once per item in a list. Mirrors the `loop` node but operates within a single screen render rather than across flow steps.
 
+- `id: string` — unique identifier for this for-each within the screen. Used to reference the current item inside the template via `{{#id.value}}` and `{{#id.index}}`.
 - `type: "static" | "dynamic"`
 - For `static`: `values: string[]` — explicit list of values to iterate over
 - For `dynamic`: `dataKey` — a `$$` or `$` reference to a collected array to iterate over
-- `component: ScreenComponent` — the template component rendered for each item
+- `component: ScreenComponent` — the template component rendered for each item. Inside this template, use `{{#foreachId.value}}` and `{{#foreachId.index}}` (with the `#` prefix) to access the current iteration's value and index. The `dataKey` of response components inside a for-each template typically contains `{{#id.value}}` to produce a unique key per item (e.g. `"rating-{{#fe.value}}"`).
+
+Example:
+```ts
+{
+  componentFamily: "control",
+  template: "for-each",
+  props: {
+    id: "fe",
+    type: "static",
+    values: ["apple", "banana", "cherry"],
+    component: {
+      componentFamily: "response",
+      template: "radio",
+      props: { dataKey: "rating-{{#fe.value}}", label: "Rate {{#fe.value}}", options: [] },
+    },
+  },
+}
+```
 
 ## ConditionConfig Operators
 
-The `ConditionConfig` type is used by both the `branch` node and the `conditional` component. The available operators are:
+The `Condition` type is used by both the `branch` node and the `conditional` component. A condition is either a `SimpleCondition` or a `CompoundCondition`.
+
+**Compound condition types:**
+
+| Type | Shape | Meaning |
+|------|-------|---------|
+| `and` | `{ type: "and"; conditions: Condition[] }` | All sub-conditions must be true |
+| `or` | `{ type: "or"; conditions: Condition[] }` | At least one sub-condition must be true |
+| `not` | `{ type: "not"; condition: Condition }` | The single sub-condition must be false |
+
+**Simple condition shape:** `{ type: "simple"; operator: Operator; dataKey: string; value: string | number | boolean }`
+
+The `dataKey` in a `SimpleCondition` accepts `$$`, `@`, or `$` prefixed references (see [Data Keys](./data-keys.md)).
+
+The available operators are:
 
 **Base operators** (compare scalar values):
 

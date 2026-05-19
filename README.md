@@ -57,8 +57,10 @@ Collected values are referenced using a prefix notation:
 | Prefix | Scope | Example |
 |---|---|---|
 | `$$` | Experiment-wide collected data | `$$demographics.age` |
-| `@` | Current loop iteration | `@value`, `@index` |
+| `@` | Current loop item (keyed by loop node ID) | `@loop-sports.value`, `@loop-sports.index` |
 | `$` | Current screen's live form values | `$hasChildren` |
+| `#` | Current for-each item (keyed by for-each component ID) | `#foreach-sport.value`, `#foreach-sport.index` |
+| `%` | Shared option sets defined in `ExperimentFlow.options` | `%agreement-scale` |
 
 These references are used in branch conditions, answer piping (string interpolation inside labels and content), and conditional rendering.
 
@@ -79,14 +81,15 @@ Branch conditions and `conditional` components use a composable condition struct
 // simple comparison
 { type: "simple", operator: "gte", dataKey: "$$screening.age", value: 18 }
 
-// compound
+// compound — and / or / not
 { type: "and", conditions: [
   { type: "simple", operator: "eq", dataKey: "$$consent.agreed", value: true },
   { type: "simple", operator: "gte", dataKey: "$$screening.age", value: 18 },
 ]}
+{ type: "not", condition: { type: "simple", operator: "eq", dataKey: "$skip", value: true } }
 ```
 
-Available operators: `eq`, `neq`, `lt`, `lte`, `gt`, `gte`, `contains`, `length-eq`, `length-lt`, `length-gt`, and their variants.
+Available operators: `eq`, `neq`, `lt`, `lte`, `gt`, `gte`, `contains`, `length-eq`, `length-neq`, `length-lt`, `length-lte`, `length-gt`, `length-gte`.
 
 ### Static validation
 
@@ -113,10 +116,12 @@ lib/                    # Pure, framework-agnostic engine
   edges.ts              # Edge type definitions
   conditions.ts         # Condition evaluation
   resolve.ts            # Data key resolution and string interpolation
-  validation.ts         # Zod schema builder for per-screen form validation
-  validate.ts           # Static experiment graph validator
+  field-schema.ts       # Field schema extraction from screen components
+  screen-validation.ts  # Zod schema builder for per-screen form validation
+  flow-validation.ts    # Static experiment graph validator
   screen.ts             # FrameworkScreen type
   components/           # Component type definitions (content, response, layout, control)
+  specs/                # Unit tests for the flow engine
 
 src/                    # Next.js React application
   Experiment.tsx        # Top-level experiment runner component
@@ -131,13 +136,13 @@ src/                    # Next.js React application
     layout/             # Button, Group
     control/            # Conditional, ForEach
     Stepper.tsx         # Progress indicator
+  specs/                # Unit tests for React components
 
 app/                    # Next.js App Router
   page.tsx              # Mounts the Experiment component
   layout.tsx            # Root layout
 
 docs/                   # Domain reference documentation
-specs/                  # Feature specs (draft)
 ```
 
 The flow engine in `lib/` has no React dependency and is fully unit-tested. The React layer drives it by calling `startExperiment()` once and `traverse(step, formData)` on each screen submission.
@@ -152,24 +157,22 @@ This project is an **early-stage working prototype**. The flow engine and compon
 
 - Full flow traversal: branch, fork, path, loop, checkpoint
 - All 11 response component types with Zod-based form validation
-- Answer piping in labels and rich-text content
+- Answer piping in labels and rich-text content (rich-text, image, labels, placeholders, option labels, button text)
 - Conditional rendering within screens (`conditional`, `for-each`)
-- Static experiment validator with 14 error codes
+- Static experiment validator with 15 error codes
 - Unit test suite for the flow engine
 
 ### What is missing or incomplete
 
-**Session persistence** — Zustand's `persist` middleware is present in `src/data/store.ts` but commented out. Any browser refresh resets the experiment from the beginning. Spec: `specs/session-persistence.md`.
+**Session persistence** — Zustand's `persist` middleware is present in `src/data/store.ts` but commented out. Any browser refresh resets the experiment from the beginning.
 
-**Data submission** — `send()` in `lib/utils.ts` is a 1ms timeout stub. Checkpoint and end-of-experiment data never reaches any backend. Replacing this with a real POST to a configurable endpoint is the first required step before running real studies.
+**Data submission** — `send()` in `lib/utils.ts` is a stub (100ms timeout). Checkpoint and end-of-experiment data never reaches any backend. Replacing this with a real POST to a configurable endpoint is the first required step before running real studies.
 
-**Visual flow builder** — Experiments are currently defined as TypeScript object literals in `src/data/experiment.ts`. A drag-and-drop canvas editor using `@xyflow/react` is specced but not started. Spec: `specs/visual-flow-builder.md`.
+**Visual flow builder** — Experiments are currently defined as TypeScript object literals in `src/data/experiment.ts`. A drag-and-drop canvas editor using `@xyflow/react` is planned but not started.
 
-**Score variables** — There is no way to compute derived values (e.g. sum of five Likert items) and branch on them. Spec: `specs/score-variables.md`.
+**Score variables** — There is no way to compute derived values (e.g. sum of five Likert items) and branch on them.
 
-**Back navigation** — Participants cannot go back to a previous screen. Spec: `specs/back-navigation.md`.
-
-**Answer piping coverage** — Fully implemented. Interpolation works in `rich-text` content, `image` URL and alt text, component labels, placeholders (`text-input`, `text-area`, `numeric-input`), slider endpoint labels, option labels (radio, checkboxes, dropdown, likert-scale), and button text.
+**Back navigation** — Participants cannot go back to a previous screen.
 
 **Debug artifacts** — The current UI renders raw JSON debug panels (flow state, form values) directly on screen. These exist for development only and must be removed before any participant-facing deployment.
 

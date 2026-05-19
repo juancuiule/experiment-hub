@@ -200,5 +200,7 @@ Same rule as component references — `@`-keyed conditions only make sense insid
 | `missing-screen`        | A screen node references a slug with no screen definition                                 |
 | `duplicate-screen`      | Two screen definitions share the same slug                                                |
 | `unreferenced-screen`   | A screen definition is not referenced by any screen node                                  |
-| `unavailable-reference` | A `$$` token references data not guaranteed to be written at that point                   |
-| `invalid-reference`     | An `@` token is used outside a loop context                                               |
+| `unavailable-reference`   | A `$$` token references data not guaranteed to be written at that point                 |
+| `invalid-reference`       | An `@` token is used outside a loop context                                             |
+| `unknown-shared-options`  | A `%name` options reference has no matching entry in `ExperimentFlow.options`           |
+| `unwrapped-token`         | A `$$key` token appears without `{{ }}` wrapping and will not be interpolated at runtime |

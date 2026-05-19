@@ -40,7 +40,7 @@ The `branch` node is used to create a branching point in the experiment flow. It
 
 Each branch object has an `id` and a `name` prop that is used to identify the branch, an optional `description` prop that is used to provide a description of the branch, and a `config` prop that is used to configure under which condition the branch should be taken.
 
-The `config` prop is an object with the `ConditionConfig` type that is used to define the condition that must be met for the branch to be taken. The `ConditionConfig` type has three properties: `operator`, `dataKey` and `value`. The `operator` property defines the comparison to apply (see ConditionConfig Operators in the Components section for the full list), the `dataKey` property is a `$$` reference to the data that will be evaluated, and the `value` property is the value that will be compared against it.
+The `config` prop accepts the full composable `Condition` type — the same type used by the `conditional` component. This means it supports `SimpleCondition` (`{ type: "simple", operator, dataKey, value }`) as well as compound types: `{ type: "and", conditions: [...] }`, `{ type: "or", conditions: [...] }`, and `{ type: "not", condition: ... }`. The `dataKey` in a simple condition accepts `$$`, `@`, or `$` prefixed references. See ConditionConfig Operators in the [Components](./components.md) section for the full operator list.
 
 If there are multiple branch conditions that are true at the same time, the branch node will take the first one that is defined in the edges array. This means that the order of the edges in the experiment configuration can affect the flow of the experiment.
 
@@ -68,6 +68,6 @@ The `loop` node is used to create a loop in the experiment flow. It can be one o
 
 The `static` loop node has a `values` prop (string[]) that is used to define the different values that will be iterated over in the loop.
 
-The `dynamic` loop node has a `dataKey` prop that is used to define the key of the data that will be used to determine the different values that will be iterated over in the loop.
+The `dynamic` loop node has a `dataKey` prop (must be `$$`-prefixed, e.g. `$$screenSlug.myList`) that references an array of strings collected earlier in the experiment. Each element of that array becomes one loop iteration value.
 
 Both types of loop have a `stepper?` prop that allows to configure an optional stepper to be shown at the top of the screen to indicate the progress of the participant in that loop. This stepper is exactly the same as the one used in the `path` node, with the same `StepperConfig` type.

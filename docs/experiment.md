@@ -4,6 +4,13 @@ An experiment consists of a number of nodes and edges connected between them tha
 
 From the user point of view the experiment consists of a series of screen nodes that are shown to the participant. Those nodes have a `slug` props that should be related to an screen in the screens list of the experiment config.
 
+The top-level `ExperimentFlow` object has four fields:
+
+- `nodes: FrameworkNode[]` — the graph nodes (see [Nodes](./nodes.md))
+- `edges: FrameworkEdge[]` — the graph edges (see [Edges](./edges.md))
+- `screens?: FrameworkScreen[]` — screen definitions keyed by `slug`, referenced by `screen` nodes
+- `options?: Record<string, Option[]>` — named shared option sets. Reference them from any `radio`, `checkboxes`, `dropdown`, or `likert-scale` component using the `%name` prefix (e.g. `options: "%agreement-scale"`). Shared option sets must be defined here and the validator (`flow-validation.ts`) will emit `unknown-shared-options` for any `%name` reference that has no matching key.
+
 ## Experiment Flow
 
 key files: `lib/types.ts` and `lib/flow.ts`
@@ -21,11 +28,12 @@ The `State` can be one of the following:
 The `Context` is a partial object that contains information under different keys. These keys are:
 
 - `start`: contains the group name in which the participant started the experiment (if there are multiple start nodes). `{ group: string }`
-- `checkpoints`: contains the timestamps of the checkpoints that the participant has passed through. `{ [checkpointName: string]: number }`
-- currentItem: this is an object with the format `{ value: any, index: number, loopId: string }` that's only used while inside a loop to provide information about the current iteration of the loop. The `value` key contains the value of the current iteration, the `index` key contains the index of the current iteration, and the `loopId` contains the id of the loop node.
-- `branches`: contains the branches that have been taken by the participant. `{ [branchNodeId: string]: branchId }`
-- `forks`: contains the forks that have been taken by the participant. `{ [forkNodeId: string]: forkId }`
-- paths: contains the paths that have been taken by the participant. `{ [pathNodeId: string]: { order: string[] } }`
-- loops: contains the loops that have been taken by the participant. `{ [loopNodeId: string]: { order: string[] } }`
+- `checkpoints`: contains the ISO timestamps of the checkpoints that the participant has passed through. `{ [checkpointName: string]: string }`
+- `loopData`: contains the current iteration item for each active loop node. `{ [loopNodeId: string]: { value: any; index: number } }`. Inside a loop with id `"loop-sports"`, the current value is accessed as `@loop-sports.value` and the index as `@loop-sports.index`.
+- `branches`: contains the branch ID that was taken at each branch node. `{ [branchNodeId: string]: string }`
+- `forks`: contains the fork ID that was taken at each fork node. `{ [forkNodeId: string]: string }`
+- `paths`: contains the ordered list of child node IDs for each path node (after optional randomization). `{ [pathNodeId: string]: { order: string[] } }`
+- `loops`: contains the ordered list of iteration values for each loop node. `{ [loopNodeId: string]: { order: string[] } }`
+- `timings`: records entry and submission timestamps for each screen. `{ [timingKey: string]: { enteredAt?: string; submittedAt?: string } }`
 
-The `dataPath` is a string that represents the path in which the data collected in the experiment will be stored. This is useful to be able to store the data in a nested structure, and to be able to access it easily later on. When we are inside a path or a loop, we will append the id of that path or loop to the dataPath, so we can have a nested structure for the data collected in that path or loop. This way the data collected in the experiment will be stored in a way that reflects the structure of the experiment flow.
+The `dataPath` is a `string[]` that represents the nesting path under which the data collected for the current screen will be stored in `context.data`. When traversing a top-level screen the path is empty (`[]`) and data is stored as `context.data[screenSlug][dataKey]`. When inside a path or loop node, that node's `id` is prepended — e.g. inside path `"path-profile"` data becomes `context.data["path-profile"][screenSlug][dataKey]`, referenced in conditions as `$$path-profile.screenSlug.dataKey`.
