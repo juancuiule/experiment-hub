@@ -1812,7 +1812,7 @@ export const __experiment: ExperimentFlow = {
   ],
 };
 
-export const ___experiment: ExperimentFlow = {
+export const experiment: ExperimentFlow = {
   nodes: [
     { id: 'start', type: 'start' },
     { id: 'screen-components', type: 'screen', props: { slug: 'components' } },
@@ -1957,44 +1957,6 @@ export const ___experiment: ExperimentFlow = {
                 ],
               },
             },
-          },
-        },
-      ],
-    },
-  ],
-};
-
-const start = { id: 'start', type: 'start' as const };
-export const experiment: ExperimentFlow = {
-  nodes: [
-    start,
-    {
-      id: 'loop',
-      type: 'loop',
-      props: { type: 'static', values: ['a', 'b'] },
-    },
-    makeScreen('s-item', 'item'),
-  ],
-  edges: [
-    seq('start', 'loop'),
-    { type: 'loop-template', from: 'loop', to: 's-item' },
-  ],
-  screens: [
-    {
-      slug: 'item',
-      components: [
-        {
-          componentFamily: 'response',
-          template: 'radio',
-          props: {
-            dataKey: 'score-{{@loop.value}}',
-            label: 'Rate {{@loop.value}}',
-            randomize: true,
-            options: [
-              { label: 'Low', value: '1' },
-              { label: 'Medium', value: '2' },
-              { label: 'High', value: '3' },
-            ],
           },
         },
       ],
