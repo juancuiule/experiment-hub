@@ -2,6 +2,7 @@
 
 import { Moon, Sun } from 'lucide-react';
 import { useTheme } from 'next-themes';
+import { twMerge } from 'tailwind-merge';
 
 export function ThemeToggle() {
   const { resolvedTheme, setTheme } = useTheme();
@@ -9,7 +10,10 @@ export function ThemeToggle() {
   return (
     <button
       onClick={() => setTheme(resolvedTheme === 'light' ? 'dark' : 'light')}
-      className="text-content-secondary hover:text-content-primary flex size-8 items-center justify-center rounded-sm transition-[color] duration-150 ease-out"
+      className={twMerge(
+        'text-content-secondary hover:text-content-primary flex size-8 items-center justify-center rounded-sm transition-[color,transform] duration-150 ease-out',
+        'hover:bg-content-primary/20 active:scale-90',
+      )}
       aria-label={
         resolvedTheme === 'light'
           ? 'Switch to dark mode'

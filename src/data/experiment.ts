@@ -327,6 +327,7 @@ export const experiment: ExperimentFlow = {
             minLabel: 'Nada',
             maxLabel: 'Muy',
             dataKey: 'religiosity',
+            tooltip: true,
           },
         },
         {
@@ -352,6 +353,7 @@ export const experiment: ExperimentFlow = {
             minLabel: 'Disminuyó mucho',
             maxLabel: 'Aumentó mucho',
             dataKey: 'prayer-frequency-change',
+            tooltip: true,
           },
         },
         {

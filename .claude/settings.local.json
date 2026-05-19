@@ -7,7 +7,9 @@
       "Bash(pnpm vitest *)",
       "Skill(code-review:code-review)",
       "Edit",
-      "Write"
+      "Write",
+      "Bash(npx tsc *)",
+      "Bash(npm test *)"
     ]
   }
 }

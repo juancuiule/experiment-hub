@@ -23,6 +23,11 @@ export interface BaseResponseComponent<
   props: Props & ResponseComponentBaseProps;
 }
 
+type TooltipConfig = {
+  prefix?: string;
+  suffix?: string;
+};
+
 export interface SliderComponent extends BaseResponseComponent<
   "slider",
   {
@@ -34,6 +39,7 @@ export interface SliderComponent extends BaseResponseComponent<
     minLabel?: string;
     maxLabel?: string;
     showValue?: boolean;
+    tooltip?: true | TooltipConfig;
     minValue?: ValidationRule<number>;
     maxValue?: ValidationRule<number>;
   }
