@@ -761,6 +761,26 @@ describe('$$ reference checks', () => {
     expect(codes(flow)).toContain('unavailable-reference');
   });
 
+  it('reports unwrapped-token for a bare $$ ref embedded in label text', () => {
+    const flow: ExperimentFlow = {
+      nodes: [start, makeScreen('s1', 'welcome')],
+      edges: [seq('start', 's1')],
+      screens: [
+        {
+          slug: 'welcome',
+          components: [
+            {
+              componentFamily: 'response',
+              template: 'text-input',
+              props: { dataKey: 'name', label: 'Hello $$welcome.name' },
+            },
+          ],
+        },
+      ],
+    };
+    expect(codes(flow)).toContain('unwrapped-token');
+  });
+
   it('accepts a $$ reference to data written inside a path', () => {
     const flow: ExperimentFlow = {
       nodes: [

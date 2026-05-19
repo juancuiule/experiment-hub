@@ -396,6 +396,17 @@ function checkReferences(flow: ExperimentFlow): ValidationError[] {
         }
       }
     }
+    // Detect bare $$... embedded in longer text (missing {{}} — won't be interpolated)
+    const hasWrapped = /\{\{(?:\$\$|@)[\w.\-]+\}\}/.test(text);
+    const isWholeBare = /^(?:\$\$|@)[\w.\-]+$/.test(text);
+    if (!hasWrapped && !isWholeBare) {
+      for (const m of text.matchAll(/\$\$([\w.\-]+)/g)) {
+        rawErrors.push({
+          code: 'unwrapped-token',
+          message: `${context} contains "$$${m[1]}" without {{…}} — it will not be interpolated at runtime`,
+        });
+      }
+    }
   }
 
   // available: dot-joined data paths guaranteed to be written up to this point
