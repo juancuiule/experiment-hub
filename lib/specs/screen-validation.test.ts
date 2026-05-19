@@ -1147,7 +1147,7 @@ describe('dynamic for-each with randomized component — :order key validated', 
     ).toBe(true);
   });
 
-  it('rejects a missing :order key (required when randomized)', () => {
+  it('accepts a missing :order key (appended by onSubmit, not a form field)', () => {
     const schema = _buildSchema(
       screen([
         {
@@ -1172,7 +1172,7 @@ describe('dynamic for-each with randomized component — :order key validated', 
       ]),
       { data: { items: ['x'] } },
     );
-    expect(schema.safeParse({ pick_0: 'a' }).success).toBe(false);
+    expect(schema.safeParse({ pick_0: 'a' }).success).toBe(true);
   });
 
   it('rejects a non-array :order value', () => {

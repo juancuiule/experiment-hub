@@ -8,6 +8,7 @@ import {
   isPathEdge,
   isSequentialEdge,
 } from './edges';
+import { ScreenComponent } from './components';
 import { hasRandomizedOptions, Option } from './components/response';
 import { BranchNode, Fork, ForkNode, FrameworkNode } from './nodes';
 import {
@@ -108,22 +109,40 @@ function computeShuffledOptions(
   const previous = context.screenData?.shuffledOptions ?? {};
   const result: Record<string, Array<Option>> = {};
 
-  for (const component of screen.components) {
-    if (
-      component.componentFamily === 'response' &&
-      hasRandomizedOptions(component)
-    ) {
-      const { dataKey } = component.props;
-      const key = resolveValuesInString(dataKey, context);
-      if (inLoop && !component.props.reshuffleInLoop && previous[key]) {
-        result[key] = previous[key];
-      } else {
-        result[key] = shuffle(
-          resolveOptionsSource(component.props.options, context),
-        );
+  function processComponents(components: ScreenComponent[], ctx: Context) {
+    for (const component of components) {
+      if (component.componentFamily === 'response' && hasRandomizedOptions(component)) {
+        const key = resolveValuesInString(component.props.dataKey, ctx);
+        if (inLoop && !component.props.reshuffleInLoop && previous[key]) {
+          result[key] = previous[key];
+        } else {
+          result[key] = shuffle(resolveOptionsSource(component.props.options, ctx));
+        }
+      } else if (component.componentFamily === 'control') {
+        if (component.template === 'for-each') {
+          const values =
+            component.props.type === 'static'
+              ? component.props.values
+              : (getValue(component.props.dataKey, ctx) as string[] | null) ?? [];
+          for (let index = 0; index < values.length; index++) {
+            const subCtx = mergeContext(ctx, {
+              screenData: {
+                foreachData: { [component.props.id]: { index, value: values[index] } },
+              },
+            });
+            processComponents([component.props.component], subCtx);
+          }
+        } else if (component.template === 'conditional') {
+          processComponents([component.props.component], ctx);
+          if (component.props.else) processComponents([component.props.else], ctx);
+        }
+      } else if (component.componentFamily === 'layout' && component.template === 'group') {
+        processComponents(component.props.components, ctx);
       }
     }
   }
+
+  processComponents(screen.components, context);
   return result;
 }
 

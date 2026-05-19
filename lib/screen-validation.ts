@@ -172,7 +172,9 @@ function collectDescriptor(
             ({
               ...descriptor,
               dynamic: true,
-              foreach: descriptor.dynamic ? [meta, ...descriptor.foreach] : [meta],
+              foreach: descriptor.dynamic
+                ? [meta, ...descriptor.foreach]
+                : [meta],
             }) as FieldDescriptor,
         );
       }
@@ -253,7 +255,11 @@ export function buildSchemaFromDescriptors(
         if (rest.length === 0) {
           callback(nextCtx);
         } else {
-          iterateForeachChain(rest as [ForEachMeta, ...ForEachMeta[]], nextCtx, callback);
+          iterateForeachChain(
+            rest as [ForEachMeta, ...ForEachMeta[]],
+            nextCtx,
+            callback,
+          );
         }
       }
     }
@@ -275,7 +281,10 @@ export function buildSchemaFromDescriptors(
         }
 
         if (descriptor.synthetic) {
-          const result = z.array(z.string()).safeParse(data[concreteKey]);
+          const result = z
+            .array(z.string())
+            .optional()
+            .safeParse(data[concreteKey]);
           if (!result.success) {
             for (const issue of result.error.issues) {
               ctx.addIssue({
@@ -309,7 +318,7 @@ export function inspectFields(
 ): string[] {
   // The idea of this function is to detect every dataKey
   // that we may get from this screen. We need to consider complex
-  // nesting cases involving conditionls/groups/for-eachs.
+  // nesting cases involving conditionals/groups/for-each loops.
   return components.flatMap((component) =>
     inspectComponent(component, context),
   );

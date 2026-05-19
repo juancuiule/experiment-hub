@@ -1393,6 +1393,7 @@ export const experiment: ExperimentFlow = {
           props: {
             label: '¿Con qué frecuencia orás?',
             dataKey: 'prayer-frequency',
+            randomize: true,
             options: [
               { label: 'Todos los días', value: 'daily' },
               { label: 'Una o varias veces a la semana', value: 'weekly' },
