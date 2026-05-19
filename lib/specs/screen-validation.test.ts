@@ -1354,26 +1354,6 @@ describe('randomize :order key', () => {
     expect(result.data?.['selected:order']).toEqual(['b', 'a']);
   });
 
-  // TODO: fix this test, it's not beignt stripped becuase
-  // we need to keep that .passthrough() in zod schema for dynamic for-each
-  // it("strips :order for non-randomized fields (Zod default strip behaviour)", () => {
-  //   const screen: FrameworkScreen = {
-  //     slug: "test",
-  //     components: [
-  //       {
-  //         componentFamily: "response",
-  //         template: "radio",
-  //         props: {
-  //           dataKey: "choice",
-  //           label: "Choice",
-  //           options: [{ label: "A", value: "a" }],
-  //         },
-  //       },
-  //     ],
-  //   };
-  //   const schema = buildSchema(screen);
-  //   const result = schema.safeParse({ choice: "a", 'choice:order': ["a"] });
-  //   expect(result.success).toBe(true);
-  //   expect(result.data).not.toHaveProperty("choice:order");
-  // });
+  // Note: unknown keys including :order for non-randomized fields are not stripped
+  // because the schema uses .passthrough() — required so dynamic for-each keys survive Zod.
 });

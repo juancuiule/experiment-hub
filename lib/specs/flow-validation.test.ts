@@ -741,6 +741,44 @@ describe('$$ reference checks', () => {
     expect(validateExperiment(flow)).toEqual([]);
   });
 
+  it('accepts a $$ reference to a field nested inside a group on a prior screen', () => {
+    const flow: ExperimentFlow = {
+      nodes: [start, makeScreen('s1', 'welcome'), makeScreen('s2', 'profile')],
+      edges: [seq('start', 's1'), seq('s1', 's2')],
+      screens: [
+        {
+          slug: 'welcome',
+          components: [
+            {
+              componentFamily: 'layout',
+              template: 'group',
+              props: {
+                components: [
+                  {
+                    componentFamily: 'response',
+                    template: 'text-input',
+                    props: { dataKey: 'name', label: 'Name' },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+        {
+          slug: 'profile',
+          components: [
+            {
+              componentFamily: 'response',
+              template: 'text-input',
+              props: { dataKey: 'note', label: 'Hi {{$$welcome.name}}' },
+            },
+          ],
+        },
+      ],
+    };
+    expect(validateExperiment(flow)).toEqual([]);
+  });
+
   it('reports unavailable-reference for a $$ token not yet written', () => {
     const flow: ExperimentFlow = {
       nodes: [start, makeScreen('s1', 'welcome')],
