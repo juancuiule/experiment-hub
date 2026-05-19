@@ -1,4 +1,4 @@
-import { Option, OptionsSource } from './components/response';
+import { LikertOption, LikertOptionsSource, Option, OptionsSource } from './components/response';
 import { Context } from './types';
 
 type Prefix = '$$' | '@' | '$' | '#';
@@ -46,13 +46,27 @@ export function getPath(text: string, record: Record<string, any>): any {
 export function resolveOptionsSource(
   options: OptionsSource,
   context: Context,
+  sharedOptions?: Record<string, Option[]>,
 ): Option[] {
   if (Array.isArray(options)) return options;
+  if (options.startsWith('%')) {
+    const name = options.slice(1);
+    return sharedOptions?.[name] ?? [];
+  }
   const value = getValue(options, context);
   if (!Array.isArray(value)) return [];
   return value.map((item: unknown) =>
     typeof item === 'string' ? { label: item, value: item } : (item as Option),
   );
+}
+
+export function resolveLikertOptionsSource(
+  options: LikertOptionsSource,
+  sharedOptions?: Record<string, Option[]>,
+): LikertOption[] {
+  if (Array.isArray(options)) return options;
+  const name = options.slice(1);
+  return sharedOptions?.[name] ?? [];
 }
 
 export function resolveInterpolatedImageUrl(

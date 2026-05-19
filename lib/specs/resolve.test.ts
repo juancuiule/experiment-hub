@@ -1,5 +1,63 @@
 import { describe, expect, it } from "vitest";
-import { resolveValuesInString } from "../resolve";
+import { resolveOptionsSource, resolveLikertOptionsSource, resolveValuesInString } from "../resolve";
+
+describe('resolveOptionsSource', () => {
+  const sharedOptions = {
+    'yes-no': [
+      { label: 'Yes', value: 'yes' },
+      { label: 'No', value: 'no' },
+    ],
+  };
+
+  it('returns the array unchanged when options is Option[]', () => {
+    const opts = [{ label: 'A', value: 'a' }];
+    expect(resolveOptionsSource(opts, {})).toEqual(opts);
+  });
+
+  it('resolves %name to the named shared option set', () => {
+    expect(resolveOptionsSource('%yes-no', {}, sharedOptions)).toEqual([
+      { label: 'Yes', value: 'yes' },
+      { label: 'No', value: 'no' },
+    ]);
+  });
+
+  it('returns [] when %name does not exist in sharedOptions', () => {
+    expect(resolveOptionsSource('%missing', {}, sharedOptions)).toEqual([]);
+  });
+
+  it('returns [] when sharedOptions is undefined and options is %name', () => {
+    expect(resolveOptionsSource('%yes-no', {})).toEqual([]);
+  });
+});
+
+describe('resolveLikertOptionsSource', () => {
+  const sharedOptions = {
+    agreement: [
+      { label: 'Strongly disagree', value: '1' },
+      { label: 'Strongly agree', value: '5' },
+    ],
+  };
+
+  it('returns the array unchanged when options is LikertOption[]', () => {
+    const opts = [{ value: '1' }, { value: '2', label: 'Two' }];
+    expect(resolveLikertOptionsSource(opts)).toEqual(opts);
+  });
+
+  it('resolves %name from sharedOptions', () => {
+    expect(resolveLikertOptionsSource('%agreement', sharedOptions)).toEqual([
+      { label: 'Strongly disagree', value: '1' },
+      { label: 'Strongly agree', value: '5' },
+    ]);
+  });
+
+  it('returns [] when %name is not found', () => {
+    expect(resolveLikertOptionsSource('%missing', sharedOptions)).toEqual([]);
+  });
+
+  it('returns [] when sharedOptions is undefined', () => {
+    expect(resolveLikertOptionsSource('%agreement')).toEqual([]);
+  });
+});
 
 describe("resolveValuesInString", () => {
   describe("@ references (loopData)", () => {

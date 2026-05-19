@@ -933,3 +933,34 @@ describe('for-each', () => {
     );
   });
 });
+
+describe('shared options (%name)', () => {
+  it('renders radio options from sharedOptions when options is %name', () => {
+    const sharedOptions = {
+      'yes-no': [
+        { label: 'Yes', value: 'yes' },
+        { label: 'No', value: 'no' },
+      ],
+    };
+    render(
+      <Screen
+        screen={{
+          slug: 'test',
+          components: [
+            {
+              componentFamily: 'response',
+              template: 'radio',
+              props: { dataKey: 'answer', label: 'Pick one', options: '%yes-no' },
+            },
+          ],
+        }}
+        isLoading={false}
+        onNext={noop}
+        context={{}}
+        sharedOptions={sharedOptions}
+      />,
+    );
+    expect(screen.getByText('Yes')).toBeInTheDocument();
+    expect(screen.getByText('No')).toBeInTheDocument();
+  });
+});

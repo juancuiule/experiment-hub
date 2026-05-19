@@ -1,6 +1,6 @@
 "use client";
 
-import { RadioComponent } from "@/lib/components/response";
+import { Option, RadioComponent } from "@/lib/components/response";
 import { Context } from "@/lib/types";
 import * as RadioGroupPrimitive from "@radix-ui/react-radio-group";
 import { Controller, UseFormReturn } from "react-hook-form";
@@ -11,9 +11,10 @@ type Props = {
   component: RadioComponent;
   form: UseFormReturn<Record<string, any>>;
   context: Context;
+  sharedOptions?: Record<string, Option[]>;
 };
 
-export function Radio({ component, form, context }: Props) {
+export function Radio({ component, form, context, sharedOptions }: Props) {
   const {
     control,
     formState: { errors },
@@ -33,7 +34,7 @@ export function Radio({ component, form, context }: Props) {
             onValueChange={field.onChange}
             className="flex flex-col gap-2 mt-2"
           >
-            {resolveOptions(component.props.options, context, component.props.dataKey).map((opt) => (
+            {resolveOptions(component.props.options, context, component.props.dataKey, sharedOptions).map((opt) => (
               <div key={opt.value} className="flex items-center gap-2">
                 <RadioGroupPrimitive.Item
                   id={`${dataKey}-${opt.value}`}

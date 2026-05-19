@@ -1,6 +1,19 @@
 import { ExperimentFlow } from '@/lib/types';
 
 export const experiment: ExperimentFlow = {
+  options: {
+    frequency: [
+      { label: 'Todos los días', value: 'daily' },
+      { label: 'Una o varias veces a la semana', value: 'weekly' },
+      { label: 'Una o varias veces al mes', value: 'monthly' },
+      { label: 'Muy esporádicamente', value: 'sporadically' },
+      { label: 'Nunca', value: 'never' },
+    ],
+    'yes-no': [
+      { label: 'Sí', value: 'yes' },
+      { label: 'No', value: 'no' },
+    ],
+  },
   nodes: [
     { id: 'start', type: 'start' },
     { id: 'screen-terms', type: 'screen', props: { slug: 'terms' } },
@@ -335,13 +348,7 @@ export const experiment: ExperimentFlow = {
           props: {
             label: '¿Con qué frecuencia orás?',
             dataKey: 'prayer-frequency',
-            options: [
-              { label: 'Todos los días', value: 'daily' },
-              { label: 'Una o varias veces a la semana', value: 'weekly' },
-              { label: 'Una o varias veces al mes', value: 'monthly' },
-              { label: 'Muy esporádicamente', value: 'sporadically' },
-              { label: 'Nunca', value: 'never' },
-            ],
+            options: '%frequency',
           },
         },
         {
@@ -360,13 +367,7 @@ export const experiment: ExperimentFlow = {
           props: {
             label: '¿Con qué frecuencia meditás?',
             dataKey: 'meditation-frequency',
-            options: [
-              { label: 'Todos los días', value: 'daily' },
-              { label: 'Una o varias veces a la semana', value: 'weekly' },
-              { label: 'Una o varias veces al mes', value: 'monthly' },
-              { label: 'Muy esporádicamente', value: 'sporadically' },
-              { label: 'Nunca', value: 'never' },
-            ],
+            options: '%frequency',
           },
         },
         {
@@ -386,10 +387,7 @@ export const experiment: ExperimentFlow = {
             label:
               '¿Recibiste previamente asistencia psicológica o psiquiátrica?',
             dataKey: 'received-mental-health-assistance',
-            options: [
-              { label: 'Sí', value: 'yes' },
-              { label: 'No', value: 'no' },
-            ],
+            options: '%yes-no',
           },
         },
         {
@@ -399,10 +397,7 @@ export const experiment: ExperimentFlow = {
             label:
               '¿Estuviste internada/o problemas psicológicos o psiquiátricos?',
             dataKey: 'hospitalized-for-mental-health',
-            options: [
-              { label: 'Sí', value: 'yes' },
-              { label: 'No', value: 'no' },
-            ],
+            options: '%yes-no',
           },
         },
         {
@@ -411,10 +406,7 @@ export const experiment: ExperimentFlow = {
           props: {
             label: '¿Tomás actualmente alguna medicación psiquiátrica?',
             dataKey: 'currently-taking-psychiatric-medication',
-            options: [
-              { label: 'Sí', value: 'yes' },
-              { label: 'No', value: 'no' },
-            ],
+            options: '%yes-no',
           },
         },
         {
@@ -525,10 +517,7 @@ export const experiment: ExperimentFlow = {
             label:
               '¿Realizás o realizaste un prorama sostenido de microdosificación de psicodélicos?',
             dataKey: 'psychedelic-microdosing',
-            options: [
-              { label: 'Sí', value: 'yes' },
-              { label: 'No', value: 'no' },
-            ],
+            options: '%yes-no',
           },
         },
         {

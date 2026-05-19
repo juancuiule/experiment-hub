@@ -86,6 +86,7 @@ export default function Experiment(props: Props) {
             isLoading={isLoading}
             onNext={next}
             context={step.context}
+            sharedOptions={step.experiment.options}
           />
         ) : (
           <p className="text-error">Screen not found: {slug}</p>

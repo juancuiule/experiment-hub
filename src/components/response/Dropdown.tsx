@@ -1,6 +1,6 @@
 "use client";
 
-import { DropdownComponent } from "@/lib/components/response";
+import { DropdownComponent, Option } from "@/lib/components/response";
 import { resolveValuesInString } from "@/lib/resolve";
 import { Context } from "@/lib/types";
 import * as SelectPrimitive from "@radix-ui/react-select";
@@ -13,9 +13,10 @@ type Props = {
   component: DropdownComponent;
   form: UseFormReturn<Record<string, any>>;
   context: Context;
+  sharedOptions?: Record<string, Option[]>;
 };
 
-export function Dropdown({ component, form, context }: Props) {
+export function Dropdown({ component, form, context, sharedOptions }: Props) {
   const {
     control,
     formState: { errors },
@@ -52,7 +53,7 @@ export function Dropdown({ component, form, context }: Props) {
                 style={{ minWidth: 'var(--radix-select-trigger-width)' }}
               >
                 <SelectPrimitive.Viewport className="p-1">
-                  {resolveOptions(component.props.options, context, component.props.dataKey).map(
+                  {resolveOptions(component.props.options, context, component.props.dataKey, sharedOptions).map(
                     (opt) => (
                       <SelectPrimitive.Item
                         key={opt.value}
