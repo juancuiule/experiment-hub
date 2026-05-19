@@ -379,3 +379,288 @@ describe('loop as a path child', () => {
     expect(step.context.loops?.['loop-inner']?.order).toEqual(['a', 'b']);
   });
 });
+
+describe('path with branch-default pointing to a later path child', () => {
+  // Regression: when branch-default navigates to a node that is also a path
+  // child at a later index, that child must not be shown twice.
+  //
+  // Layout: start → pre-screen → path[screen-a(0), branch(1), screen-b(2), screen-c(3)] → end
+  //   branch-condition → screen-extra  (NOT a path child)
+  //   branch-default   → screen-b      (IS path child at index 2)
+  //
+  // The branch reads $$pre.flag — data from pre-screen which is collected
+  // BEFORE the path, so the branch can be resolved at path initialization time.
+  const flow: ExperimentFlow = {
+    nodes: [
+      { id: 'start', type: 'start' },
+      makeScreen('pre-screen', 'pre'),
+      { id: 'path-p', type: 'path', props: { name: 'P' } },
+      makeScreen('screen-a', 'a'),
+      {
+        id: 'branch-x',
+        type: 'branch',
+        props: {
+          name: 'x',
+          branches: [
+            {
+              id: 'match',
+              name: 'match',
+              config: {
+                type: 'simple',
+                operator: 'eq',
+                value: 'yes',
+                dataKey: '$$pre.flag',
+              },
+            },
+          ],
+        },
+      },
+      makeScreen('screen-extra', 'extra'),
+      makeScreen('screen-b', 'b'),
+      makeScreen('screen-c', 'c'),
+      makeScreen('screen-end', 'end'),
+    ],
+    edges: [
+      seq('start', 'pre-screen'),
+      seq('pre-screen', 'path-p'),
+      { type: 'path-contains', from: 'path-p', to: 'screen-a', order: 0 },
+      { type: 'path-contains', from: 'path-p', to: 'branch-x', order: 1 },
+      { type: 'path-contains', from: 'path-p', to: 'screen-b', order: 2 },
+      { type: 'path-contains', from: 'path-p', to: 'screen-c', order: 3 },
+      { type: 'branch-condition', from: 'branch-x.match', to: 'screen-extra' },
+      { type: 'branch-default', from: 'branch-x', to: 'screen-b' },
+      seq('path-p', 'screen-end'),
+    ],
+  };
+
+  it('branch-default skips to screen-b then advances to screen-c without revisiting screen-b', async () => {
+    let step = await startExperiment(flow, 'start');
+    step = await traverse(step, { flag: 'no' }); // pre-screen → path → screen-a
+    step = await traverse(step, {}); // screen-a → branch (default) → screen-b
+    expect((step.state as any).innerState.node.id).toBe('screen-b');
+
+    step = await traverse(step, {}); // screen-b done → must advance to screen-c, not screen-b again
+    expect((step.state as any).innerState.node.id).toBe('screen-c');
+  });
+
+  it('branch-condition routes to screen-extra then continues through screen-b and screen-c', async () => {
+    let step = await startExperiment(flow, 'start');
+    step = await traverse(step, { flag: 'yes' }); // pre-screen → path → screen-a
+    step = await traverse(step, {}); // screen-a → branch (condition match) → screen-extra
+    expect((step.state as any).innerState.node.id).toBe('screen-extra');
+
+    step = await traverse(step, {}); // screen-extra done → screen-b (next after branch at index 1)
+    expect((step.state as any).innerState.node.id).toBe('screen-b');
+
+    step = await traverse(step, {}); // screen-b done → screen-c
+    expect((step.state as any).innerState.node.id).toBe('screen-c');
+  });
+
+  it('path exits to screen-end after screen-c regardless of which branch was taken', async () => {
+    for (const flag of ['no', 'yes']) {
+      let step = await startExperiment(flow, 'start');
+      step = await traverse(step, { flag }); // pre-screen
+      step = await traverse(step, {}); // screen-a → branch resolves
+      if (flag === 'yes') step = await traverse(step, {}); // extra screen
+      step = await traverse(step, {}); // screen-b
+      step = await traverse(step, {}); // screen-c → exit path
+      expect((step.state as any).node.id).toBe('screen-end');
+    }
+  });
+
+  it('stepper: branch-default path — total is pre-computed as 3 at path entry, no shift', async () => {
+    let step = await startExperiment(flow, 'start');
+    step = await traverse(step, { flag: 'no' }); // pre-screen; path now initializes
+
+    // Path is now active; branch resolves at init: branch-default → screen-b (path child) → total=3
+    expect((step.state as any).visibleStep).toBe(0);
+    expect((step.state as any).visibleTotal).toBe(3);
+
+    step = await traverse(step, {}); // screen-a → branch (default) → screen-b
+    expect((step.state as any).visibleStep).toBe(1);
+    expect((step.state as any).visibleTotal).toBe(3);
+
+    step = await traverse(step, {}); // → screen-c
+    expect((step.state as any).visibleStep).toBe(2);
+    expect((step.state as any).visibleTotal).toBe(3);
+  });
+
+  it('stepper: branch-condition path — total is pre-computed as 4 at path entry, no shift', async () => {
+    let step = await startExperiment(flow, 'start');
+    step = await traverse(step, { flag: 'yes' }); // pre-screen; path initializes with flag in context
+
+    // Branch resolves at init: branch-condition → screen-extra (not a path child) → total=4
+    expect((step.state as any).visibleStep).toBe(0);
+    expect((step.state as any).visibleTotal).toBe(4);
+
+    step = await traverse(step, {}); // screen-a → branch (condition) → screen-extra
+    expect((step.state as any).visibleStep).toBe(1);
+    expect((step.state as any).visibleTotal).toBe(4); // already 4, no shift
+
+    step = await traverse(step, {}); // → screen-b
+    expect((step.state as any).visibleStep).toBe(2);
+    expect((step.state as any).visibleTotal).toBe(4);
+
+    step = await traverse(step, {}); // → screen-c
+    expect((step.state as any).visibleStep).toBe(3);
+    expect((step.state as any).visibleTotal).toBe(4);
+  });
+});
+
+describe('path with branch contributing a chain of screens', () => {
+  // Layout: start → pre-screen → path[screen-a(0), branch-y(1), screen-z(2)] → end
+  //   branch-y condition (resolvable via pre-path data $$pre.flag) → screen-1 → screen-2 (no seq edge)
+  //   branch-y default → screen-z (path child at index 2)
+  //
+  // Condition true:  total = 1 (screen-a) + 2 (screen-1 + screen-2 chain) + 1 (screen-z) = 4
+  // Condition false: total = 1 (screen-a) + 0 (default → path child)      + 1 (screen-z) = 2
+  const flow: ExperimentFlow = {
+    nodes: [
+      { id: 'start', type: 'start' },
+      makeScreen('pre-screen', 'pre'),
+      { id: 'path-p', type: 'path', props: { name: 'P' } },
+      makeScreen('screen-a', 'a'),
+      {
+        id: 'branch-y',
+        type: 'branch',
+        props: {
+          name: 'y',
+          branches: [
+            {
+              id: 'chain',
+              name: 'chain',
+              config: {
+                type: 'simple',
+                operator: 'eq',
+                value: 'yes',
+                dataKey: '$$pre.flag',
+              },
+            },
+          ],
+        },
+      },
+      makeScreen('screen-1', 'one'),
+      makeScreen('screen-2', 'two'),
+      makeScreen('screen-z', 'z'),
+      makeScreen('screen-end', 'end'),
+    ],
+    edges: [
+      seq('start', 'pre-screen'),
+      seq('pre-screen', 'path-p'),
+      { type: 'path-contains', from: 'path-p', to: 'screen-a', order: 0 },
+      { type: 'path-contains', from: 'path-p', to: 'branch-y', order: 1 },
+      { type: 'path-contains', from: 'path-p', to: 'screen-z', order: 2 },
+      { type: 'branch-condition', from: 'branch-y.chain', to: 'screen-1' },
+      seq('screen-1', 'screen-2'),
+      { type: 'branch-default', from: 'branch-y', to: 'screen-z' },
+      seq('path-p', 'screen-end'),
+    ],
+  };
+
+  it('condition true: visibleTotal = 4 pre-computed (chain of 2 counted at init)', async () => {
+    let step = await startExperiment(flow, 'start');
+    step = await traverse(step, { flag: 'yes' }); // pre-screen → path at screen-a
+    expect((step.state as any).visibleStep).toBe(0);
+    expect((step.state as any).visibleTotal).toBe(4);
+
+    step = await traverse(step, {}); // screen-a → branch → screen-1
+    expect((step.state as any).innerState.node.id).toBe('screen-1');
+    expect((step.state as any).visibleStep).toBe(1);
+    expect((step.state as any).visibleTotal).toBe(4);
+
+    step = await traverse(step, {}); // screen-1 → screen-2 (sequential in chain)
+    expect((step.state as any).innerState.node.id).toBe('screen-2');
+    expect((step.state as any).visibleStep).toBe(1); // path step didn't advance
+    expect((step.state as any).visibleTotal).toBe(4);
+
+    step = await traverse(step, {}); // screen-2 done → screen-z
+    expect((step.state as any).innerState.node.id).toBe('screen-z');
+    expect((step.state as any).visibleStep).toBe(2);
+    expect((step.state as any).visibleTotal).toBe(4);
+  });
+
+  it('condition false: visibleTotal = 2 pre-computed (default → path child, no chain)', async () => {
+    let step = await startExperiment(flow, 'start');
+    step = await traverse(step, { flag: 'no' }); // pre-screen → path at screen-a
+    expect((step.state as any).visibleStep).toBe(0);
+    expect((step.state as any).visibleTotal).toBe(2);
+
+    step = await traverse(step, {}); // screen-a → branch (default) → screen-z
+    expect((step.state as any).innerState.node.id).toBe('screen-z');
+    expect((step.state as any).visibleStep).toBe(1);
+    expect((step.state as any).visibleTotal).toBe(2);
+  });
+});
+
+describe('path with branch whose condition depends on in-path data', () => {
+  // Layout: start → path[screen-a(0), branch-y(1), screen-b(2), screen-c(3)] → end
+  //   branch-y condition uses $$path-p.a.flag (in-path data, absent at path init)
+  //   branch-y condition → screen-extra (not a path child)
+  //   branch-y default → screen-b (path child at index 2)
+  //
+  // At init:              contribution = 0 → visibleTotal = 3
+  // Runtime (flag='yes'): actual = 1 (screen-extra) → delta +1 → visibleTotal = 4
+  // Runtime (flag='no'):  actual = 0 (default → path child) → delta 0 → visibleTotal = 3
+  const flow: ExperimentFlow = {
+    nodes: [
+      { id: 'start', type: 'start' },
+      { id: 'path-p', type: 'path', props: { name: 'P' } },
+      makeScreen('screen-a', 'a'),
+      {
+        id: 'branch-y',
+        type: 'branch',
+        props: {
+          name: 'y',
+          branches: [
+            {
+              id: 'in-path',
+              name: 'in-path',
+              config: {
+                type: 'simple',
+                operator: 'eq',
+                value: 'yes',
+                dataKey: '$$path-p.a.flag',
+              },
+            },
+          ],
+        },
+      },
+      makeScreen('screen-extra', 'extra'),
+      makeScreen('screen-b', 'b'),
+      makeScreen('screen-c', 'c'),
+      makeScreen('screen-end', 'end'),
+    ],
+    edges: [
+      seq('start', 'path-p'),
+      { type: 'path-contains', from: 'path-p', to: 'screen-a', order: 0 },
+      { type: 'path-contains', from: 'path-p', to: 'branch-y', order: 1 },
+      { type: 'path-contains', from: 'path-p', to: 'screen-b', order: 2 },
+      { type: 'path-contains', from: 'path-p', to: 'screen-c', order: 3 },
+      { type: 'branch-condition', from: 'branch-y.in-path', to: 'screen-extra' },
+      { type: 'branch-default', from: 'branch-y', to: 'screen-b' },
+      seq('path-p', 'screen-end'),
+    ],
+  };
+
+  it('init: visibleTotal = 3 (unresolvable branch contributes 0, not branch-default)', async () => {
+    const step = await startExperiment(flow, 'start');
+    expect((step.state as any).visibleStep).toBe(0);
+    expect((step.state as any).visibleTotal).toBe(3);
+  });
+
+  it('condition true at runtime: visibleTotal corrected to 4', async () => {
+    let step = await startExperiment(flow, 'start');
+    step = await traverse(step, { flag: 'yes' }); // screen-a → branch → screen-extra
+    expect((step.state as any).innerState.node.id).toBe('screen-extra');
+    expect((step.state as any).visibleStep).toBe(1);
+    expect((step.state as any).visibleTotal).toBe(4);
+  });
+
+  it('condition false at runtime: visibleTotal stays 3 (branch-default → path child)', async () => {
+    let step = await startExperiment(flow, 'start');
+    step = await traverse(step, { flag: 'no' }); // screen-a → branch (default) → screen-b
+    expect((step.state as any).innerState.node.id).toBe('screen-b');
+    expect((step.state as any).visibleStep).toBe(1);
+    expect((step.state as any).visibleTotal).toBe(3);
+  });
+});
