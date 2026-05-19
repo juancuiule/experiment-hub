@@ -184,7 +184,7 @@ function collectDescriptor(
 
 export function buildSchemaFromDescriptors(
   descriptors: FieldDescriptor[],
-  context: Pick<Context, 'data'>,
+  context: Context,
 ) {
   const shape: Record<string, z.ZodTypeAny> = {};
 
@@ -192,7 +192,7 @@ export function buildSchemaFromDescriptors(
     if (descriptor.dynamic) continue;
 
     if (descriptor.synthetic) {
-      shape[descriptor.key] = z.array(z.string());
+      shape[descriptor.key] = z.array(z.string()).optional();
     } else if (descriptor.condition === null) {
       shape[descriptor.key] = buildFieldSchema(descriptor.source);
     } else {
@@ -217,17 +217,15 @@ export function buildSchemaFromDescriptors(
     return baseSchema;
   }
 
-  return baseSchema.superRefine((data, ctx) => {
-    const fullContext: Context = {
-      screenData: data as Record<string, unknown>,
-      data: context.data ?? {},
-      loopData: {},
-    };
+  return baseSchema.superRefine((data: Record<string, unknown>, ctx) => {
+    const fullContext = mergeContext(context, {
+      screenData: data,
+    });
 
     for (const descriptor of staticConditional) {
       if (!evaluateCondition(descriptor.condition, fullContext)) continue;
       const result = buildFieldSchema(descriptor.source).safeParse(
-        (data as Record<string, unknown>)[descriptor.key],
+        data[descriptor.key],
       );
       if (!result.success) {
         for (const issue of result.error.issues) {
@@ -257,9 +255,9 @@ export function buildSchemaFromDescriptors(
         const concreteKey = resolveValuesInString(descriptor.key, loopCtx);
 
         if (descriptor.synthetic) {
-          const result = z.array(z.string()).safeParse(
-            (data as Record<string, unknown>)[concreteKey],
-          );
+          const result = z
+            .array(z.string())
+            .safeParse(data[concreteKey]);
           if (!result.success) {
             for (const issue of result.error.issues) {
               ctx.addIssue({
@@ -284,7 +282,7 @@ export function buildSchemaFromDescriptors(
         }
 
         const result = buildFieldSchema(descriptor.source).safeParse(
-          (data as Record<string, unknown>)[concreteKey],
+          data[concreteKey],
         );
         if (!result.success) {
           for (const issue of result.error.issues) {
@@ -298,8 +296,6 @@ export function buildSchemaFromDescriptors(
     }
   }) as typeof baseSchema;
 }
-
-/// New iteration
 
 export function inspectFields(
   components: ScreenComponent[],
@@ -362,7 +358,9 @@ function inspectComponent(
                   foreachData: { [id]: { index, value } },
                 },
               });
-              return templateKeys.map((key) => resolveValuesInString(key, subContext));
+              return templateKeys.map((key) =>
+                resolveValuesInString(key, subContext),
+              );
             });
           } else {
             // If it's a dynamic one we can only save the template of the dataKey and handle it at runtime
