@@ -64,20 +64,13 @@ function countChainFromNode(
   startNodeId: string,
   pathChildren: FrameworkNode[],
 ): number {
-  let count = 0;
-  let currentId = startNodeId;
-
-  while (true) {
-    const node = getNode(experiment, currentId);
-    if (!node) break;
-    if (pathChildren.some((c) => c.id === currentId)) break;
-    if (node.type === 'screen') count += 1;
-    const next = getNextSequentialNode(experiment, currentId);
-    if (!next) break;
-    currentId = next.id;
-  }
-
-  return count;
+  const node = getNode(experiment, startNodeId);
+  if (!node || pathChildren.some((c) => c.id === startNodeId)) return 0;
+  const next = getNextSequentialNode(experiment, startNodeId);
+  return (
+    (node.type === 'screen' ? 1 : 0) +
+    (next ? countChainFromNode(experiment, next.id, pathChildren) : 0)
+  );
 }
 
 // Pre-computes visible screen count and per-branch contributions at path entry.
@@ -91,40 +84,42 @@ function computePathVisibility(
   context: Context,
   children: FrameworkNode[],
 ): { total: number; branchContributions: Record<string, number> } {
-  let total = 0;
-  const branchContributions: Record<string, number> = {};
-
-  for (const child of children) {
-    if (child.type === 'screen') {
-      total += 1;
-    } else if (child.type === 'branch') {
-      const branchNode = child as BranchNode;
-      const allAvailable = branchNode.props.branches.every((b) =>
-        isConditionDataAvailable(b.config, context),
-      );
-
-      let contribution = 0;
-      if (allAvailable) {
-        const { nNode } = getWinnerNode(experiment, branchNode, context);
-        if (nNode && !children.some((c) => c.id === nNode.id)) {
-          contribution = countChainFromNode(experiment, nNode.id, children);
-        }
+  return children.reduce(
+    (acc, child) => {
+      if (child.type === 'screen') {
+        return { ...acc, total: acc.total + 1 };
       }
-
-      branchContributions[branchNode.id] = contribution;
-      total += contribution;
-    } else if (child.type === 'checkpoint') {
-      const nNode = getNextSequentialNode(experiment, child.id);
-      if (
-        nNode?.type === 'screen' &&
-        !children.some((c) => c.id === nNode.id)
-      ) {
-        total += 1;
+      if (child.type === 'branch') {
+        const branchNode = child as BranchNode;
+        const allAvailable = branchNode.props.branches.every((b) =>
+          isConditionDataAvailable(b.config, context),
+        );
+        const { nNode } = allAvailable
+          ? getWinnerNode(experiment, branchNode, context)
+          : { nNode: null };
+        const contribution =
+          nNode && !children.some((c) => c.id === nNode.id)
+            ? countChainFromNode(experiment, nNode.id, children)
+            : 0;
+        return {
+          total: acc.total + contribution,
+          branchContributions: {
+            ...acc.branchContributions,
+            [branchNode.id]: contribution,
+          },
+        };
       }
-    }
-  }
-
-  return { total, branchContributions };
+      if (child.type === 'checkpoint') {
+        const nNode = getNextSequentialNode(experiment, child.id);
+        return nNode?.type === 'screen' &&
+          !children.some((c) => c.id === nNode.id)
+          ? { ...acc, total: acc.total + 1 }
+          : acc;
+      }
+      return acc;
+    },
+    { total: 0, branchContributions: {} as Record<string, number> },
+  );
 }
 
 // This function determines if we should auto-traverse from
@@ -215,55 +210,77 @@ function computeShuffledOptions(
 
   const inLoop = Object.keys(context.loopData ?? {}).length > 0;
   const previous = context.screenData?.shuffledOptions ?? {};
-  const result: Record<string, Array<Option>> = {};
 
-  function processComponents(components: ScreenComponent[], ctx: Context) {
-    for (const component of components) {
-      if (
-        component.componentFamily === 'response' &&
-        hasRandomizedOptions(component)
-      ) {
+  function processComponent(
+    component: ScreenComponent,
+    ctx: Context,
+  ): [string, Array<Option>][] {
+    switch (component.componentFamily) {
+      case 'response': {
+        if (!hasRandomizedOptions(component)) return [];
         const key = resolveValuesInString(component.props.dataKey, ctx);
-        if (inLoop && !component.props.reshuffleInLoop && previous[key]) {
-          result[key] = previous[key];
-        } else {
-          result[key] = shuffle(
-            resolveOptionsSource(component.props.options, ctx),
-          );
-        }
-      } else if (component.componentFamily === 'control') {
+        const options =
+          inLoop && !component.props.reshuffleInLoop && previous[key]
+            ? previous[key]
+            : shuffle(resolveOptionsSource(component.props.options, ctx));
+        return [[key, options]];
+      }
+      case 'control': {
         if (component.template === 'for-each') {
           const values =
             component.props.type === 'static'
               ? component.props.values
               : ((getValue(component.props.dataKey, ctx) as string[] | null) ??
                 []);
-          for (let index = 0; index < values.length; index++) {
-            const subCtx = mergeContext(ctx, {
-              screenData: {
-                foreachData: {
-                  [component.props.id]: { index, value: values[index] },
-                },
-              },
-            });
-            processComponents([component.props.component], subCtx);
-          }
-        } else if (component.template === 'conditional') {
-          processComponents([component.props.component], ctx);
-          if (component.props.else)
-            processComponents([component.props.else], ctx);
+          return values.flatMap((value, index) =>
+            Object.entries<Array<Option>>(
+              processComponents(
+                [component.props.component],
+                mergeContext(ctx, {
+                  screenData: {
+                    foreachData: { [component.props.id]: { index, value } },
+                  },
+                }),
+              ),
+            ),
+          );
         }
-      } else if (
-        component.componentFamily === 'layout' &&
-        component.template === 'group'
-      ) {
-        processComponents(component.props.components, ctx);
+        if (component.template === 'conditional') {
+          const thenEntries = Object.entries<Array<Option>>(
+            processComponents([component.props.component], ctx),
+          );
+          const elseEntries = component.props.else
+            ? Object.entries<Array<Option>>(
+                processComponents([component.props.else], ctx),
+              )
+            : [];
+          return [...thenEntries, ...elseEntries];
+        }
+        return [];
       }
+      case 'layout': {
+        if (component.template === 'group') {
+          return Object.entries<Array<Option>>(
+            processComponents(component.props.components, ctx),
+          );
+        }
+        return [];
+      }
+      default:
+        return [];
     }
   }
 
-  processComponents(screen.components, context);
-  return result;
+  function processComponents(
+    components: ScreenComponent[],
+    ctx: Context,
+  ): Record<string, Array<Option>> {
+    return Object.fromEntries(
+      components.flatMap((c) => processComponent(c, ctx)),
+    );
+  }
+
+  return processComponents(screen.components, context);
 }
 
 // This function handles entering a step, applying any auto-traversal logic if needed.

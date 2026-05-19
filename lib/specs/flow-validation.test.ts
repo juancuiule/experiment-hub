@@ -753,6 +753,7 @@ describe('$$ reference checks', () => {
               componentFamily: 'layout',
               template: 'group',
               props: {
+                name: 'group',
                 components: [
                   {
                     componentFamily: 'response',
