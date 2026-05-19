@@ -1,5 +1,7 @@
 import { Condition } from './conditions';
-import { ExperimentFlow } from './types';
+import { ScreenComponent } from './components';
+import { resolveValuesInString } from './resolve';
+import { Context, ExperimentFlow } from './types';
 
 export type ValidationError = { code: string; message: string };
 
@@ -434,25 +436,39 @@ function checkReferences(flow: ExperimentFlow): ValidationError[] {
       case 'screen': {
         const screen = screenMap.get(node.props.slug);
         if (screen) {
-          for (const component of screen.components) {
+          const prefix = [...dataPath, node.props.slug].join('.');
+          const screenLabel = `Screen "${node.props.slug}"`;
+
+          function processComponent(component: ScreenComponent, ctx: Context) {
             const props = component.props as Record<string, unknown>;
+            // TODO: also run checkText on dataKey — dynamic dataKeys like
+            // "rating-{{$$foo.bar}}" embed references that are not validated today.
             for (const field of ['label', 'content', 'text'] as const) {
               if (typeof props[field] === 'string') {
-                checkText(
-                  props[field] as string,
-                  `Screen "${node.props.slug}"`,
-                  current,
-                  insideLoop,
-                );
+                checkText(props[field] as string, screenLabel, current, insideLoop);
               }
             }
-          }
-          const prefix = [...dataPath, node.props.slug].join('.');
-          for (const component of screen.components) {
             if (component.componentFamily === 'response') {
-              current.add(`${prefix}.${component.props.dataKey}`);
+              current.add(`${prefix}.${resolveValuesInString(component.props.dataKey, ctx)}`);
+            } else if (component.componentFamily === 'layout' && component.template === 'group') {
+              for (const child of component.props.components) processComponent(child, ctx);
+            } else if (component.componentFamily === 'control') {
+              if (component.template === 'conditional') {
+                processComponent(component.props.component, ctx);
+                if (component.props.else) processComponent(component.props.else, ctx);
+              } else if (component.template === 'for-each' && component.props.type === 'static') {
+                component.props.values.forEach((value, index) => {
+                  const subCtx: Context = {
+                    screenData: { foreachData: { [component.props.id]: { index, value } } },
+                  };
+                  processComponent(component.props.component, subCtx);
+                });
+              }
+              // dynamic for-each: keys not resolvable statically — skip
             }
           }
+
+          for (const component of screen.components) processComponent(component, {});
         }
         const next = seqNext.get(nodeId);
         if (next) return walk(next, current, dataPath, insideLoop);
