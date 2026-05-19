@@ -385,7 +385,7 @@ describe('collectDescriptors — dynamic for-each', () => {
     };
     const result = collectDescriptors([c], null);
     const d = result[0] as Extract<(typeof result)[0], { dynamic: true }>;
-    expect(d.foreach).toEqual({ id: 'countries', dataKey: '$countryList' });
+    expect(d.foreach).toEqual([{ id: 'countries', dataKey: '$countryList' }]);
   });
 
   it('threads enclosingCondition into dynamic descriptors', () => {
@@ -675,6 +675,42 @@ describe('buildSchemaFromDescriptors — superRefine, static conditional', () =>
 });
 
 describe('buildSchemaFromDescriptors — superRefine, dynamic for-each', () => {
+  it('does not validate synthetic :order when its condition is false', () => {
+    // randomized radio inside a conditional inside a dynamic for-each
+    // when the condition is false, neither the field nor its :order key should be enforced
+    const c: ScreenComponent = {
+      componentFamily: 'control',
+      template: 'for-each',
+      props: {
+        type: 'dynamic',
+        id: 'items',
+        dataKey: '$items',
+        component: {
+          componentFamily: 'control',
+          template: 'conditional',
+          props: {
+            if: { type: 'simple', dataKey: '$showRadio', operator: 'eq', value: 'yes' },
+            component: {
+              componentFamily: 'response',
+              template: 'radio',
+              props: {
+                dataKey: 'choice-{{#items.value}}',
+                label: 'Choice',
+                options: [{ label: 'A', value: 'a' }],
+                randomize: true,
+              },
+            },
+          },
+        },
+      },
+    };
+    const descriptors = collectDescriptors([c], null);
+    const schema = buildSchemaFromDescriptors(descriptors, { data: { showRadio: 'no' } });
+
+    // condition is false — neither choice-x nor choice-x:order should be required
+    expect(schema.safeParse({ items: ['x', 'y'] }).success).toBe(true);
+  });
+
   it('validates dynamic fields resolved from $-prefixed screen data', () => {
     const c: ScreenComponent = {
       componentFamily: 'control',
@@ -825,5 +861,65 @@ describe('buildSchemaFromDescriptors — superRefine, dynamic for-each', () => {
 
     expect(schema.safeParse({ items: ['a'], 'rating-a': 10 }).success).toBe(false);
     expect(schema.safeParse({ items: ['a'], 'rating-a': 3 }).success).toBe(true);
+  });
+
+  it('validates nested dynamic for-each — outer × inner produces correct concrete keys', () => {
+    // outer: for-each over $groups (id=groups)
+    // inner: for-each over $items   (id=items)
+    // field key: answer-{{#groups.value}}-{{#items.value}}
+    const inner: ScreenComponent = {
+      componentFamily: 'control',
+      template: 'for-each',
+      props: {
+        type: 'dynamic',
+        id: 'items',
+        dataKey: '$items',
+        component: {
+          componentFamily: 'response',
+          template: 'slider',
+          props: {
+            dataKey: 'answer-{{#groups.value}}-{{#items.value}}',
+            label: 'A',
+            min: 0,
+            max: 10,
+            required: true,
+          },
+        },
+      },
+    };
+    const outer: ScreenComponent = {
+      componentFamily: 'control',
+      template: 'for-each',
+      props: { type: 'dynamic', id: 'groups', dataKey: '$groups', component: inner },
+    };
+
+    const descriptors = collectDescriptors([outer], null);
+    const schema = buildSchemaFromDescriptors(descriptors, {
+      screenData: { groups: ['g1', 'g2'], items: ['i1', 'i2'] },
+    });
+
+    // all four cells filled → valid
+    expect(
+      schema.safeParse({
+        groups: ['g1', 'g2'],
+        items: ['i1', 'i2'],
+        'answer-g1-i1': 1,
+        'answer-g1-i2': 2,
+        'answer-g2-i1': 3,
+        'answer-g2-i2': 4,
+      }).success,
+    ).toBe(true);
+
+    // one cell missing → invalid
+    expect(
+      schema.safeParse({
+        groups: ['g1', 'g2'],
+        items: ['i1', 'i2'],
+        'answer-g1-i1': 1,
+        'answer-g1-i2': 2,
+        'answer-g2-i1': null,
+        'answer-g2-i2': 4,
+      }).success,
+    ).toBe(false);
   });
 });

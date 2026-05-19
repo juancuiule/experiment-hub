@@ -34,7 +34,7 @@ type FieldDescriptor =
       dynamic: true;
       source: ResponseComponent;
       condition: Condition | null;
-      foreach: ForEachMeta;
+      foreach: [ForEachMeta, ...ForEachMeta[]];
     }
   | {
       key: string;
@@ -47,7 +47,7 @@ type FieldDescriptor =
       synthetic: true;
       dynamic: true;
       condition: Condition | null;
-      foreach: ForEachMeta;
+      foreach: [ForEachMeta, ...ForEachMeta[]];
     };
 
 function and(a: Condition | null, b: Condition): Condition {
@@ -172,7 +172,7 @@ function collectDescriptor(
             ({
               ...descriptor,
               dynamic: true,
-              foreach: meta,
+              foreach: descriptor.dynamic ? [meta, ...descriptor.foreach] : [meta],
             }) as FieldDescriptor,
         );
       }
@@ -237,37 +237,30 @@ export function buildSchemaFromDescriptors(
       }
     }
 
-    for (const descriptor of dynamicDescriptors) {
-      const values = getValue(descriptor.foreach.dataKey, fullContext);
-      if (!Array.isArray(values)) continue;
-
+    function iterateForeachChain(
+      chain: [ForEachMeta, ...ForEachMeta[]],
+      loopCtx: Context,
+      callback: (resolvedCtx: Context) => void,
+    ): void {
+      const [head, ...rest] = chain;
+      const values = getValue(head.dataKey, loopCtx);
+      if (!Array.isArray(values)) return;
       for (let index = 0; index < values.length; index++) {
         const value = values[index];
-
-        const loopCtx = mergeContext(fullContext, {
-          screenData: {
-            foreachData: {
-              [descriptor.foreach.id]: { index, value },
-            },
-          },
+        const nextCtx = mergeContext(loopCtx, {
+          screenData: { foreachData: { [head.id]: { index, value } } },
         });
-
-        const concreteKey = resolveValuesInString(descriptor.key, loopCtx);
-
-        if (descriptor.synthetic) {
-          const result = z
-            .array(z.string())
-            .safeParse(data[concreteKey]);
-          if (!result.success) {
-            for (const issue of result.error.issues) {
-              ctx.addIssue({
-                ...issue,
-                path: [concreteKey, ...(issue.path ?? [])],
-              });
-            }
-          }
-          continue;
+        if (rest.length === 0) {
+          callback(nextCtx);
+        } else {
+          iterateForeachChain(rest as [ForEachMeta, ...ForEachMeta[]], nextCtx, callback);
         }
+      }
+    }
+
+    for (const descriptor of dynamicDescriptors) {
+      iterateForeachChain(descriptor.foreach, fullContext, (loopCtx) => {
+        const concreteKey = resolveValuesInString(descriptor.key, loopCtx);
 
         const resolvedCondition =
           descriptor.condition !== null
@@ -278,7 +271,20 @@ export function buildSchemaFromDescriptors(
           resolvedCondition !== null &&
           !evaluateCondition(resolvedCondition, loopCtx)
         ) {
-          continue;
+          return;
+        }
+
+        if (descriptor.synthetic) {
+          const result = z.array(z.string()).safeParse(data[concreteKey]);
+          if (!result.success) {
+            for (const issue of result.error.issues) {
+              ctx.addIssue({
+                ...issue,
+                path: [concreteKey, ...(issue.path ?? [])],
+              });
+            }
+          }
+          return;
         }
 
         const result = buildFieldSchema(descriptor.source).safeParse(
@@ -292,7 +298,7 @@ export function buildSchemaFromDescriptors(
             });
           }
         }
-      }
+      });
     }
   }) as typeof baseSchema;
 }
