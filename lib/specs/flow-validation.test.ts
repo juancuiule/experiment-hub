@@ -1140,3 +1140,62 @@ describe('actual experiment', () => {
     expect(validateExperiment(experiment)).toEqual([]);
   });
 });
+
+describe('shared option references', () => {
+  function makeRadioScreen(optionsValue: string | object[]) {
+    return {
+      slug: 'q',
+      components: [
+        {
+          componentFamily: 'response' as const,
+          template: 'radio' as const,
+          props: {
+            dataKey: 'answer',
+            label: 'Pick one',
+            options: optionsValue as any,
+          },
+        },
+      ],
+    };
+  }
+
+  it('passes when %name resolves to a key in experiment.options', () => {
+    const flow: ExperimentFlow = {
+      nodes: [start, makeScreen('s1', 'q')],
+      edges: [seq('start', 's1')],
+      options: { 'yes-no': [{ label: 'Yes', value: 'yes' }] },
+      screens: [makeRadioScreen('%yes-no')],
+    };
+    expect(validateExperiment(flow)).toEqual([]);
+  });
+
+  it('reports unknown-shared-options when %name is not in experiment.options', () => {
+    const flow: ExperimentFlow = {
+      nodes: [start, makeScreen('s1', 'q')],
+      edges: [seq('start', 's1')],
+      screens: [makeRadioScreen('%missing')],
+    };
+    const errs = validateExperiment(flow);
+    expect(errs.map((e) => e.code)).toContain('unknown-shared-options');
+    expect(errs.find((e) => e.code === 'unknown-shared-options')!.message).toContain('%missing');
+  });
+
+  it('passes when options is an inline array (no % reference)', () => {
+    const flow: ExperimentFlow = {
+      nodes: [start, makeScreen('s1', 'q')],
+      edges: [seq('start', 's1')],
+      screens: [makeRadioScreen([{ label: 'Yes', value: 'yes' }])],
+    };
+    expect(validateExperiment(flow)).toEqual([]);
+  });
+
+  it('passes when options is a $$ reference (not a % reference)', () => {
+    const flow: ExperimentFlow = {
+      nodes: [start, makeScreen('s1', 'q')],
+      edges: [seq('start', 's1')],
+      screens: [makeRadioScreen('$$other-screen.data-key' as any)],
+    };
+    const codes = validateExperiment(flow).map((e) => e.code);
+    expect(codes).not.toContain('unknown-shared-options');
+  });
+});

@@ -7,6 +7,7 @@ export type ExperimentFlow = {
   nodes: FrameworkNode[];
   edges: FrameworkEdge[];
   screens?: FrameworkScreen[];
+  options?: Record<string, Option[]>;
 };
 
 type IterativeItem = { value: any; index: number };
