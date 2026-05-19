@@ -24,16 +24,17 @@ import { TextArea } from './response/TextArea';
 import { TextInput } from './response/TextInput';
 import { TimeInput } from './response/TimeInput';
 
-const renderChild = (props: RenderProps) => <RenderComponent {...props} />;
-
 export function RenderComponent({
   component,
   form,
   context: propContext,
   isLoading,
+  sharedOptions,
 }: RenderProps) {
   const screenData = form.watch(); // Watch all form values to have them available in context
   const context = deepMerge(propContext, { screenData }); // Add form values to context for easier access in components
+
+  const renderChild = (props: RenderProps) => <RenderComponent {...props} sharedOptions={sharedOptions} />;
 
   switch (component.componentFamily) {
     case 'content': {
@@ -53,6 +54,7 @@ export function RenderComponent({
       const props = {
         form,
         context,
+        sharedOptions,
         component: deepMerge(component, {
           props: {
             dataKey: resolveValuesInString(component.props.dataKey, context),

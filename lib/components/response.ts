@@ -88,7 +88,8 @@ export type OptionsSource =
   | Option[]
   | `$$${string}`
   | `@${string}`
-  | `$${string}`;
+  | `$${string}`
+  | `%${string}`;
 
 export interface DropdownComponent extends BaseResponseComponent<
   "dropdown",
@@ -134,13 +135,18 @@ export interface NumericInputComponent extends BaseResponseComponent<
   }
 > {}
 
-export type LikertOption = Option;
+export type LikertOption = {
+  value: string;
+  label?: string;
+};
+
+export type LikertOptionsSource = LikertOption[] | `%${string}`;
 
 export interface LikertScaleComponent extends BaseResponseComponent<
   "likert-scale",
   {
     label: string;
-    options: LikertOption[];
+    options: LikertOptionsSource;
   }
 > {}
 

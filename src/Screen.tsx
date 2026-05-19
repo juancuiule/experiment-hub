@@ -4,6 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 
 import { ScreenComponent } from '@/lib/components';
+import { Option } from '@/lib/components/response';
 import { mergeContext } from '@/lib/flow';
 import { resolveValuesInString } from '@/lib/resolve';
 import { FrameworkScreen } from '@/lib/screen';
@@ -17,6 +18,7 @@ type ScreenProps = {
   isLoading: boolean;
   onNext: (data?: Record<string, any>) => Promise<void>;
   context: Context;
+  sharedOptions?: Record<string, Option[]>;
 };
 
 function collectDefaults(
@@ -96,7 +98,7 @@ function buildDefaultValues(
   return collectDefaults(screen.components, context);
 }
 
-export function Screen({ screen, isLoading, onNext, context }: ScreenProps) {
+export function Screen({ screen, isLoading, onNext, context, sharedOptions }: ScreenProps) {
   const form = useForm<Record<string, any>>({
     resolver: zodResolver(buildSchema(screen, context)),
     // TODO: this defaultValues are only valid at initial render
@@ -140,6 +142,7 @@ export function Screen({ screen, isLoading, onNext, context }: ScreenProps) {
             form={form}
             context={context}
             isLoading={isLoading}
+            sharedOptions={sharedOptions}
           />
         ))}
       </form>

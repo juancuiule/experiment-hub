@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckboxesComponent } from "@/lib/components/response";
+import { CheckboxesComponent, Option } from "@/lib/components/response";
 import { Context } from "@/lib/types";
 import * as CheckboxPrimitive from "@radix-ui/react-checkbox";
 import { Check } from "lucide-react";
@@ -13,9 +13,10 @@ type Props = {
   component: CheckboxesComponent;
   form: UseFormReturn<Record<string, any>>;
   context: Context;
+  sharedOptions?: Record<string, Option[]>;
 };
 
-export function Checkboxes({ component, form, context }: Props) {
+export function Checkboxes({ component, form, context, sharedOptions }: Props) {
   const {
     control,
     formState: { errors },
@@ -30,7 +31,7 @@ export function Checkboxes({ component, form, context }: Props) {
         <div className="flex flex-col gap-1">
           <Label context={context}>{component.props.label}</Label>
           <div className="flex flex-col gap-2">
-            {resolveOptions(component.props.options, context, component.props.dataKey).map((opt) => {
+            {resolveOptions(component.props.options, context, component.props.dataKey, sharedOptions).map((opt) => {
               const checked =
                 Array.isArray(field.value) && field.value.includes(opt.value);
               return (

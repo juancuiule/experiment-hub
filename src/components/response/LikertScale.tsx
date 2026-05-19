@@ -1,6 +1,7 @@
 'use client';
 
-import { LikertScaleComponent } from '@/lib/components/response';
+import { LikertScaleComponent, Option } from '@/lib/components/response';
+import { resolveLikertOptionsSource } from '@/lib/resolve';
 import { Context } from '@/lib/types';
 import * as RadioGroupPrimitive from '@radix-ui/react-radio-group';
 import { Controller, UseFormReturn } from 'react-hook-form';
@@ -12,15 +13,16 @@ type Props = {
   component: LikertScaleComponent;
   form: UseFormReturn<Record<string, any>>;
   context: Context;
+  sharedOptions?: Record<string, Option[]>;
 };
 
-export function LikertScale({ component, form, context }: Props) {
+export function LikertScale({ component, form, context, sharedOptions }: Props) {
   const {
     control,
     formState: { errors },
   } = form;
   const { dataKey } = component.props;
-  const options = component.props.options;
+  const options = resolveLikertOptionsSource(component.props.options, sharedOptions);
 
   return (
     <Controller
