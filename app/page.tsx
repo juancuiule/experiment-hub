@@ -44,9 +44,19 @@ export default async function Home(props: Props) {
 
   return (
     <>
-      <StateDebug />
+      <details className="my-2">
+        <summary className="text-content-secondary cursor-pointer text-xs">
+          Debug Info
+        </summary>
+        <StateDebug />
+      </details>
       <Experiment startingNode={startingNode} />
-      <DataDebug />
+      <details>
+        <summary className="text-content-secondary cursor-pointer text-xs">
+          Data Debug
+        </summary>
+        <DataDebug />
+      </details>
     </>
   );
 }
