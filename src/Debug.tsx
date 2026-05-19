@@ -247,7 +247,7 @@ function isPrimitiveArray(v: unknown[]): boolean {
 
 function Leaf({ value }: { value: unknown }) {
   if (value === null || value === undefined)
-    return <span className="text-content-secondary">null</span>;
+    return <span className="text-content-secondary">{'null'}</span>;
   if (typeof value === 'boolean')
     return (
       <span className="text-purple-600 dark:text-purple-400">
@@ -350,7 +350,7 @@ export function DataDebug() {
     );
   }
 
-  const { context } = step;
+  const { context, state } = step;
   const {
     data,
     branches,
@@ -361,6 +361,8 @@ export function DataDebug() {
     loops,
     start,
   } = context;
+
+  const { type } = state;
 
   const hasScreenData = screenData && Object.keys(screenData).length > 0;
   const hasData = data && Object.keys(data).length > 0;
@@ -394,7 +396,7 @@ export function DataDebug() {
   }
 
   return (
-    <div className="my-5 flex flex-col gap-3">
+    <div className="flex flex-col gap-3">
       {hasStart && <DataSection title="start" data={start} />}
       {hasScreenData && <DataSection title="screen data" data={screenData} />}
       {hasData && <DataSection title="collected" data={data} />}
@@ -403,6 +405,7 @@ export function DataDebug() {
       {hasCheckpoints && <DataSection title="checkpoints" data={checkpoints} />}
       {hasLoops && <DataSection title="loops" data={loops} />}
       {hasTimings && <DataSection title="timings" data={timings} />}
+      <DataSection title="current state" data={state} />
     </div>
   );
 }

@@ -5,9 +5,9 @@ import { useForm } from 'react-hook-form';
 
 import { ScreenComponent } from '@/lib/components';
 import { mergeContext } from '@/lib/flow';
-import { FrameworkScreen } from '@/lib/screen';
-import { buildSchema, inspectFields } from '@/lib/screen-validation';
 import { resolveValuesInString } from '@/lib/resolve';
+import { FrameworkScreen } from '@/lib/screen';
+import { buildSchema } from '@/lib/screen-validation';
 import { Context } from '@/lib/types';
 import { RenderComponent } from './components/RenderComponent';
 import { DataSection } from './Debug';
@@ -124,9 +124,6 @@ export function Screen({ screen, isLoading, onNext, context }: ScreenProps) {
 
   return (
     <>
-      <pre className="text-xxs mb-4 text-wrap">
-        <code>{inspectFields(screen.components, context).join('\n')}</code>
-      </pre>
       <form
         className="flex h-full flex-1 flex-col gap-4"
         key={screen.slug}
@@ -145,10 +142,13 @@ export function Screen({ screen, isLoading, onNext, context }: ScreenProps) {
             isLoading={isLoading}
           />
         ))}
-        <div className="mt-auto flex flex-col gap-3">
-          <DataSection title="form" data={form.watch()} />
-        </div>
       </form>
+      <details className="my-2">
+        <summary className="text-content-secondary cursor-pointer text-xs">
+          Form Data (for debugging)
+        </summary>
+        <DataSection title="form" data={form.watch()} />
+      </details>
     </>
   );
 }

@@ -1,4 +1,4 @@
-import { evaluateCondition } from './conditions';
+import { evaluateCondition, Condition } from './conditions';
 
 import {
   isBranchConditionEdge,
@@ -26,6 +26,101 @@ import {
   State,
 } from './types';
 import { isDefined, send, shuffle } from './utils';
+
+// Returns false when any data key referenced by a condition is absent from context,
+// meaning evaluateCondition would silently fall to branch-default for the wrong reason.
+// Used to decide whether a branch contribution can be pre-computed at path init time.
+function isConditionDataAvailable(
+  condition: Condition,
+  context: Context,
+): boolean {
+  switch (condition.type) {
+    case 'simple': {
+      try {
+        return getValue(condition.dataKey, context) !== undefined;
+      } catch {
+        return false;
+      }
+    }
+    case 'and':
+    case 'or': {
+      return condition.conditions.every((c) =>
+        isConditionDataAvailable(c, context),
+      );
+    }
+    case 'not': {
+      return isConditionDataAvailable(condition.condition, context);
+    }
+  }
+
+  return false;
+}
+
+// Counts screens reachable from startNodeId by following sequential edges,
+// stopping when a path child is hit or there is no further sequential edge.
+// Used to count all extra screens a branch arm adds, not just the first one.
+function countChainFromNode(
+  experiment: ExperimentFlow,
+  startNodeId: string,
+  pathChildren: FrameworkNode[],
+): number {
+  const node = getNode(experiment, startNodeId);
+  if (!node || pathChildren.some((c) => c.id === startNodeId)) return 0;
+  const next = getNextSequentialNode(experiment, startNodeId);
+  return (
+    (node.type === 'screen' ? 1 : 0) +
+    (next ? countChainFromNode(experiment, next.id, pathChildren) : 0)
+  );
+}
+
+// Pre-computes visible screen count and per-branch contributions at path entry.
+// - screen children count directly
+// - branch children: if all condition data is available, evaluate and count the
+//   chain from the winner; if data is missing, contribute 0 and correct at traversal
+// - checkpoint children: their sequential target contributes 1 if not a path child
+// - loops/forks: counted via their own steppers, skipped here
+function computePathVisibility(
+  experiment: ExperimentFlow,
+  context: Context,
+  children: FrameworkNode[],
+): { total: number; branchContributions: Record<string, number> } {
+  return children.reduce(
+    (acc, child) => {
+      if (child.type === 'screen') {
+        return { ...acc, total: acc.total + 1 };
+      }
+      if (child.type === 'branch') {
+        const branchNode = child as BranchNode;
+        const allAvailable = branchNode.props.branches.every((b) =>
+          isConditionDataAvailable(b.config, context),
+        );
+        const { nNode } = allAvailable
+          ? getWinnerNode(experiment, branchNode, context)
+          : { nNode: null };
+        const contribution =
+          nNode && !children.some((c) => c.id === nNode.id)
+            ? countChainFromNode(experiment, nNode.id, children)
+            : 0;
+        return {
+          total: acc.total + contribution,
+          branchContributions: {
+            ...acc.branchContributions,
+            [branchNode.id]: contribution,
+          },
+        };
+      }
+      if (child.type === 'checkpoint') {
+        const nNode = getNextSequentialNode(experiment, child.id);
+        return nNode?.type === 'screen' &&
+          !children.some((c) => c.id === nNode.id)
+          ? { ...acc, total: acc.total + 1 }
+          : acc;
+      }
+      return acc;
+    },
+    { total: 0, branchContributions: {} as Record<string, number> },
+  );
+}
 
 // This function determines if we should auto-traverse from
 // the current step without waiting for external input.
@@ -86,12 +181,20 @@ function initialState(
         ? shuffle(children)
         : children;
 
+      const {
+        total: visibleTotal,
+        branchContributions: visibleBranchContributions,
+      } = computePathVisibility(experiment, context, childrenInOrder);
+
       return {
         type: 'in-path' as const,
         node,
         children: childrenInOrder,
         step: 0,
         innerState: initialState(experiment, context, childrenInOrder[0]),
+        visibleStep: 0,
+        visibleTotal,
+        visibleBranchContributions,
       };
     }
   }
@@ -107,43 +210,77 @@ function computeShuffledOptions(
 
   const inLoop = Object.keys(context.loopData ?? {}).length > 0;
   const previous = context.screenData?.shuffledOptions ?? {};
-  const result: Record<string, Array<Option>> = {};
 
-  function processComponents(components: ScreenComponent[], ctx: Context) {
-    for (const component of components) {
-      if (component.componentFamily === 'response' && hasRandomizedOptions(component)) {
+  function processComponent(
+    component: ScreenComponent,
+    ctx: Context,
+  ): [string, Array<Option>][] {
+    switch (component.componentFamily) {
+      case 'response': {
+        if (!hasRandomizedOptions(component)) return [];
         const key = resolveValuesInString(component.props.dataKey, ctx);
-        if (inLoop && !component.props.reshuffleInLoop && previous[key]) {
-          result[key] = previous[key];
-        } else {
-          result[key] = shuffle(resolveOptionsSource(component.props.options, ctx));
-        }
-      } else if (component.componentFamily === 'control') {
+        const options =
+          inLoop && !component.props.reshuffleInLoop && previous[key]
+            ? previous[key]
+            : shuffle(resolveOptionsSource(component.props.options, ctx));
+        return [[key, options]];
+      }
+      case 'control': {
         if (component.template === 'for-each') {
           const values =
             component.props.type === 'static'
               ? component.props.values
-              : (getValue(component.props.dataKey, ctx) as string[] | null) ?? [];
-          for (let index = 0; index < values.length; index++) {
-            const subCtx = mergeContext(ctx, {
-              screenData: {
-                foreachData: { [component.props.id]: { index, value: values[index] } },
-              },
-            });
-            processComponents([component.props.component], subCtx);
-          }
-        } else if (component.template === 'conditional') {
-          processComponents([component.props.component], ctx);
-          if (component.props.else) processComponents([component.props.else], ctx);
+              : ((getValue(component.props.dataKey, ctx) as string[] | null) ??
+                []);
+          return values.flatMap((value, index) =>
+            Object.entries<Array<Option>>(
+              processComponents(
+                [component.props.component],
+                mergeContext(ctx, {
+                  screenData: {
+                    foreachData: { [component.props.id]: { index, value } },
+                  },
+                }),
+              ),
+            ),
+          );
         }
-      } else if (component.componentFamily === 'layout' && component.template === 'group') {
-        processComponents(component.props.components, ctx);
+        if (component.template === 'conditional') {
+          const thenEntries = Object.entries<Array<Option>>(
+            processComponents([component.props.component], ctx),
+          );
+          const elseEntries = component.props.else
+            ? Object.entries<Array<Option>>(
+                processComponents([component.props.else], ctx),
+              )
+            : [];
+          return [...thenEntries, ...elseEntries];
+        }
+        return [];
       }
+      case 'layout': {
+        if (component.template === 'group') {
+          return Object.entries<Array<Option>>(
+            processComponents(component.props.components, ctx),
+          );
+        }
+        return [];
+      }
+      default:
+        return [];
     }
   }
 
-  processComponents(screen.components, context);
-  return result;
+  function processComponents(
+    components: ScreenComponent[],
+    ctx: Context,
+  ): Record<string, Array<Option>> {
+    return Object.fromEntries(
+      components.flatMap((c) => processComponent(c, ctx)),
+    );
+  }
+
+  return processComponents(screen.components, context);
 }
 
 // This function handles entering a step, applying any auto-traversal logic if needed.
@@ -523,7 +660,19 @@ export async function traverseInPath(
   // If the inner state returns "end" it means we completed the current
   // child node and should move to the next one in the path
   if (nInnerState.type === 'end') {
-    const nextStep = state.step + 1;
+    // A branch inside the path may have navigated us directly to a later path
+    // child (e.g. via branch-default). In that case state.step still points to
+    // the branch's index, but the node that just ended is further ahead in
+    // children. Advance from that child's position to avoid revisiting it.
+    let effectiveStep = state.step;
+    if (state.innerState.type === 'in-node') {
+      const endedNodeId = state.innerState.node.id;
+      const childIndex = state.children.findIndex((c) => c.id === endedNodeId);
+      if (childIndex > effectiveStep) {
+        effectiveStep = childIndex;
+      }
+    }
+    const nextStep = effectiveStep + 1;
     if (nextStep < state.children.length) {
       const nextNode = state.children[nextStep];
       const nextInnerState = initialState(experiment, nContext, nextNode);
@@ -533,9 +682,33 @@ export async function traverseInPath(
         context: nContext,
         dataPath: [...(step.dataPath ?? []), state.node.id],
       });
+
+      // When the next path child is a branch, apply a delta between the pre-computed
+      // contribution (which may be 0 for unresolvable conditions) and the actual chain
+      // length determined now that the branch has been evaluated with real data.
+      let visibleTotalDelta = 0;
+      if (nextNode.type === 'branch') {
+        const precomputed = state.visibleBranchContributions[nextNode.id] ?? 0;
+        const actual =
+          innerStep.state.type === 'in-node'
+            ? countChainFromNode(
+                experiment,
+                innerStep.state.node.id,
+                state.children,
+              )
+            : 0;
+        visibleTotalDelta = actual - precomputed;
+      }
+
       return {
         experiment,
-        state: { ...state, step: nextStep, innerState: innerStep.state },
+        state: {
+          ...state,
+          step: nextStep,
+          innerState: innerStep.state,
+          visibleStep: state.visibleStep + 1,
+          visibleTotal: state.visibleTotal + visibleTotalDelta,
+        },
         context: innerStep.context,
         dataPath: step.dataPath,
       };

@@ -45,6 +45,9 @@ export type InPathState = {
   children: FrameworkNode[];
   step: number;
   innerState: State;
+  visibleStep: number;
+  visibleTotal: number;
+  visibleBranchContributions: Record<string, number>;
 };
 export type InLoopState = {
   type: 'in-loop';

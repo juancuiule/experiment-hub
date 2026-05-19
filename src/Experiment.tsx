@@ -63,8 +63,8 @@ export default function Experiment(props: Props) {
         {step.state.type === 'in-path' && step.state.node.props.stepper && (
           <Stepper
             config={step.state.node.props.stepper}
-            step={step.state.step}
-            total={step.state.children.length}
+            step={step.state.visibleStep}
+            total={step.state.visibleTotal}
           />
         )}
         {step.state.type === 'in-loop' && step.state.node.props.stepper && (
