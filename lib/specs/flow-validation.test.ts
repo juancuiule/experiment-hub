@@ -650,8 +650,8 @@ describe('@ reference checks', () => {
               componentFamily: 'response',
               template: 'likert-scale',
               props: {
-                dataKey: 'score',
-                label: 'Rate @value',
+                dataKey: 'score-{{@loop.value}}',
+                label: 'Rate {{@loop.value}}',
                 options: [
                   { label: 'Low', value: '1' },
                   { label: 'Medium', value: '2' },
@@ -677,7 +677,7 @@ describe('@ reference checks', () => {
             {
               componentFamily: 'response',
               template: 'text-input',
-              props: { dataKey: 'name', label: 'Hi @value' },
+              props: { dataKey: 'name', label: 'Hi {{@loop.value}}' },
             },
           ],
         },
@@ -700,7 +700,7 @@ describe('@ reference checks', () => {
             {
               componentFamily: 'content',
               template: 'rich-text',
-              props: { content: '## @value' },
+              props: { content: '## {{@loop.value}}' },
             },
           ],
         },
@@ -732,7 +732,7 @@ describe('$$ reference checks', () => {
             {
               componentFamily: 'response',
               template: 'text-input',
-              props: { dataKey: 'note', label: 'Hi $$welcome.name' },
+              props: { dataKey: 'note', label: 'Hi {{$$welcome.name}}' },
             },
           ],
         },
@@ -752,13 +752,33 @@ describe('$$ reference checks', () => {
             {
               componentFamily: 'response',
               template: 'text-input',
-              props: { dataKey: 'name', label: 'Hi $$other.name' },
+              props: { dataKey: 'name', label: 'Hi {{$$other.name}}' },
             },
           ],
         },
       ],
     };
     expect(codes(flow)).toContain('unavailable-reference');
+  });
+
+  it('reports unwrapped-token for a bare $$ ref embedded in label text', () => {
+    const flow: ExperimentFlow = {
+      nodes: [start, makeScreen('s1', 'welcome')],
+      edges: [seq('start', 's1')],
+      screens: [
+        {
+          slug: 'welcome',
+          components: [
+            {
+              componentFamily: 'response',
+              template: 'text-input',
+              props: { dataKey: 'name', label: 'Hello $$welcome.name' },
+            },
+          ],
+        },
+      ],
+    };
+    expect(codes(flow)).toContain('unwrapped-token');
   });
 
   it('accepts a $$ reference to data written inside a path', () => {
@@ -791,7 +811,10 @@ describe('$$ reference checks', () => {
             {
               componentFamily: 'response',
               template: 'text-input',
-              props: { dataKey: 'note', label: '$$path-info.demographics.age' },
+              props: {
+                dataKey: 'note',
+                label: '{{$$path-info.demographics.age}}',
+              },
             },
           ],
         },
@@ -865,7 +888,7 @@ describe('$$ reference checks', () => {
             {
               componentFamily: 'response',
               template: 'text-input',
-              props: { dataKey: 'x', label: '$$branch-yes.extra' },
+              props: { dataKey: 'x', label: '{{$$branch-yes.extra}}' },
             },
           ],
         },
@@ -930,7 +953,7 @@ describe('$$ reference checks', () => {
             {
               componentFamily: 'response',
               template: 'text-input',
-              props: { dataKey: 'x', label: '$$before.answer' },
+              props: { dataKey: 'x', label: '{{$$before.answer}}' },
             },
           ],
         },
@@ -1048,7 +1071,7 @@ describe('condition reference checks', () => {
                 config: {
                   type: 'simple',
                   operator: 'eq',
-                  dataKey: '@value',
+                  dataKey: '@loop.value',
                   value: 'y',
                 },
               },

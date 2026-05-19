@@ -1,14 +1,16 @@
-"use client";
+'use client';
 
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useForm } from 'react-hook-form';
 
-import { ScreenComponent } from "@/lib/components";
-import { FrameworkScreen } from "@/lib/screen";
-import { Context } from "@/lib/types";
-import { buildSchema } from "@/lib/validation";
-import { RenderComponent } from "./components/RenderComponent";
-import { DataSection } from "./Debug";
+import { ScreenComponent } from '@/lib/components';
+import { mergeContext } from '@/lib/flow';
+import { FrameworkScreen } from '@/lib/screen';
+import { buildSchema, inspectFields } from '@/lib/screen-validation';
+import { resolveValuesInString } from '@/lib/resolve';
+import { Context } from '@/lib/types';
+import { RenderComponent } from './components/RenderComponent';
+import { DataSection } from './Debug';
 
 type ScreenProps = {
   screen: FrameworkScreen;
@@ -23,55 +25,65 @@ function collectDefaults(
   values: Record<string, any> = {},
 ): Record<string, any> {
   for (const c of components) {
-    if (c.componentFamily !== "response") {
-      if (c.componentFamily === "layout" && c.template === "group") {
+    if (c.componentFamily !== 'response') {
+      if (c.componentFamily === 'layout' && c.template === 'group') {
         collectDefaults(c.props.components, context, values);
-      } else if (c.componentFamily === "control" && c.template === "conditional") {
+      } else if (
+        c.componentFamily === 'control' &&
+        c.template === 'conditional'
+      ) {
         collectDefaults([c.props.component], context, values);
         if (c.props.else) collectDefaults([c.props.else], context, values);
       } else if (
-        c.componentFamily === "control" &&
-        c.template === "for-each" &&
-        c.props.type === "static"
+        c.componentFamily === 'control' &&
+        c.template === 'for-each' &&
+        c.props.type === 'static'
       ) {
         const inner = c.props.component;
         for (let i = 0; i < c.props.values.length; i++) {
+          const subContext = mergeContext(context, {
+            screenData: {
+              foreachData: {
+                [c.props.id]: { index: i, value: c.props.values[i] },
+              },
+            },
+          });
           let resolved: ScreenComponent;
-          if (inner.componentFamily === "response") {
+          if (inner.componentFamily === 'response') {
             resolved = {
               ...inner,
               props: {
                 ...inner.props,
-                dataKey: inner.props.dataKey.replace("@index", String(i)),
+                dataKey: resolveValuesInString(inner.props.dataKey, subContext),
               },
             } as typeof inner;
           } else {
             resolved = inner;
           }
-          collectDefaults([resolved], context, values);
+          collectDefaults([resolved], subContext, values);
         }
       }
       continue;
     }
     switch (c.template) {
-      case "radio":
-      case "dropdown":
-        values[c.props.dataKey] = "";
+      case 'radio':
+      case 'dropdown':
+        values[c.props.dataKey] = '';
         break;
-      case "checkboxes":
+      case 'checkboxes':
         values[c.props.dataKey] = [];
         break;
-      case "single-checkbox":
+      case 'single-checkbox':
         values[c.props.dataKey] = c.props.defaultValue ?? false;
         break;
-      case "slider":
+      case 'slider':
         values[c.props.dataKey] = null;
         break;
-      case "numeric-input":
+      case 'numeric-input':
         values[c.props.dataKey] = c.props.defaultValue ?? null;
         break;
       default:
-        values[c.props.dataKey] = "";
+        values[c.props.dataKey] = '';
     }
   }
   return values;
@@ -86,7 +98,7 @@ function buildDefaultValues(
 
 export function Screen({ screen, isLoading, onNext, context }: ScreenProps) {
   const form = useForm<Record<string, any>>({
-    resolver: zodResolver(buildSchema(screen)),
+    resolver: zodResolver(buildSchema(screen, context)),
     // TODO: this defaultValues are only valid at initial render
     // if a component is added/removed during the screen, the defaultValues won't be updated
     // because we are using shouldUnregister: true, when a component is removed, its value will be removed from the form state
@@ -100,35 +112,43 @@ export function Screen({ screen, isLoading, onNext, context }: ScreenProps) {
     const orders = Object.fromEntries(
       Object.entries(shuffledOptions)
         .filter(([key]) => key in data)
-        .map(([key, opts]) => [`${key}__order`, (opts as Array<{ value: string }>).map((o) => o.value)]),
+        .map(([key, opts]) => [
+          `${key}:order`,
+          (opts as Array<{ value: string }>).map((o) => o.value),
+        ]),
     );
     onNext({ ...data, ...orders }).catch((err) =>
-      console.error("Failed to advance experiment:", err),
+      console.error('Failed to advance experiment:', err),
     );
   };
 
   return (
-    <form
-      className="h-full flex-1 flex flex-col gap-4"
-      key={screen.slug}
-      onSubmit={form.handleSubmit(onSubmit)}
-    >
-      {screen.components.map((component, i) => (
-        <RenderComponent
-          key={
-            component.componentFamily === "response"
-              ? component.props.dataKey
-              : i
-          }
-          component={component}
-          form={form}
-          context={context}
-          isLoading={isLoading}
-        />
-      ))}
-      <div className="flex flex-col gap-3">
-        <DataSection title="form" data={form.watch()} />
-      </div>
-    </form>
+    <>
+      <pre className="text-xxs mb-4 text-wrap">
+        <code>{inspectFields(screen.components, context).join('\n')}</code>
+      </pre>
+      <form
+        className="flex h-full flex-1 flex-col gap-4"
+        key={screen.slug}
+        onSubmit={form.handleSubmit(onSubmit)}
+      >
+        {screen.components.map((component, i) => (
+          <RenderComponent
+            key={
+              component.componentFamily === 'response'
+                ? component.props.dataKey
+                : i
+            }
+            component={component}
+            form={form}
+            context={context}
+            isLoading={isLoading}
+          />
+        ))}
+        <div className="mt-auto flex flex-col gap-3">
+          <DataSection title="form" data={form.watch()} />
+        </div>
+      </form>
+    </>
   );
 }

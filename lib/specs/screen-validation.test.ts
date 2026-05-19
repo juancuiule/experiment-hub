@@ -1,9 +1,13 @@
 import { FrameworkScreen } from '@/lib/screen';
-import { buildSchema } from '@/lib/validation';
+import { buildSchema as _buildSchema } from '@/lib/screen-validation';
 import { describe, expect, it } from 'vitest';
 
 function screen(components: FrameworkScreen['components']): FrameworkScreen {
   return { slug: 'test', components };
+}
+
+function buildSchema(s: FrameworkScreen) {
+  return _buildSchema(s, { data: {} });
 }
 
 describe('text-input', () => {
@@ -1038,7 +1042,7 @@ describe('static for-each — generates N schema entries', () => {
               componentFamily: 'response',
               template: 'text-input',
               props: {
-                dataKey: 'sport_@index',
+                dataKey: 'sport_{{#sports.index}}',
                 label: 'Sport',
                 required: true,
               },
@@ -1055,6 +1059,37 @@ describe('static for-each — generates N schema entries', () => {
     ).toBe(false);
   });
 
+  it('creates one entry per static value with value token resolved', () => {
+    const schema = buildSchema(
+      screen([
+        {
+          componentFamily: 'control',
+          template: 'for-each',
+          props: {
+            type: 'static',
+            id: 'fruits',
+            values: ['apple', 'banana'],
+            component: {
+              componentFamily: 'response',
+              template: 'text-input',
+              props: {
+                dataKey: 'like-{{#fruits.value}}',
+                label: 'Like',
+                required: true,
+              },
+            },
+          },
+        },
+      ]),
+    );
+    expect(
+      schema.safeParse({ 'like-apple': 'yes', 'like-banana': 'yes' }).success,
+    ).toBe(true);
+    expect(
+      schema.safeParse({ 'like-apple': '', 'like-banana': 'yes' }).success,
+    ).toBe(false);
+  });
+
   it('generates exactly N keys matching values length', () => {
     const schema = buildSchema(
       screen([
@@ -1068,7 +1103,7 @@ describe('static for-each — generates N schema entries', () => {
             component: {
               componentFamily: 'response',
               template: 'text-input',
-              props: { dataKey: 'item_@index', label: 'Item', required: true },
+              props: { dataKey: 'item_{{#items.index}}', label: 'Item', required: true },
             },
           },
         },
@@ -1078,6 +1113,96 @@ describe('static for-each — generates N schema entries', () => {
     expect(schema.safeParse({ item_0: 'x', item_1: 'y' }).success).toBe(true);
     // extra key item_2 is irrelevant (zod strips or passes unknowns)
     expect(schema.safeParse({ item_0: '', item_1: 'y' }).success).toBe(false);
+  });
+});
+
+describe('dynamic for-each with randomized component — :order key validated', () => {
+  it('accepts a string array for the :order key', () => {
+    const schema = _buildSchema(
+      screen([
+        {
+          componentFamily: 'control',
+          template: 'for-each',
+          props: {
+            type: 'dynamic',
+            id: 'items',
+            dataKey: '$$items',
+            component: {
+              componentFamily: 'response',
+              template: 'radio',
+              props: {
+                dataKey: 'pick_{{#items.index}}',
+                label: 'Pick',
+                options: [{ label: 'A', value: 'a' }, { label: 'B', value: 'b' }],
+                randomize: true,
+              },
+            },
+          },
+        },
+      ]),
+      { data: { items: ['x'] } },
+    );
+    expect(
+      schema.safeParse({ pick_0: 'a', 'pick_0:order': ['b', 'a'] }).success,
+    ).toBe(true);
+  });
+
+  it('accepts a missing :order key (appended by onSubmit, not a form field)', () => {
+    const schema = _buildSchema(
+      screen([
+        {
+          componentFamily: 'control',
+          template: 'for-each',
+          props: {
+            type: 'dynamic',
+            id: 'items',
+            dataKey: '$$items',
+            component: {
+              componentFamily: 'response',
+              template: 'radio',
+              props: {
+                dataKey: 'pick_{{#items.index}}',
+                label: 'Pick',
+                options: [{ label: 'A', value: 'a' }],
+                randomize: true,
+              },
+            },
+          },
+        },
+      ]),
+      { data: { items: ['x'] } },
+    );
+    expect(schema.safeParse({ pick_0: 'a' }).success).toBe(true);
+  });
+
+  it('rejects a non-array :order value', () => {
+    const schema = _buildSchema(
+      screen([
+        {
+          componentFamily: 'control',
+          template: 'for-each',
+          props: {
+            type: 'dynamic',
+            id: 'items',
+            dataKey: '$$items',
+            component: {
+              componentFamily: 'response',
+              template: 'radio',
+              props: {
+                dataKey: 'pick_{{#items.index}}',
+                label: 'Pick',
+                options: [{ label: 'A', value: 'a' }],
+                randomize: true,
+              },
+            },
+          },
+        },
+      ]),
+      { data: { items: ['x'] } },
+    );
+    expect(
+      schema.safeParse({ pick_0: 'a', 'pick_0:order': 'not-an-array' }).success,
+    ).toBe(false);
   });
 });
 
@@ -1095,7 +1220,7 @@ describe('dynamic for-each — gracefully skipped', () => {
             component: {
               componentFamily: 'response',
               template: 'text-input',
-              props: { dataKey: 'item_@index', label: 'Item', required: true },
+              props: { dataKey: 'item_{{#items.index}}', label: 'Item', required: true },
             },
           },
         },
@@ -1106,8 +1231,52 @@ describe('dynamic for-each — gracefully skipped', () => {
   });
 });
 
-describe('randomize __order key', () => {
-  it('does not strip __order from validated data for randomize:true radio', () => {
+describe('dynamic for-each nested inside static for-each', () => {
+  it('validates dynamic fields with outer static key resolved and inner dynamic key resolved at runtime', () => {
+    const schema = _buildSchema(
+      screen([
+        {
+          componentFamily: 'control',
+          template: 'for-each',
+          props: {
+            type: 'static',
+            id: 'outer',
+            values: ['a', 'b'],
+            component: {
+              componentFamily: 'control',
+              template: 'for-each',
+              props: {
+                type: 'dynamic',
+                id: 'inner',
+                dataKey: '$$items',
+                component: {
+                  componentFamily: 'response',
+                  template: 'text-input',
+                  props: {
+                    dataKey: '{{#outer.value}}_{{#inner.index}}',
+                    label: 'Item',
+                    required: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      ]),
+      { data: { items: ['x', 'y'] } },
+    );
+    // outer values ['a','b'] × inner dynamic ['x','y'] → a_0, a_1, b_0, b_1
+    expect(
+      schema.safeParse({ a_0: 'v', a_1: 'v', b_0: 'v', b_1: 'v' }).success,
+    ).toBe(true);
+    expect(
+      schema.safeParse({ a_0: '', a_1: 'v', b_0: 'v', b_1: 'v' }).success,
+    ).toBe(false);
+  });
+});
+
+describe('randomize :order key', () => {
+  it('does not strip :order from validated data for randomize:true radio', () => {
     const screen: FrameworkScreen = {
       slug: 'test',
       components: [
@@ -1127,12 +1296,12 @@ describe('randomize __order key', () => {
       ],
     };
     const schema = buildSchema(screen);
-    const result = schema.safeParse({ choice: 'a', choice__order: ['b', 'a'] });
+    const result = schema.safeParse({ choice: 'a', 'choice:order': ['b', 'a'] });
     expect(result.success).toBe(true);
-    expect(result.data?.choice__order).toEqual(['b', 'a']);
+    expect(result.data?.['choice:order']).toEqual(['b', 'a']);
   });
 
-  it('does not strip __order from validated data for randomize:true checkboxes', () => {
+  it('does not strip :order from validated data for randomize:true checkboxes', () => {
     const screen: FrameworkScreen = {
       slug: 'test',
       components: [
@@ -1152,12 +1321,12 @@ describe('randomize __order key', () => {
       ],
     };
     const schema = buildSchema(screen);
-    const result = schema.safeParse({ picks: ['a'], picks__order: ['b', 'a'] });
+    const result = schema.safeParse({ picks: ['a'], 'picks:order': ['b', 'a'] });
     expect(result.success).toBe(true);
-    expect(result.data?.picks__order).toEqual(['b', 'a']);
+    expect(result.data?.['picks:order']).toEqual(['b', 'a']);
   });
 
-  it('does not strip __order from validated data for randomize:true dropdown', () => {
+  it('does not strip :order from validated data for randomize:true dropdown', () => {
     const screen: FrameworkScreen = {
       slug: 'test',
       components: [
@@ -1179,15 +1348,15 @@ describe('randomize __order key', () => {
     const schema = buildSchema(screen);
     const result = schema.safeParse({
       selected: 'a',
-      selected__order: ['b', 'a'],
+      'selected:order': ['b', 'a'],
     });
     expect(result.success).toBe(true);
-    expect(result.data?.selected__order).toEqual(['b', 'a']);
+    expect(result.data?.['selected:order']).toEqual(['b', 'a']);
   });
 
   // TODO: fix this test, it's not beignt stripped becuase
   // we need to keep that .passthrough() in zod schema for dynamic for-each
-  // it("strips __order for non-randomized fields (Zod default strip behaviour)", () => {
+  // it("strips :order for non-randomized fields (Zod default strip behaviour)", () => {
   //   const screen: FrameworkScreen = {
   //     slug: "test",
   //     components: [
@@ -1203,8 +1372,8 @@ describe('randomize __order key', () => {
   //     ],
   //   };
   //   const schema = buildSchema(screen);
-  //   const result = schema.safeParse({ choice: "a", choice__order: ["a"] });
+  //   const result = schema.safeParse({ choice: "a", 'choice:order': ["a"] });
   //   expect(result.success).toBe(true);
-  //   expect(result.data).not.toHaveProperty("choice__order");
+  //   expect(result.data).not.toHaveProperty("choice:order");
   // });
 });

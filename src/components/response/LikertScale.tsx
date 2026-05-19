@@ -1,12 +1,12 @@
-"use client";
+'use client';
 
-import { LikertScaleComponent } from "@/lib/components/response";
-import { Context } from "@/lib/types";
-import * as RadioGroupPrimitive from "@radix-ui/react-radio-group";
-import { Controller, UseFormReturn } from "react-hook-form";
-import { twMerge } from "tailwind-merge";
-import { Label } from "../Label";
-import { FieldError } from "../primitives";
+import { LikertScaleComponent } from '@/lib/components/response';
+import { Context } from '@/lib/types';
+import * as RadioGroupPrimitive from '@radix-ui/react-radio-group';
+import { Controller, UseFormReturn } from 'react-hook-form';
+import { twMerge } from 'tailwind-merge';
+import { Label } from '../Label';
+import { FieldError } from '../primitives';
 
 type Props = {
   component: LikertScaleComponent;
@@ -21,7 +21,6 @@ export function LikertScale({ component, form, context }: Props) {
   } = form;
   const { dataKey } = component.props;
   const options = component.props.options;
-  const lastIndex = options.length - 1;
 
   return (
     <Controller
@@ -36,14 +35,14 @@ export function LikertScale({ component, form, context }: Props) {
             value={field.value}
             onValueChange={field.onChange}
             aria-labelledby={`${dataKey}-label`}
-            className="flex justify-between mt-3 flex-row gap-4 items-start"
+            className="mt-3 flex flex-row items-start justify-between gap-4"
           >
             {options.map((opt, i) => {
               return (
                 <div
                   key={opt.value}
                   className={twMerge(
-                    "flex justify-center items-center flex-col flex-1 gap-1",
+                    'flex flex-1 flex-col items-center justify-center gap-1',
                   )}
                 >
                   <RadioGroupPrimitive.Item
@@ -54,15 +53,15 @@ export function LikertScale({ component, form, context }: Props) {
                         ? `${opt.value} — ${opt.label}`
                         : String(opt.value)
                     }
-                    className="size-8 rounded-full relative border border-border-default flex items-center justify-center shrink-0 data-[state=checked]:border-content-active active:scale-95 transition duration-150 ease-out cursor-pointer"
+                    className="border-border-default data-[state=checked]:border-content-active relative flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-full border transition duration-150 ease-out active:scale-95"
                   >
-                    <span className="text-xs absolute top-1/2 -translate-y-1/2 left-1/2 -translate-x-1/2 text-content-secondary">
+                    <span className="text-content-secondary absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-xs">
                       <span className="ml-0.5">{i + 1}</span>
                     </span>
                     <RadioGroupPrimitive.Indicator
                       className={twMerge(
-                        "size-6 flex items-center justify-center text-xs rounded-full",
-                        "bg-content-active text-content-inverted z-10 text-center",
+                        'flex size-6 items-center justify-center rounded-full text-xs',
+                        'bg-content-active text-content-inverted z-10 text-center',
                       )}
                     >
                       {i + 1}
@@ -73,7 +72,7 @@ export function LikertScale({ component, form, context }: Props) {
                       htmlFor={`${dataKey}-${opt.value}`}
                       context={context}
                       className={twMerge(
-                        "text-xs w-full text-center text-balance",
+                        'w-full text-center text-xs text-balance',
                       )}
                     >
                       {opt.label}

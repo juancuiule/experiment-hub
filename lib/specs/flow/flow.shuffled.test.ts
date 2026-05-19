@@ -104,6 +104,48 @@ describe('shuffled options injected by enterStep', () => {
     expect(step.context.screenData?.shuffledOptions).toBeUndefined();
   });
 
+  it('injects shuffledOptions for randomized component inside dynamic for-each', async () => {
+    const flow: ExperimentFlow = {
+      nodes: [
+        { id: 'start', type: 'start' },
+        { id: 's1', type: 'screen', props: { slug: 'test' } },
+      ],
+      edges: [seq('start', 's1')],
+      screens: [
+        {
+          slug: 'test',
+          components: [
+            {
+              componentFamily: 'control',
+              template: 'for-each',
+              props: {
+                type: 'dynamic',
+                id: 'items',
+                dataKey: '$$items',
+                component: {
+                  componentFamily: 'response',
+                  template: 'radio',
+                  props: {
+                    dataKey: 'pick_{{#items.index}}',
+                    label: 'Pick',
+                    options: OPTIONS,
+                    randomize: true,
+                  },
+                },
+              },
+            },
+          ],
+        },
+      ],
+    };
+    const step = await traverse(
+      { state: { type: 'initial' }, experiment: flow, context: { data: { items: ['x', 'y'] } } },
+      { startNodeId: 'start' },
+    );
+    expect(step.context.screenData?.shuffledOptions?.['pick_0']).toHaveLength(3);
+    expect(step.context.screenData?.shuffledOptions?.['pick_1']).toHaveLength(3);
+  });
+
   it('preserves order in loops when reshuffleInLoop:false', async () => {
     const flow = makeFlow(
       [
