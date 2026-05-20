@@ -1,13 +1,14 @@
-"use client";
+'use client';
 
-import { DropdownComponent, Option } from "@/lib/components/response";
-import { resolveValuesInString } from "@/lib/resolve";
-import { Context } from "@/lib/types";
-import * as SelectPrimitive from "@radix-ui/react-select";
-import { ChevronDown } from "lucide-react";
-import { Controller, UseFormReturn } from "react-hook-form";
-import { Label } from "../Label";
-import { FieldError, resolveOptions } from "../primitives";
+import { DropdownComponent, Option } from '@/lib/components/response';
+import { resolveValuesInString } from '@/lib/resolve';
+import { Context } from '@/lib/types';
+import * as SelectPrimitive from '@radix-ui/react-select';
+import { ChevronDown } from 'lucide-react';
+import { Controller, UseFormReturn } from 'react-hook-form';
+import { Label } from '../Label';
+import { FieldError, resolveOptions } from '../primitives';
+import { defaultPerTemplate } from '@/lib/screen-defaults';
 
 type Props = {
   component: DropdownComponent;
@@ -27,6 +28,7 @@ export function Dropdown({ component, form, context, sharedOptions }: Props) {
     <Controller
       control={control}
       name={dataKey}
+      defaultValue={defaultPerTemplate(component)}
       render={({ field }) => (
         <div className="flex flex-col gap-1">
           <Label htmlFor={dataKey} context={context}>
@@ -38,34 +40,37 @@ export function Dropdown({ component, form, context, sharedOptions }: Props) {
           >
             <SelectPrimitive.Trigger
               id={dataKey}
-              className="flex items-center justify-between border-b border-border-default pb-1 pt-1 w-full outline-none focus:border-content-active transition-[border-color] duration-150 ease-out data-placeholder:text-content-secondary text-sm"
+              className="border-border-default focus:border-content-active data-placeholder:text-content-secondary flex w-full items-center justify-between border-b pt-1 pb-1 text-sm transition-[border-color] duration-150 ease-out outline-none"
             >
               <SelectPrimitive.Value placeholder="Select one" />
               <SelectPrimitive.Icon>
-                <ChevronDown className="size-4 text-content-secondary" />
+                <ChevronDown className="text-content-secondary size-4" />
               </SelectPrimitive.Icon>
             </SelectPrimitive.Trigger>
             <SelectPrimitive.Portal>
               <SelectPrimitive.Content
                 position="popper"
                 sideOffset={4}
-                className="bg-background-surface border border-border-default shadow-md rounded-sm z-50 overflow-hidden"
+                className="bg-background-surface border-border-default z-50 overflow-hidden rounded-sm border shadow-md"
                 style={{ minWidth: 'var(--radix-select-trigger-width)' }}
               >
                 <SelectPrimitive.Viewport className="p-1">
-                  {resolveOptions(component.props.options, context, component.props.dataKey, sharedOptions).map(
-                    (opt) => (
-                      <SelectPrimitive.Item
-                        key={opt.value}
-                        value={opt.value}
-                        className="flex items-center px-3 py-2 text-sm cursor-pointer outline-none data-highlighted:bg-content-active data-highlighted:text-content-inverted rounded-sm"
-                      >
-                        <SelectPrimitive.ItemText>
-                          {resolveValuesInString(opt.label, context)}
-                        </SelectPrimitive.ItemText>
-                      </SelectPrimitive.Item>
-                    ),
-                  )}
+                  {resolveOptions(
+                    component.props.options,
+                    context,
+                    component.props.dataKey,
+                    sharedOptions,
+                  ).map((opt) => (
+                    <SelectPrimitive.Item
+                      key={opt.value}
+                      value={opt.value}
+                      className="data-highlighted:bg-content-active data-highlighted:text-content-inverted flex cursor-pointer items-center rounded-sm px-3 py-2 text-sm outline-none"
+                    >
+                      <SelectPrimitive.ItemText>
+                        {resolveValuesInString(opt.label, context)}
+                      </SelectPrimitive.ItemText>
+                    </SelectPrimitive.Item>
+                  ))}
                 </SelectPrimitive.Viewport>
               </SelectPrimitive.Content>
             </SelectPrimitive.Portal>

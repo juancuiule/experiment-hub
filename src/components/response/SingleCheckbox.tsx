@@ -1,6 +1,7 @@
 'use client';
 
 import { SingleCheckboxComponent } from '@/lib/components/response';
+import { defaultPerTemplate } from '@/lib/screen-defaults';
 import { Context } from '@/lib/types';
 import * as CheckboxPrimitive from '@radix-ui/react-checkbox';
 import { Check } from 'lucide-react';
@@ -26,12 +27,13 @@ export function SingleCheckbox({ component, form, context }: Props) {
     <Controller
       control={control}
       name={dataKey}
+      defaultValue={defaultPerTemplate(component)}
       render={({ field }) => (
         <div className="flex flex-col gap-1">
           <div className="flex items-start gap-2">
             <CheckboxPrimitive.Root
               id={`${dataKey}`}
-              checked={field.value ?? component.props.defaultValue ?? false}
+              checked={field.value ?? false}
               onCheckedChange={field.onChange}
               className={twMerge(
                 'border-border-default size-4 rounded-sm border',

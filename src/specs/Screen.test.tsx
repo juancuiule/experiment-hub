@@ -934,6 +934,198 @@ describe('for-each', () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// Dynamic mount default values
+// Fields inside a dynamic for-each have template keys that buildDefaultValues
+// cannot pre-compute. Each Controller must carry its own defaultValue so that
+// field.value is the correct empty state when the field first mounts.
+// ---------------------------------------------------------------------------
+
+describe('dynamic mount default values', () => {
+  function makeForEachScreen(
+    innerComponent: FrameworkScreen['components'][number],
+  ): FrameworkScreen['components'] {
+    return [
+      {
+        componentFamily: 'response',
+        template: 'checkboxes',
+        props: {
+          dataKey: 'selected',
+          label: 'Select items',
+          options: [{ label: 'Item A', value: 'item-a' }],
+        },
+      },
+      {
+        componentFamily: 'control',
+        template: 'for-each',
+        props: {
+          id: 'loop',
+          type: 'dynamic',
+          dataKey: '$selected',
+          component: innerComponent,
+        },
+      },
+      {
+        componentFamily: 'layout',
+        template: 'button',
+        props: { text: 'Submit' },
+      },
+    ];
+  }
+
+  it('submits [] for checkboxes inside dynamic for-each when not interacted', async () => {
+    const onNext = vi.fn().mockResolvedValue(undefined);
+    renderScreen(
+      makeForEachScreen({
+        componentFamily: 'response',
+        template: 'checkboxes',
+        props: {
+          dataKey: 'tags-{{#loop.value}}',
+          label: 'Tags for {{#loop.value}}',
+          options: [{ label: 'Tag X', value: 'tag-x' }],
+          required: false,
+        },
+      }),
+      {},
+      onNext,
+    );
+
+    await userEvent.click(screen.getByLabelText('Item A'));
+    await userEvent.click(screen.getByRole('button', { name: 'Submit' }));
+
+    expect(onNext).toHaveBeenCalledWith(
+      expect.objectContaining({ 'tags-item-a': [] }),
+    );
+  });
+
+  it('submits null for slider inside dynamic for-each when not interacted', async () => {
+    const onNext = vi.fn().mockResolvedValue(undefined);
+    renderScreen(
+      makeForEachScreen({
+        componentFamily: 'response',
+        template: 'slider',
+        props: {
+          dataKey: 'rating-{{#loop.value}}',
+          label: 'Rating for {{#loop.value}}',
+          min: 0,
+          max: 10,
+          required: false,
+        },
+      }),
+      {},
+      onNext,
+    );
+
+    await userEvent.click(screen.getByLabelText('Item A'));
+    await userEvent.click(screen.getByRole('button', { name: 'Submit' }));
+
+    expect(onNext).toHaveBeenCalledWith(
+      expect.objectContaining({ 'rating-item-a': null }),
+    );
+  });
+
+  it('submits false for single-checkbox inside dynamic for-each when not interacted', async () => {
+    const onNext = vi.fn().mockResolvedValue(undefined);
+    renderScreen(
+      makeForEachScreen({
+        componentFamily: 'response',
+        template: 'single-checkbox',
+        props: {
+          dataKey: 'agree-{{#loop.value}}',
+          label: 'Agree for {{#loop.value}}',
+          required: false,
+        },
+      }),
+      {},
+      onNext,
+    );
+
+    await userEvent.click(screen.getByLabelText('Item A'));
+    await userEvent.click(screen.getByRole('button', { name: 'Submit' }));
+
+    expect(onNext).toHaveBeenCalledWith(
+      expect.objectContaining({ 'agree-item-a': false }),
+    );
+  });
+
+  it('submits configured defaultValue for single-checkbox with defaultValue: true', async () => {
+    const onNext = vi.fn().mockResolvedValue(undefined);
+    renderScreen(
+      makeForEachScreen({
+        componentFamily: 'response',
+        template: 'single-checkbox',
+        props: {
+          dataKey: 'agree-{{#loop.value}}',
+          label: 'Agree for {{#loop.value}}',
+          defaultValue: true,
+        },
+      }),
+      {},
+      onNext,
+    );
+
+    await userEvent.click(screen.getByLabelText('Item A'));
+    await userEvent.click(screen.getByRole('button', { name: 'Submit' }));
+
+    expect(onNext).toHaveBeenCalledWith(
+      expect.objectContaining({ 'agree-item-a': true }),
+    );
+  });
+
+  it('submits "" for dropdown inside dynamic for-each when not interacted', async () => {
+    const onNext = vi.fn().mockResolvedValue(undefined);
+    renderScreen(
+      makeForEachScreen({
+        componentFamily: 'response',
+        template: 'dropdown',
+        props: {
+          dataKey: 'category-{{#loop.value}}',
+          label: 'Category for {{#loop.value}}',
+          options: [{ label: 'Option 1', value: 'opt-1' }],
+          required: false,
+        },
+      }),
+      {},
+      onNext,
+    );
+
+    await userEvent.click(screen.getByLabelText('Item A'));
+    await userEvent.click(screen.getByRole('button', { name: 'Submit' }));
+
+    expect(onNext).toHaveBeenCalledWith(
+      expect.objectContaining({ 'category-item-a': '' }),
+    );
+  });
+
+  it('submits "" for likert-scale inside dynamic for-each when not interacted', async () => {
+    const onNext = vi.fn().mockResolvedValue(undefined);
+    renderScreen(
+      makeForEachScreen({
+        componentFamily: 'response',
+        template: 'likert-scale',
+        props: {
+          dataKey: 'score-{{#loop.value}}',
+          label: 'Score for {{#loop.value}}',
+          options: [
+            { label: 'Low', value: '1' },
+            { label: 'High', value: '5' },
+          ],
+          required: false,
+        },
+      }),
+      {},
+      onNext,
+    );
+
+    await userEvent.click(screen.getByLabelText('Item A'));
+    await userEvent.click(screen.getByRole('button', { name: 'Submit' }));
+
+    expect(onNext).toHaveBeenCalledWith(
+      expect.objectContaining({ 'score-item-a': '' }),
+    );
+  });
+});
+
 describe('shared options (%name)', () => {
   it('renders radio options from sharedOptions when options is %name', () => {
     const sharedOptions = {

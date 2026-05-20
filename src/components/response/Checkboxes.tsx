@@ -1,13 +1,14 @@
-"use client";
+'use client';
 
-import { CheckboxesComponent, Option } from "@/lib/components/response";
-import { Context } from "@/lib/types";
-import * as CheckboxPrimitive from "@radix-ui/react-checkbox";
-import { Check } from "lucide-react";
-import { Controller, UseFormReturn } from "react-hook-form";
-import { twMerge } from "tailwind-merge";
-import { Label } from "../Label";
-import { FieldError, resolveOptions } from "../primitives";
+import { CheckboxesComponent, Option } from '@/lib/components/response';
+import { defaultPerTemplate } from '@/lib/screen-defaults';
+import { Context } from '@/lib/types';
+import * as CheckboxPrimitive from '@radix-ui/react-checkbox';
+import { Check } from 'lucide-react';
+import { Controller, UseFormReturn } from 'react-hook-form';
+import { twMerge } from 'tailwind-merge';
+import { Label } from '../Label';
+import { FieldError, resolveOptions } from '../primitives';
 
 type Props = {
   component: CheckboxesComponent;
@@ -27,11 +28,17 @@ export function Checkboxes({ component, form, context, sharedOptions }: Props) {
     <Controller
       control={control}
       name={dataKey}
+      defaultValue={defaultPerTemplate(component)}
       render={({ field }) => (
         <div className="flex flex-col gap-1">
           <Label context={context}>{component.props.label}</Label>
           <div className="flex flex-col gap-2">
-            {resolveOptions(component.props.options, context, component.props.dataKey, sharedOptions).map((opt) => {
+            {resolveOptions(
+              component.props.options,
+              context,
+              component.props.dataKey,
+              sharedOptions,
+            ).map((opt) => {
               const checked =
                 Array.isArray(field.value) && field.value.includes(opt.value);
               return (
@@ -50,14 +57,14 @@ export function Checkboxes({ component, form, context, sharedOptions }: Props) {
                       );
                     }}
                     className={twMerge(
-                      "size-4 border border-border-default rounded-sm",
-                      "flex items-center justify-center shrink-0",
-                      "data-[state=checked]:bg-content-active data-[state=checked]:border-content-active",
-                      "transition duration-75 ease-out cursor-pointer active:scale-95",
+                      'border-border-default size-4 rounded-sm border',
+                      'flex shrink-0 items-center justify-center',
+                      'data-[state=checked]:bg-content-active data-[state=checked]:border-content-active',
+                      'cursor-pointer transition duration-75 ease-out active:scale-95',
                     )}
                   >
                     <CheckboxPrimitive.Indicator>
-                      <Check className="size-4 text-content-inverted" />
+                      <Check className="text-content-inverted size-4" />
                     </CheckboxPrimitive.Indicator>
                   </CheckboxPrimitive.Root>
                   <Label

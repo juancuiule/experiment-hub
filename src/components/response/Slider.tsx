@@ -2,6 +2,7 @@
 
 import { SliderComponent } from '@/lib/components/response';
 import { resolveValuesInString } from '@/lib/resolve';
+import { defaultPerTemplate } from '@/lib/screen-defaults';
 import { Context } from '@/lib/types';
 import * as SliderPrimitive from '@radix-ui/react-slider';
 import { Controller, UseFormReturn } from 'react-hook-form';
@@ -36,6 +37,7 @@ export function Slider({ component, form, context }: Props) {
     <Controller
       control={control}
       name={dataKey}
+      defaultValue={defaultPerTemplate(component)}
       render={({ field }) => {
         const hasInteracted = field.value !== null && field.value !== undefined;
         const defaultValue = component.props.defaultValue;
@@ -67,14 +69,16 @@ export function Slider({ component, form, context }: Props) {
             <div className="group relative">
               {shouldShowTooltip && (
                 <div
-                  style={{ left: `calc(${percent}% + ${8 * (1 - (2 * percent) / 100)}px)` }}
-                  className="pointer-events-none absolute bottom-7 z-50 flex -translate-x-1/2 flex-col items-center origin-bottom scale-95 opacity-0 transition-[opacity,transform] duration-150 ease-out group-active:scale-100 group-active:opacity-100 group-focus-within:scale-100 group-focus-within:opacity-100"
+                  style={{
+                    left: `calc(${percent}% + ${8 * (1 - (2 * percent) / 100)}px)`,
+                  }}
+                  className="pointer-events-none absolute bottom-7 z-50 flex origin-bottom -translate-x-1/2 scale-95 flex-col items-center opacity-0 transition-[opacity,transform] duration-150 ease-out group-focus-within:scale-100 group-focus-within:opacity-100 group-active:scale-100 group-active:opacity-100"
                 >
-                  <div className="bg-content-active text-content-inverted whitespace-nowrap rounded-md px-2 py-1 text-sm font-medium tabular-nums shadow-md">
+                  <div className="bg-content-active text-content-inverted rounded-md px-2 py-1 text-sm font-medium whitespace-nowrap tabular-nums shadow-md">
                     {formatTooltipValue(thumbPosition, tooltipConfig)}
                   </div>
                   <div
-                    className="bg-content-active h-1.5 w-3 -mt-px"
+                    className="bg-content-active -mt-px h-1.5 w-3"
                     style={{ clipPath: 'polygon(50% 100%, 0 0, 100% 0)' }}
                   />
                 </div>

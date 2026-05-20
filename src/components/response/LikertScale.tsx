@@ -2,6 +2,7 @@
 
 import { LikertScaleComponent, Option } from '@/lib/components/response';
 import { resolveLikertOptionsSource } from '@/lib/resolve';
+import { defaultPerTemplate } from '@/lib/screen-defaults';
 import { Context } from '@/lib/types';
 import * as RadioGroupPrimitive from '@radix-ui/react-radio-group';
 import { Controller, UseFormReturn } from 'react-hook-form';
@@ -16,18 +17,27 @@ type Props = {
   sharedOptions?: Record<string, Option[]>;
 };
 
-export function LikertScale({ component, form, context, sharedOptions }: Props) {
+export function LikertScale({
+  component,
+  form,
+  context,
+  sharedOptions,
+}: Props) {
   const {
     control,
     formState: { errors },
   } = form;
   const { dataKey } = component.props;
-  const options = resolveLikertOptionsSource(component.props.options, sharedOptions);
+  const options = resolveLikertOptionsSource(
+    component.props.options,
+    sharedOptions,
+  );
 
   return (
     <Controller
       control={control}
       name={dataKey}
+      defaultValue={defaultPerTemplate(component)}
       render={({ field }) => (
         <div className="flex flex-col gap-1">
           <Label id={`${dataKey}-label`} context={context}>

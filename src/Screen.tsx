@@ -3,11 +3,9 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 
-import { ScreenComponent } from '@/lib/components';
 import { Option } from '@/lib/components/response';
-import { mergeContext } from '@/lib/flow';
-import { resolveValuesInString } from '@/lib/resolve';
 import { FrameworkScreen } from '@/lib/screen';
+import { buildDefaultValues } from '@/lib/screen-defaults';
 import { buildSchema } from '@/lib/screen-validation';
 import { Context } from '@/lib/types';
 import { RenderComponent } from './components/RenderComponent';
@@ -21,90 +19,15 @@ type ScreenProps = {
   sharedOptions?: Record<string, Option[]>;
 };
 
-function collectDefaults(
-  components: ScreenComponent[],
-  context: Context,
-  values: Record<string, any> = {},
-): Record<string, any> {
-  for (const c of components) {
-    if (c.componentFamily !== 'response') {
-      if (c.componentFamily === 'layout' && c.template === 'group') {
-        collectDefaults(c.props.components, context, values);
-      } else if (
-        c.componentFamily === 'control' &&
-        c.template === 'conditional'
-      ) {
-        collectDefaults([c.props.component], context, values);
-        if (c.props.else) collectDefaults([c.props.else], context, values);
-      } else if (
-        c.componentFamily === 'control' &&
-        c.template === 'for-each' &&
-        c.props.type === 'static'
-      ) {
-        const inner = c.props.component;
-        for (let i = 0; i < c.props.values.length; i++) {
-          const subContext = mergeContext(context, {
-            screenData: {
-              foreachData: {
-                [c.props.id]: { index: i, value: c.props.values[i] },
-              },
-            },
-          });
-          let resolved: ScreenComponent;
-          if (inner.componentFamily === 'response') {
-            resolved = {
-              ...inner,
-              props: {
-                ...inner.props,
-                dataKey: resolveValuesInString(inner.props.dataKey, subContext),
-              },
-            } as typeof inner;
-          } else {
-            resolved = inner;
-          }
-          collectDefaults([resolved], subContext, values);
-        }
-      }
-      continue;
-    }
-    switch (c.template) {
-      case 'radio':
-      case 'dropdown':
-        values[c.props.dataKey] = '';
-        break;
-      case 'checkboxes':
-        values[c.props.dataKey] = [];
-        break;
-      case 'single-checkbox':
-        values[c.props.dataKey] = c.props.defaultValue ?? false;
-        break;
-      case 'slider':
-        values[c.props.dataKey] = null;
-        break;
-      case 'numeric-input':
-        values[c.props.dataKey] = c.props.defaultValue ?? null;
-        break;
-      default:
-        values[c.props.dataKey] = '';
-    }
-  }
-  return values;
-}
-
-function buildDefaultValues(
-  screen: FrameworkScreen,
-  context: Context,
-): Record<string, any> {
-  return collectDefaults(screen.components, context);
-}
-
-export function Screen({ screen, isLoading, onNext, context, sharedOptions }: ScreenProps) {
+export function Screen({
+  screen,
+  isLoading,
+  onNext,
+  context,
+  sharedOptions,
+}: ScreenProps) {
   const form = useForm<Record<string, any>>({
     resolver: zodResolver(buildSchema(screen, context)),
-    // TODO: this defaultValues are only valid at initial render
-    // if a component is added/removed during the screen, the defaultValues won't be updated
-    // because we are using shouldUnregister: true, when a component is removed, its value will be removed from the form state
-    // and we should move the defaultValues logic in the "register" of each component, so when a component is added, its default value will be set in the form state
     defaultValues: buildDefaultValues(screen, context),
     shouldUnregister: true,
   });
