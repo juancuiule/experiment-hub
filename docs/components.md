@@ -132,13 +132,18 @@ Collects a single selection from a dropdown list.
 
 - `label: string`
 - `options: OptionsSource` — the option list. Accepts:
-  - `Option[]` — explicit array of `{ label: string; value: string }` objects
+  - `Option[]` — explicit array of `{ label: string; value: string; anchor?: "first" | "last" }` objects
   - `` `$$screen.dataKey` `` — reference to experiment-wide collected data (must be an array of options)
   - `` `@field` `` — field from the current loop iteration value
   - `` `$field` `` — current screen's live form value
   - `` `%name` `` — named shared option set defined in `ExperimentFlow.options`
 - `randomize?: boolean` — if true, the order of options is shuffled for each participant.
 - `reshuffleInLoop?: boolean` — when used inside a loop and `randomize: true`, controls whether the options are reshuffled on each loop iteration (`true`, default) or keep the first shuffled order (`false`).
+
+**Anchoring options** (`anchor` field on `Option`): When `randomize: true`, individual options can be pinned to a fixed position using `anchor`:
+- `anchor: "last"` — the option always appears at the end of the list (e.g. "None of the above", "Other")
+- `anchor: "first"` — the option always appears at the beginning (e.g. "All of the above")
+- When multiple options share the same anchor direction, they appear in their declaration order relative to each other. Only the unanchored options are shuffled.
 
 Collected value: `string` — the `value` of the selected option, stored directly under the `dataKey`. Reference as `$$screenSlug.dataKey` in branch conditions and answer piping. When `randomize: true`, the shuffled option order is stored as a parallel key `dataKey:order` (e.g. `pick:order`) containing a `string[]` of values in the displayed order.
 
@@ -147,7 +152,7 @@ Collected value: `string` — the `value` of the selected option, stored directl
 Collects a single selection displayed as a radio button list.
 
 - `label: string`
-- `options: OptionsSource` — the option list. Accepts the same variants as `dropdown` above.
+- `options: OptionsSource` — the option list. Accepts the same variants as `dropdown` above, including `anchor` on individual `Option` objects.
 - `randomize?: boolean` — if true, the order of options is shuffled for each participant.
 - `reshuffleInLoop?: boolean` — when used inside a loop and `randomize: true`, controls whether the options are reshuffled on each loop iteration (`true`, default) or keep the first shuffled order (`false`).
 
@@ -158,7 +163,7 @@ Collected value: `string` — the `value` of the selected option. Reference as `
 Collects one or more selections from a list of checkboxes.
 
 - `label: string`
-- `options: OptionsSource` — the option list. Accepts the same variants as `dropdown` above.
+- `options: OptionsSource` — the option list. Accepts the same variants as `dropdown` above, including `anchor` on individual `Option` objects.
 - `min?: number` — minimum number of options that must be selected
 - `max?: number` — maximum number of options that can be selected
 - `randomize?: boolean` — if true, the order of options is shuffled for each participant.

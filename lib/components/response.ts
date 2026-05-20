@@ -88,6 +88,7 @@ export interface TimeInputComponent extends BaseResponseComponent<
 export type Option = {
   label: string;
   value: string;
+  anchor?: "first" | "last";
 };
 
 export type OptionsSource =

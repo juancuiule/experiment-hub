@@ -1,5 +1,7 @@
-import { evaluateCondition, Condition } from './conditions';
+import { Condition, evaluateCondition } from './conditions';
 
+import { ScreenComponent } from './components';
+import { hasRandomizedOptions, Option } from './components/response';
 import {
   isBranchConditionEdge,
   isBranchDefaultEdge,
@@ -8,8 +10,6 @@ import {
   isPathEdge,
   isSequentialEdge,
 } from './edges';
-import { ScreenComponent } from './components';
-import { hasRandomizedOptions, Option } from './components/response';
 import { BranchNode, Fork, ForkNode, FrameworkNode } from './nodes';
 import {
   getValue,
@@ -25,7 +25,7 @@ import {
   InPathState,
   State,
 } from './types';
-import { isDefined, send, shuffle } from './utils';
+import { isDefined, send, shuffle, shuffleAnchored } from './utils';
 
 // Returns false when any data key referenced by a condition is absent from context,
 // meaning evaluateCondition would silently fall to branch-default for the wrong reason.
@@ -222,7 +222,9 @@ function computeShuffledOptions(
         const options =
           inLoop && !component.props.reshuffleInLoop && previous[key]
             ? previous[key]
-            : shuffle(resolveOptionsSource(component.props.options, ctx));
+            : shuffleAnchored(
+                resolveOptionsSource(component.props.options, ctx),
+              );
         return [[key, options]];
       }
       case 'control': {
