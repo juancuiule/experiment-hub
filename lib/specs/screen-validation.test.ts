@@ -1,4 +1,4 @@
-import { FrameworkScreen } from '@/lib/screen';
+import { CrossFieldRule, FrameworkScreen } from '@/lib/screen';
 import { buildSchema as _buildSchema } from '@/lib/screen-validation';
 import { describe, expect, it } from 'vitest';
 
@@ -1356,4 +1356,117 @@ describe('randomize :order key', () => {
 
   // Note: unknown keys including :order for non-randomized fields are not stripped
   // because the schema uses .passthrough() — required so dynamic for-each keys survive Zod.
+});
+
+// ─── Cross-field rules ────────────────────────────────────────────────────────
+
+function screenWithRules(
+  components: FrameworkScreen['components'],
+  validate: CrossFieldRule[],
+): FrameworkScreen {
+  return { slug: 'test', components, validate };
+}
+
+const numericInput = (dataKey: string) => ({
+  componentFamily: 'response' as const,
+  template: 'numeric-input' as const,
+  props: { dataKey, label: dataKey, required: false },
+});
+
+const textInput = (dataKey: string) => ({
+  componentFamily: 'response' as const,
+  template: 'text-input' as const,
+  props: { dataKey, label: dataKey, required: false },
+});
+
+describe('cross-field — sum-equals', () => {
+  const s = screenWithRules(
+    [numericInput('a'), numericInput('b'), numericInput('c')],
+    [{ type: 'sum-equals', fields: ['$a', '$b', '$c'], target: 100, attachTo: '$c' }],
+  );
+
+  it('accepts data that sums to target', () => {
+    expect(_buildSchema(s, { data: {} }).safeParse({ a: 50, b: 30, c: 20 }).success).toBe(true);
+  });
+
+  it('rejects data that does not sum to target', () => {
+    const result = _buildSchema(s, { data: {} }).safeParse({ a: 50, b: 30, c: 10 });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const paths = result.error.issues.map((i) => i.path[0]);
+      expect(paths).toContain('c');
+    }
+  });
+});
+
+describe('cross-field — at-least-one', () => {
+  const s = screenWithRules(
+    [textInput('phone'), textInput('email')],
+    [{ type: 'at-least-one', fields: ['$phone', '$email'], errorMessage: 'Need contact' }],
+  );
+
+  it('accepts when at least one field is filled', () => {
+    expect(_buildSchema(s, { data: {} }).safeParse({ phone: '', email: 'a@b.com' }).success).toBe(true);
+  });
+
+  it('rejects when all fields are empty', () => {
+    const result = _buildSchema(s, { data: {} }).safeParse({ phone: '', email: '' });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues[0].message).toBe('Need contact');
+    }
+  });
+});
+
+describe('cross-field — matches (cross-screen)', () => {
+  const s = screenWithRules(
+    [textInput('confirmEmail')],
+    [{ type: 'matches', a: '$$intake.email', b: '$confirmEmail', attachTo: '$confirmEmail' }],
+  );
+
+  it('accepts when cross-screen value matches form value', () => {
+    const schema = _buildSchema(s, { data: { intake: { email: 'a@b.com' } } });
+    expect(schema.safeParse({ confirmEmail: 'a@b.com' }).success).toBe(true);
+  });
+
+  it('rejects when cross-screen value does not match', () => {
+    const schema = _buildSchema(s, { data: { intake: { email: 'a@b.com' } } });
+    const result = schema.safeParse({ confirmEmail: 'wrong@b.com' });
+    expect(result.success).toBe(false);
+  });
+});
+
+describe('cross-field — multiple rules evaluated independently', () => {
+  const s = screenWithRules(
+    [numericInput('x'), numericInput('y')],
+    [
+      { type: 'sum-equals', fields: ['$x', '$y'], target: 10, attachTo: '$x' },
+      { type: 'ordered', a: '$x', b: '$y', operator: 'lt', attachTo: '$y' },
+    ],
+  );
+
+  it('returns both errors when both rules fail', () => {
+    // x=8, y=8 → sum=16 (not 10) AND x < y fails (8 is not < 8)
+    const result = _buildSchema(s, { data: {} }).safeParse({ x: 8, y: 8 });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues.length).toBeGreaterThanOrEqual(2);
+    }
+  });
+});
+
+describe('cross-field — global error (no attachTo)', () => {
+  const s = screenWithRules(
+    [textInput('a'), textInput('b')],
+    [{ type: 'at-least-one', fields: ['$a', '$b'] }],
+  );
+
+  it('rejects with an error at path []', () => {
+    const result = _buildSchema(s, { data: {} }).safeParse({ a: '', b: '' });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const globalIssue = result.error.issues.find((i) => i.path.length === 0);
+      expect(globalIssue).toBeDefined();
+    }
+  });
 });

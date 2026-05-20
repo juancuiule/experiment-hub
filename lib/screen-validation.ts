@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { ScreenComponent } from './components';
+import { evaluateCrossFieldRule } from './cross-field-validation';
 import { hasRandomizedOptions, ResponseComponent } from './components/response';
 import { Condition, evaluateCondition, resolveCondition } from './conditions';
 import { buildFieldSchema } from './field-schema';
@@ -9,8 +10,29 @@ import { FrameworkScreen } from './screen';
 import { Context } from './types';
 
 export function buildSchema(screen: FrameworkScreen, context: Context) {
-  const descriptors = collectDescriptors(screen.components, context, null);
-  return buildSchemaFromDescriptors(descriptors, context);
+  const base = buildSchemaFromDescriptors(
+    collectDescriptors(screen.components, context, null),
+    context,
+  );
+
+  if (!screen.validate?.length) return base;
+
+  return base.superRefine((data, ctx) => {
+    for (const rule of screen.validate!) {
+      const error = evaluateCrossFieldRule(
+        rule,
+        data as Record<string, unknown>,
+        context.data ?? {},
+      );
+      if (error) {
+        ctx.addIssue({
+          code: 'custom',
+          message: error.message,
+          path: error.attachTo ? [error.attachTo] : [],
+        });
+      }
+    }
+  });
 }
 
 // ─── Descriptor-based pipeline ───────────────────────────────────────────────
