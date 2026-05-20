@@ -1,5 +1,6 @@
 import { Condition } from "./conditions";
 
+
 interface BaseNode {
   id: string;
   type: string;
@@ -79,6 +80,49 @@ export interface LoopNode extends BaseNode {
   ) & { stepper?: StepperConfig };
 }
 
+export type FormulaInput = `$$${string}` | `$${string}`;
+
+export type SumFormula         = { type: "sum";  inputs: FormulaInput[] };
+export type MeanFormula        = { type: "mean"; inputs: FormulaInput[] };
+export type MinFormula         = { type: "min";  inputs: FormulaInput[] };
+export type MaxFormula         = { type: "max";  inputs: FormulaInput[] };
+export type CountFormula       = { type: "count"; inputs: FormulaInput[]; where?: Condition };
+export type ConditionalFormula = {
+  type: "conditional";
+  condition: Condition;
+  then: string | number | boolean;
+  else: string | number | boolean;
+};
+export type LookupFormula = {
+  type: "lookup";
+  input: FormulaInput;
+  table: Array<{ when: string | number; then: string | number }>;
+  default?: string | number;
+};
+
+export type Formula =
+  | SumFormula
+  | MeanFormula
+  | MinFormula
+  | MaxFormula
+  | CountFormula
+  | ConditionalFormula
+  | LookupFormula;
+
+export type Computation = {
+  outputKey: string;
+  formula: Formula;
+};
+
+export interface ComputeNode extends BaseNode {
+  type: "compute";
+  props: {
+    name: string;
+    description?: string;
+    computations: Computation[];
+  };
+}
+
 export type FrameworkNode =
   | StartNode
   | CheckpointNode
@@ -86,4 +130,5 @@ export type FrameworkNode =
   | BranchNode
   | PathNode
   | ForkNode
-  | LoopNode;
+  | LoopNode
+  | ComputeNode;
