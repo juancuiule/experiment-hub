@@ -47,6 +47,8 @@ export function Screen({
     );
   };
 
+  const globalError = (form.formState.errors as Record<string, any>)[''];
+
   return (
     <>
       <form
@@ -54,6 +56,11 @@ export function Screen({
         key={screen.slug}
         onSubmit={form.handleSubmit(onSubmit)}
       >
+        {globalError && (
+          <p className="text-destructive text-sm" role="alert">
+            {globalError.message}
+          </p>
+        )}
         {screen.components.map((component, i) => (
           <RenderComponent
             key={
