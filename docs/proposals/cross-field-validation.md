@@ -22,6 +22,17 @@ This placement has three advantages:
 - The static validator can verify that every `$field` reference in a rule corresponds to a `dataKey` that exists on the screen.
 - The Zod integration is straightforward: after building the per-field schema with `buildSchema`, apply each rule as an additional `.superRefine()` pass.
 
+### Field references
+
+Rule fields accept two reference styles, consistent with the `FormulaInput` convention used in compute nodes:
+
+| Prefix | Source | Example |
+|---|---|---|
+| `$field` | Current screen's submitted form values | `$housing` |
+| `$$screen.field` | Previously collected data in `context.data` | `$$demographics.email` |
+
+`$$`-prefixed references resolve from `context.data` (the experiment-wide accumulated data store). This enables cross-screen validation — rules that assert relationships between the current screen and data collected on earlier screens.
+
 ### Error display
 
 Cross-field errors don't naturally belong to a single field. Each rule has an optional `attachTo: "$dataKey"` prop. When present the error is shown adjacent to that field (same mechanism as per-field errors). When absent a screen-level error zone at the top of the form renders the message. Both cases use the same `errorMessage` string.
@@ -37,7 +48,7 @@ Asserts that a set of numeric fields sum to a fixed total or fall within a range
 ```ts
 type SumEqualsRule = {
   type: "sum-equals";
-  fields: `$${string}`[];
+  fields: (`$${string}` | `$$${string}`)[];
   target: number;
   errorMessage?: string;
   attachTo?: `$${string}`;
@@ -45,7 +56,7 @@ type SumEqualsRule = {
 
 type SumBetweenRule = {
   type: "sum-between";
-  fields: `$${string}`[];
+  fields: (`$${string}` | `$$${string}`)[];
   min?: number;
   max?: number;
   errorMessage?: string;
@@ -73,7 +84,7 @@ One or more fields from a set must be non-empty (non-null, non-empty string, non
 ```ts
 type AtLeastOneRule = {
   type: "at-least-one";
-  fields: `$${string}`[];
+  fields: (`$${string}` | `$$${string}`)[];
   errorMessage?: string;
   attachTo?: `$${string}`;
 };
@@ -90,14 +101,42 @@ type AtLeastOneRule = {
 
 ---
 
+### `count-between`
+
+Between `min` and `max` fields (inclusive) from a set must be non-empty. Generalises `at-least-one` (min=1, no max) and `exactly-n` (min=max=n). Useful when the researcher wants participants to select a flexible range of options expressed as individual fields rather than a checkboxes component.
+
+```ts
+type CountBetweenRule = {
+  type: "count-between";
+  fields: (`$${string}` | `$$${string}`)[];
+  min?: number;
+  max?: number;
+  errorMessage?: string;
+  attachTo?: `$${string}`;
+};
+```
+
+```ts
+// Select between 2 and 4 priorities from 6 individual checkbox fields
+{
+  type: "count-between",
+  fields: ["$p-a", "$p-b", "$p-c", "$p-d", "$p-e", "$p-f"],
+  min: 2,
+  max: 4,
+  errorMessage: "Select between 2 and 4 priorities",
+}
+```
+
+---
+
 ### `exactly-n`
 
-Exactly N fields from a set must be non-empty. Generalises `at-least-one` and `at-most-one`. Useful when the researcher wants participants to prioritise a fixed number of items expressed as individual boolean or text fields rather than a checkboxes component.
+Exactly N fields from a set must be non-empty. Useful when the researcher wants participants to prioritise a fixed number of items expressed as individual boolean or text fields rather than a checkboxes component.
 
 ```ts
 type ExactlyNRule = {
   type: "exactly-n";
-  fields: `$${string}`[];
+  fields: (`$${string}` | `$$${string}`)[];
   n: number;
   errorMessage?: string;
   attachTo?: `$${string}`;
@@ -123,7 +162,7 @@ At most one field in a set may be non-empty/checked. The canonical case is a "No
 ```ts
 type MutuallyExclusiveRule = {
   type: "mutually-exclusive";
-  fields: `$${string}`[];
+  fields: (`$${string}` | `$$${string}`)[];
   errorMessage?: string;
   attachTo?: `$${string}`;
 };
@@ -141,17 +180,77 @@ type MutuallyExclusiveRule = {
 
 ---
 
+### `all-or-none`
+
+Either all fields in the set must be non-empty, or none of them may be. This is the structured optional group: a participant can skip the entire block or fill it completely, but partial completion is invalid.
+
+```ts
+type AllOrNoneRule = {
+  type: "all-or-none";
+  fields: (`$${string}` | `$$${string}`)[];
+  errorMessage?: string;
+  attachTo?: `$${string}`;
+};
+```
+
+```ts
+// Secondary contact details — either fill all three or leave all three blank
+{
+  type: "all-or-none",
+  fields: ["$alt-name", "$alt-phone", "$alt-email"],
+  errorMessage: "Please fill in all secondary contact details or leave them all blank",
+}
+```
+
+---
+
+### `matches`
+
+Two field references must resolve to equal values (deep equality for arrays, strict equality for scalars). The primary use case is a same-screen confirmation field (`$email` and `$confirmEmail`), but `$$`-prefixes make it equally useful for cross-screen consistency checks: re-asking a question and verifying the answer is consistent with what was collected earlier.
+
+```ts
+type MatchesRule = {
+  type: "matches";
+  a: `$${string}` | `$$${string}`;
+  b: `$${string}` | `$$${string}`;
+  errorMessage?: string;
+  attachTo?: `$${string}`;
+};
+```
+
+```ts
+// Same-screen: confirm email matches the email field
+{
+  type: "matches",
+  a: "$email",
+  b: "$confirmEmail",
+  errorMessage: "Email addresses do not match",
+  attachTo: "$confirmEmail",
+}
+
+// Cross-screen: re-asked question must match the original answer
+{
+  type: "matches",
+  a: "$$intake.email",
+  b: "$emailConfirm",
+  errorMessage: "This email doesn't match what you entered earlier",
+  attachTo: "$emailConfirm",
+}
+```
+
+---
+
 ### `ordered`
 
 One field's value must be strictly less than (or less-than-or-equal to) another's. Covers date ranges, age bounds, numeric interval endpoints — any case where two separate fields form a pair that must be ordered.
 
-The existing `minValue`/`maxValue` props on `slider` and `numeric-input` accept static literals only. `ordered` fills the gap when the bound is itself a collected value on the same screen.
+The existing `minValue`/`maxValue` props on `slider` and `numeric-input` accept static literals only. `ordered` fills the gap when the bound is itself a collected value on the same screen — or, with `$$` references, a value from an earlier screen.
 
 ```ts
 type OrderedRule = {
   type: "ordered";
-  a: `$${string}`;
-  b: `$${string}`;
+  a: `$${string}` | `$$${string}`;
+  b: `$${string}` | `$$${string}`;
   operator: "lt" | "lte"; // a [op] b must hold
   errorMessage?: string;
   attachTo?: `$${string}`;
@@ -169,14 +268,14 @@ type OrderedRule = {
   attachTo: "$endDate",
 }
 
-// Min age <= max age
+// Cross-screen: current estimate must be at least as large as the baseline
 {
   type: "ordered",
-  a: "$minAge",
-  b: "$maxAge",
+  a: "$$baseline.estimate",
+  b: "$currentEstimate",
   operator: "lte",
-  errorMessage: "Minimum age cannot exceed maximum age",
-  attachTo: "$maxAge",
+  errorMessage: "Your estimate must be at least as high as your baseline",
+  attachTo: "$currentEstimate",
 }
 ```
 
@@ -189,8 +288,8 @@ A numeric field's valid range depends on the value of another field on the same 
 ```ts
 type ConditionalRangeRule = {
   type: "conditional-range";
-  field: `$${string}`;
-  condition: Condition; // evaluated against $-prefixed live screen values
+  field: `$${string}` | `$$${string}`;
+  condition: Condition; // evaluated against $-prefixed live screen values and $$-prefixed context.data
   min?: number;
   max?: number;
   errorMessage?: string;
@@ -244,17 +343,57 @@ Because the field set is dynamic, this rule cannot be validated statically again
 
 ## Implementation sketch
 
+### Type definitions
+
+All rule types share a common base:
+
+```ts
+type CrossFieldRuleBase = {
+  errorMessage?: string;
+  attachTo?: `$${string}`;
+};
+```
+
+Field references use the same two-prefix convention as `FormulaInput` in compute nodes:
+
+```ts
+type FieldRef = `$${string}` | `$$${string}`;
+```
+
+`$field` — read from the current screen's submitted form data (`data` argument to `superRefine`).
+`$$screen.field` — read from `context.data` (experiment-wide accumulated data). This is what enables cross-screen rules.
+
+### Value resolution
+
+A pure helper `resolveFieldRef(ref, formData, contextData)` handles both prefixes:
+
+```ts
+function resolveFieldRef(
+  ref: string,
+  formData: Record<string, unknown>,
+  contextData: Record<string, any>,
+): unknown {
+  if (ref.startsWith('$$')) {
+    return getValue(ref.slice(2), contextData); // dotted-path lookup in context.data
+  }
+  return formData[ref.slice(1)]; // strip leading $, look up in form
+}
+```
+
 ### Schema integration
 
-`buildSchema` in `lib/screen-validation.ts` currently returns a `z.ZodObject`. Cross-field rules are applied as a chain of `.superRefine()` calls after the per-field object is built:
+`buildSchema` in `lib/screen-validation.ts` chains cross-field rules after the per-field object is built:
 
 ```ts
 export function buildSchema(screen: FrameworkScreen, context: Context) {
-  let schema = buildFieldSchema(screen.components, context);
+  let schema = buildSchemaFromDescriptors(
+    collectDescriptors(screen.components, context, null),
+    context,
+  );
 
   for (const rule of screen.validate ?? []) {
     schema = schema.superRefine((data, ctx) => {
-      const error = evaluateCrossFieldRule(rule, data, context);
+      const error = evaluateCrossFieldRule(rule, data, context.data ?? {});
       if (error) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
@@ -269,15 +408,16 @@ export function buildSchema(screen: FrameworkScreen, context: Context) {
 }
 ```
 
-Each rule maps to a pure `evaluateCrossFieldRule(rule, formData, context)` function that returns `null` (valid) or `{ message: string; attachTo?: string }`.
+Each rule maps to a pure `evaluateCrossFieldRule(rule, formData, contextData)` that returns `null` (valid) or `{ message: string; attachTo?: string }`.
 
 ### Static validation
 
 The flow validator walks each screen's `validate` array and checks:
 
-- Every `$field` reference exists as a `dataKey` on a response component in that screen. **Code:** (new) `invalid-cross-field-reference`.
-- `unique-across-foreach` rules reference a `foreachId` that exists on the screen. **Code:** (new) `invalid-cross-field-reference`.
-- `ordered` / `conditional-range` rules reference numeric or date field types only. **Code:** (new) `incompatible-cross-field-type`.
+- Every `$field` reference exists as a `dataKey` on a response component on that screen. **Code:** `invalid-cross-field-reference`.
+- Every `$$screen.field` reference is available at the screen's position in the graph (same forward-walk that already checks `$$` in labels and conditions). **Code:** `unavailable-reference`.
+- `unique-across-foreach` rules reference a `foreachId` that exists on the screen. **Code:** `invalid-cross-field-reference`.
+- `ordered` / `conditional-range` rules reference numeric or date field types only. **Code:** `incompatible-cross-field-type`.
 
 ### Timing
 
@@ -287,8 +427,6 @@ Cross-field rules are evaluated on form submission only (same as per-field rules
 
 ## What this does not cover
 
-**Cross-screen validation** — asserting relationships between fields on different screens (e.g. "confirm email must match email collected two screens ago"). This requires `$$` references and would live on a `compute` node or a dedicated validator node, not on the screen definition.
-
-**Async validation** — checking uniqueness against a backend (e.g. "username not already taken"). Out of scope for this proposal; the validation pipeline is currently synchronous.
+**Async validation** — checking uniqueness against a backend (e.g. "username not already taken"). Out of scope; the validation pipeline is synchronous.
 
 **Cascading rules** — rule A's error state affecting whether rule B is evaluated. Not needed for any of the patterns above; each rule is independent.
