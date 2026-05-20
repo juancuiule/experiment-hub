@@ -96,7 +96,7 @@ export type ConditionalFormula = {
 export type LookupFormula = {
   type: "lookup";
   input: FormulaInput;
-  table: Array<{ when: string | number; then: string | number }>;
+  table: Array<{ when: number; then: string | number }>;
   default?: string | number;
 };
 

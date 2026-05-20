@@ -571,18 +571,18 @@ function evaluateFormula(
       );
       return vals.length === 0 ? 0 : vals.reduce((a, b) => a + b, 0) / vals.length;
     }
-    case 'min':
-      return Math.min(
-        ...formula.inputs.map(
-          (inp) => Number(getFormulaInputValue(inp, context, nodeOutputs)) || 0,
-        ),
+    case 'min': {
+      const vals = formula.inputs.map(
+        (inp) => Number(getFormulaInputValue(inp, context, nodeOutputs)) || 0,
       );
-    case 'max':
-      return Math.max(
-        ...formula.inputs.map(
-          (inp) => Number(getFormulaInputValue(inp, context, nodeOutputs)) || 0,
-        ),
+      return vals.length === 0 ? 0 : Math.min(...vals);
+    }
+    case 'max': {
+      const vals = formula.inputs.map(
+        (inp) => Number(getFormulaInputValue(inp, context, nodeOutputs)) || 0,
       );
+      return vals.length === 0 ? 0 : Math.max(...vals);
+    }
     case 'count':
       return formula.inputs.filter((inp) => {
         const val = getFormulaInputValue(inp, context, nodeOutputs);
