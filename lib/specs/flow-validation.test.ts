@@ -1412,4 +1412,60 @@ describe('compute node reference checks', () => {
     };
     expect(codes(flow)).toEqual([]);
   });
+
+  it('reports duplicate-lookup-key when when values are equal after numeric coercion (5 vs "5")', () => {
+    const flow: ExperimentFlow = {
+      nodes: [
+        start,
+        makeScreen('s1', 'q'),
+        makeCompute('c1', [
+          {
+            outputKey: 'level',
+            formula: {
+              type: 'lookup',
+              input: '$$q.score',
+              table: [
+                { when: 5, then: 'mild' },
+                { when: '5' as any, then: 'duplicate' },
+              ],
+            },
+          },
+        ]),
+      ],
+      edges: [seq('start', 's1'), seq('s1', 'c1')],
+      screens: [
+        {
+          slug: 'q',
+          components: [
+            { componentFamily: 'response', template: 'numeric-input', props: { dataKey: 'score', label: 'Score' } },
+          ],
+        },
+      ],
+    };
+    expect(codes(flow)).toContain('duplicate-lookup-key');
+  });
+
+  it('reports duplicate-output-key when two computations share the same outputKey', () => {
+    const flow: ExperimentFlow = {
+      nodes: [
+        start,
+        makeScreen('s1', 'q'),
+        makeCompute('c1', [
+          { outputKey: 'total', formula: { type: 'sum', inputs: ['$$q.a'] } },
+          { outputKey: 'total', formula: { type: 'sum', inputs: ['$$q.b'] } },
+        ]),
+      ],
+      edges: [seq('start', 's1'), seq('s1', 'c1')],
+      screens: [
+        {
+          slug: 'q',
+          components: [
+            { componentFamily: 'response', template: 'numeric-input', props: { dataKey: 'a', label: 'A' } },
+            { componentFamily: 'response', template: 'numeric-input', props: { dataKey: 'b', label: 'B' } },
+          ],
+        },
+      ],
+    };
+    expect(codes(flow)).toContain('duplicate-output-key');
+  });
 });

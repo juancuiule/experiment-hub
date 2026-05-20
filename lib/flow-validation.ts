@@ -1,5 +1,6 @@
-import { Condition } from './conditions';
 import { ScreenComponent } from './components';
+import { Condition } from './conditions';
+import { Formula } from './nodes';
 import { resolveValuesInString } from './resolve';
 import { Context, ExperimentFlow } from './types';
 
@@ -432,7 +433,7 @@ function checkReferences(flow: ExperimentFlow): ValidationError[] {
   }
 
   function checkFormulaInputs(
-    formula: import('./nodes').Formula,
+    formula: Formula,
     context: string,
     available: Set<string>,
     nodeOutputs: Set<string>,
@@ -442,25 +443,47 @@ function checkReferences(flow: ExperimentFlow): ValidationError[] {
       case 'sum':
       case 'mean':
       case 'min':
-      case 'max':
-        for (const inp of formula.inputs) checkFormulaInput(inp, context, available, nodeOutputs, insideLoop);
+      case 'max': {
+        for (const inp of formula.inputs) {
+          checkFormulaInput(inp, context, available, nodeOutputs, insideLoop);
+        }
         break;
-      case 'count':
-        for (const inp of formula.inputs) checkFormulaInput(inp, context, available, nodeOutputs, insideLoop);
+      }
+      case 'count': {
+        for (const inp of formula.inputs) {
+          checkFormulaInput(inp, context, available, nodeOutputs, insideLoop);
+        }
         if (formula.where) {
           for (const key of collectConditionDataKeys(formula.where)) {
-            if (!key.startsWith('@')) checkFormulaInput(key, context, available, nodeOutputs, insideLoop);
+            if (!key.startsWith('@')) {
+              checkFormulaInput(
+                key,
+                context,
+                available,
+                nodeOutputs,
+                insideLoop,
+              );
+            }
           }
         }
         break;
-      case 'conditional':
+      }
+      case 'conditional': {
         for (const key of collectConditionDataKeys(formula.condition)) {
           checkFormulaInput(key, context, available, nodeOutputs, insideLoop);
         }
         break;
-      case 'lookup':
-        checkFormulaInput(formula.input, context, available, nodeOutputs, insideLoop);
+      }
+      case 'lookup': {
+        checkFormulaInput(
+          formula.input,
+          context,
+          available,
+          nodeOutputs,
+          insideLoop,
+        );
         break;
+      }
     }
   }
 
@@ -498,21 +521,38 @@ function checkReferences(flow: ExperimentFlow): ValidationError[] {
             // "rating-{{$$foo.bar}}" embed references that are not validated today.
             for (const field of ['label', 'content', 'text'] as const) {
               if (typeof props[field] === 'string') {
-                checkText(props[field] as string, screenLabel, current, insideLoop);
+                checkText(
+                  props[field] as string,
+                  screenLabel,
+                  current,
+                  insideLoop,
+                );
               }
             }
             if (component.componentFamily === 'response') {
-              current.add(`${prefix}.${resolveValuesInString(component.props.dataKey, ctx)}`);
-            } else if (component.componentFamily === 'layout' && component.template === 'group') {
-              for (const child of component.props.components) processComponent(child, ctx);
+              current.add(
+                `${prefix}.${resolveValuesInString(component.props.dataKey, ctx)}`,
+              );
+            } else if (
+              component.componentFamily === 'layout' &&
+              component.template === 'group'
+            ) {
+              for (const child of component.props.components)
+                processComponent(child, ctx);
             } else if (component.componentFamily === 'control') {
               if (component.template === 'conditional') {
                 processComponent(component.props.component, ctx);
-                if (component.props.else) processComponent(component.props.else, ctx);
-              } else if (component.template === 'for-each' && component.props.type === 'static') {
+                if (component.props.else)
+                  processComponent(component.props.else, ctx);
+              } else if (
+                component.template === 'for-each' &&
+                component.props.type === 'static'
+              ) {
                 component.props.values.forEach((value, index) => {
                   const subCtx: Context = {
-                    screenData: { foreachData: { [component.props.id]: { index, value } } },
+                    screenData: {
+                      foreachData: { [component.props.id]: { index, value } },
+                    },
                   };
                   processComponent(component.props.component, subCtx);
                 });
@@ -521,7 +561,9 @@ function checkReferences(flow: ExperimentFlow): ValidationError[] {
             }
           }
 
-          for (const component of screen.components) processComponent(component, {});
+          for (const component of screen.components) {
+            processComponent(component, {});
+          }
         }
         const next = seqNext.get(nodeId);
         if (next) return walk(next, current, dataPath, insideLoop);
@@ -532,20 +574,35 @@ function checkReferences(flow: ExperimentFlow): ValidationError[] {
         const nodeLabel = `Compute "${nodeId}"`;
         const prefix = [...dataPath, nodeId].join('.');
         const nodeOutputs = new Set<string>();
+        const seenOutputKeys = new Set<string>();
         for (const { outputKey, formula } of node.props.computations) {
+          if (seenOutputKeys.has(outputKey)) {
+            rawErrors.push({
+              code: 'duplicate-output-key',
+              message: `Compute "${nodeId}" has duplicate outputKey "${outputKey}"`,
+            });
+          }
+          seenOutputKeys.add(outputKey);
           if (formula.type === 'lookup') {
-            const seen = new Set<string | number>();
+            const seenWhen = new Set<number>();
             for (const entry of formula.table) {
-              if (seen.has(entry.when)) {
+              const key = Number(entry.when);
+              if (seenWhen.has(key)) {
                 rawErrors.push({
                   code: 'duplicate-lookup-key',
                   message: `Compute "${nodeId}" output "${outputKey}" has duplicate lookup key "${entry.when}"`,
                 });
               }
-              seen.add(entry.when);
+              seenWhen.add(key);
             }
           }
-          checkFormulaInputs(formula, nodeLabel, current, nodeOutputs, insideLoop);
+          checkFormulaInputs(
+            formula,
+            nodeLabel,
+            current,
+            nodeOutputs,
+            insideLoop,
+          );
           current.add(`${prefix}.${outputKey}`);
           nodeOutputs.add(outputKey);
         }
@@ -645,12 +702,17 @@ function checkSharedOptionReferences(flow: ExperimentFlow): ValidationError[] {
         });
       }
     }
-    if (component.componentFamily === 'layout' && component.template === 'group') {
-      for (const child of component.props.components) checkComponent(child, screenSlug);
+    if (
+      component.componentFamily === 'layout' &&
+      component.template === 'group'
+    ) {
+      for (const child of component.props.components)
+        checkComponent(child, screenSlug);
     } else if (component.componentFamily === 'control') {
       if (component.template === 'conditional') {
         checkComponent(component.props.component, screenSlug);
-        if (component.props.else) checkComponent(component.props.else, screenSlug);
+        if (component.props.else)
+          checkComponent(component.props.else, screenSlug);
       } else if (component.template === 'for-each') {
         checkComponent(component.props.component, screenSlug);
       }
