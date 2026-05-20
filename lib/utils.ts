@@ -9,6 +9,15 @@ export function shuffle<T>(array: T[]): T[] {
   return arr;
 }
 
+export function shuffleAnchored<T>(
+  array: (T & { anchor?: "first" | "last" })[]
+): (T & { anchor?: "first" | "last" })[] {
+  const firsts = array.filter((o) => o.anchor === "first");
+  const lasts = array.filter((o) => o.anchor === "last");
+  const middle = array.filter((o) => !o.anchor);
+  return [...firsts, ...shuffle(middle), ...lasts];
+}
+
 export function isDefined<T>(value: T | null | undefined): value is T {
   return value !== null && value !== undefined;
 }

@@ -35,6 +35,80 @@ function makeFlow(components: any[], values?: string[]): ExperimentFlow {
   };
 }
 
+const ANCHORED_OPTIONS = [
+  { label: 'A', value: 'a' },
+  { label: 'B', value: 'b' },
+  { label: 'C', value: 'c' },
+  { label: 'None of the above', value: 'none', anchor: 'last' as const },
+  { label: 'Other', value: 'other', anchor: 'last' as const },
+];
+
+describe('option anchoring', () => {
+  it('keeps anchor:last options at the end after shuffle', async () => {
+    const flow = makeFlow([
+      {
+        componentFamily: 'response',
+        template: 'radio',
+        props: {
+          dataKey: 'choice',
+          label: 'Choice',
+          options: ANCHORED_OPTIONS,
+          randomize: true,
+        },
+      },
+    ]);
+    const step = await startExperiment(flow, 'start');
+    const shuffled = step.context.screenData?.shuffledOptions?.['choice'];
+    expect(shuffled).toHaveLength(5);
+    const lastTwo = shuffled!.slice(-2).map((o: any) => o.value);
+    expect(lastTwo).toEqual(['none', 'other']);
+  });
+
+  it('keeps anchor:first options at the beginning after shuffle', async () => {
+    const options = [
+      { label: 'All', value: 'all', anchor: 'first' as const },
+      { label: 'A', value: 'a' },
+      { label: 'B', value: 'b' },
+    ];
+    const flow = makeFlow([
+      {
+        componentFamily: 'response',
+        template: 'radio',
+        props: {
+          dataKey: 'choice',
+          label: 'Choice',
+          options,
+          randomize: true,
+        },
+      },
+    ]);
+    const step = await startExperiment(flow, 'start');
+    const shuffled = step.context.screenData?.shuffledOptions?.['choice'];
+    expect(shuffled![0].value).toBe('all');
+  });
+
+  it('preserves relative order of multiple anchor:last options', async () => {
+    const flow = makeFlow([
+      {
+        componentFamily: 'response',
+        template: 'checkboxes',
+        props: {
+          dataKey: 'topics',
+          label: 'Topics',
+          options: ANCHORED_OPTIONS,
+          randomize: true,
+        },
+      },
+    ]);
+    const step = await startExperiment(flow, 'start');
+    const shuffled = step.context.screenData?.shuffledOptions?.['topics'];
+    const lastTwo = shuffled!.slice(-2).map((o: any) => o.value);
+    expect(lastTwo).toEqual(['none', 'other']);
+    const middle = shuffled!.slice(0, -2).map((o: any) => o.value);
+    expect(middle).toEqual(expect.arrayContaining(['a', 'b', 'c']));
+  });
+});
+
 describe('shuffled options injected by enterStep', () => {
   it('injects a shuffled permutation for randomize:true radio', async () => {
     const flow = makeFlow([
