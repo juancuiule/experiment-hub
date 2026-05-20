@@ -10,7 +10,7 @@ import {
   isPathEdge,
   isSequentialEdge,
 } from './edges';
-import { BranchNode, Fork, ForkNode, FrameworkNode } from './nodes';
+import { BranchNode, Fork, ForkNode, Formula, FrameworkNode } from './nodes';
 import {
   getValue,
   resolveOptionsSource,
@@ -129,7 +129,7 @@ function shouldAutoTraverse(step: FlowStep): boolean {
 
   const isAutoNode =
     state.type === 'in-node' &&
-    ['start', 'checkpoint', 'branch', 'fork'].includes(state.node.type);
+    ['start', 'checkpoint', 'branch', 'fork', 'compute'].includes(state.node.type);
 
   return isAutoNode;
 }
@@ -145,6 +145,7 @@ function initialState(
     case 'start':
     case 'checkpoint':
     case 'screen':
+    case 'compute':
     case 'branch':
     case 'fork': {
       return { type: 'in-node' as const, node };
@@ -542,6 +543,72 @@ export async function startExperiment(
   );
 }
 
+function getFormulaInputValue(
+  input: string,
+  context: Context,
+  nodeOutputs: Record<string, any>,
+): any {
+  if (input.startsWith('$') && !input.startsWith('$$')) {
+    return nodeOutputs[input.slice(1)];
+  }
+  return getValue(input, context);
+}
+
+function evaluateFormula(
+  formula: Formula,
+  context: Context,
+  nodeOutputs: Record<string, any>,
+): any {
+  switch (formula.type) {
+    case 'sum':
+      return formula.inputs.reduce(
+        (acc, inp) => acc + (Number(getFormulaInputValue(inp, context, nodeOutputs)) || 0),
+        0,
+      );
+    case 'mean': {
+      const vals = formula.inputs.map(
+        (inp) => Number(getFormulaInputValue(inp, context, nodeOutputs)) || 0,
+      );
+      return vals.length === 0 ? 0 : vals.reduce((a, b) => a + b, 0) / vals.length;
+    }
+    case 'min': {
+      const vals = formula.inputs.map(
+        (inp) => Number(getFormulaInputValue(inp, context, nodeOutputs)) || 0,
+      );
+      return vals.length === 0 ? 0 : Math.min(...vals);
+    }
+    case 'max': {
+      const vals = formula.inputs.map(
+        (inp) => Number(getFormulaInputValue(inp, context, nodeOutputs)) || 0,
+      );
+      return vals.length === 0 ? 0 : Math.max(...vals);
+    }
+    case 'count':
+      return formula.inputs.filter((inp) => {
+        const val = getFormulaInputValue(inp, context, nodeOutputs);
+        if (val == null || val === '') return false;
+        if (!formula.where) return true;
+        const evalCtx = mergeContext(context, {
+          screenData: nodeOutputs,
+          loopData: { current: val },
+        });
+        return evaluateCondition(formula.where, evalCtx);
+      }).length;
+    case 'conditional': {
+      const ctxWithOutputs = mergeContext(context, { screenData: nodeOutputs });
+      return evaluateCondition(formula.condition, ctxWithOutputs)
+        ? formula.then
+        : formula.else;
+    }
+    case 'lookup': {
+      const val = getFormulaInputValue(formula.input, context, nodeOutputs);
+      const sorted = [...formula.table].sort((a, b) => Number(b.when) - Number(a.when));
+      const match = sorted.find((entry) => Number(val) >= Number(entry.when));
+      return match ? match.then : formula.default;
+    }
+  }
+}
+
 export async function traverseInNode(
   step: FlowStep<InNodeState>,
   data: Record<string, any>,
@@ -638,6 +705,31 @@ export async function traverseInNode(
         dataPath: step.dataPath,
       });
     }
+    case 'compute': {
+      const nodeOutputs: Record<string, any> = {};
+      for (const computation of state.node.props.computations) {
+        nodeOutputs[computation.outputKey] = evaluateFormula(
+          computation.formula,
+          context,
+          nodeOutputs,
+        );
+      }
+      const keys = [...(step.dataPath ?? []), state.node.id];
+      const nestedData = keys.reduceRight<Record<string, any>>(
+        (acc, key) => ({ [key]: acc }),
+        nodeOutputs,
+      );
+      const nContext = mergeContext(context, { data: nestedData });
+      const nNode = getNextSequentialNode(experiment, state.node.id);
+      if (!nNode) return { ...step, context: nContext, state: { type: 'end' } };
+      const nState = initialState(experiment, nContext, nNode);
+      return await enterStep({
+        state: nState,
+        experiment,
+        context: nContext,
+        dataPath: step.dataPath,
+      });
+    }
   }
 }
 
@@ -684,6 +776,19 @@ export async function traverseInPath(
         context: nContext,
         dataPath: [...(step.dataPath ?? []), state.node.id],
       });
+
+      // If the entered child immediately auto-traversed to end (e.g. a compute
+      // node with no outgoing sequential edge), recurse to advance past it.
+      if (innerStep.state.type === 'end') {
+        return traverseInPath(
+          {
+            ...step,
+            state: { ...state, step: nextStep, innerState: innerStep.state },
+            context: innerStep.context,
+          },
+          {},
+        );
+      }
 
       // When the next path child is a branch, apply a delta between the pre-computed
       // contribution (which may be 0 for unresolvable conditions) and the actual chain

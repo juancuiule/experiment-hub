@@ -1199,3 +1199,273 @@ describe('shared option references', () => {
     expect(codes).not.toContain('unknown-shared-options');
   });
 });
+
+// ─── Compute node ────────────────────────────────────────────────────────────
+
+function makeCompute(id: string, computations: any[] = []): ExperimentFlow['nodes'][0] {
+  return { id, type: 'compute' as const, props: { name: id, computations } };
+}
+
+describe('compute node wiring', () => {
+  it('passes a valid compute node with sequential exit edge', () => {
+    const flow: ExperimentFlow = {
+      nodes: [start, makeCompute('c1'), makeScreen('s1', 'end')],
+      edges: [seq('start', 'c1'), seq('c1', 's1')],
+      screens: [{ slug: 'end', components: [] }],
+    };
+    expect(validateExperiment(flow)).toEqual([]);
+  });
+
+  it('passes a compute node with no sequential exit edge (end of flow)', () => {
+    const flow: ExperimentFlow = {
+      nodes: [start, makeScreen('s1', 'q'), makeCompute('c1')],
+      edges: [seq('start', 's1'), seq('s1', 'c1')],
+      screens: [{ slug: 'q', components: [] }],
+    };
+    expect(validateExperiment(flow)).toEqual([]);
+  });
+});
+
+describe('compute node reference checks', () => {
+  it('reports unavailable-reference for a $$ ref not yet written', () => {
+    const flow: ExperimentFlow = {
+      nodes: [
+        start,
+        makeCompute('c1', [
+          { outputKey: 'total', formula: { type: 'sum', inputs: ['$$q.score'] } },
+        ]),
+        makeScreen('s1', 'end'),
+      ],
+      edges: [seq('start', 'c1'), seq('c1', 's1')],
+      screens: [{ slug: 'end', components: [] }],
+    };
+    expect(codes(flow)).toContain('unavailable-reference');
+  });
+
+  it('passes when $$ ref is available from a prior screen', () => {
+    const flow: ExperimentFlow = {
+      nodes: [
+        start,
+        makeScreen('s1', 'q'),
+        makeCompute('c1', [
+          { outputKey: 'total', formula: { type: 'sum', inputs: ['$$q.score'] } },
+        ]),
+        makeScreen('s2', 'end'),
+      ],
+      edges: [seq('start', 's1'), seq('s1', 'c1'), seq('c1', 's2')],
+      screens: [
+        {
+          slug: 'q',
+          components: [
+            { componentFamily: 'response', template: 'numeric-input', props: { dataKey: 'score', label: 'Score' } },
+          ],
+        },
+        { slug: 'end', components: [] },
+      ],
+    };
+    expect(codes(flow)).toEqual([]);
+  });
+
+  it('reports unavailable-reference when $outputKey references a key not yet defined in the same node', () => {
+    const flow: ExperimentFlow = {
+      nodes: [
+        start,
+        makeScreen('s1', 'q'),
+        makeCompute('c1', [
+          // level references $total but total is defined AFTER level — wrong order
+          { outputKey: 'level', formula: { type: 'conditional', condition: { type: 'simple', operator: 'gte', dataKey: '$total', value: 10 }, then: 'high', else: 'low' } },
+          { outputKey: 'total', formula: { type: 'sum', inputs: ['$$q.score'] } },
+        ]),
+        makeScreen('s2', 'end'),
+      ],
+      edges: [seq('start', 's1'), seq('s1', 'c1'), seq('c1', 's2')],
+      screens: [
+        {
+          slug: 'q',
+          components: [
+            { componentFamily: 'response', template: 'numeric-input', props: { dataKey: 'score', label: 'Score' } },
+          ],
+        },
+        { slug: 'end', components: [] },
+      ],
+    };
+    expect(codes(flow)).toContain('unavailable-reference');
+  });
+
+  it('passes when $outputKey references an earlier output in the same node', () => {
+    const flow: ExperimentFlow = {
+      nodes: [
+        start,
+        makeScreen('s1', 'q'),
+        makeCompute('c1', [
+          { outputKey: 'total', formula: { type: 'sum', inputs: ['$$q.score'] } },
+          { outputKey: 'level', formula: { type: 'conditional', condition: { type: 'simple', operator: 'gte', dataKey: '$total', value: 10 }, then: 'high', else: 'low' } },
+        ]),
+        makeScreen('s2', 'end'),
+      ],
+      edges: [seq('start', 's1'), seq('s1', 'c1'), seq('c1', 's2')],
+      screens: [
+        {
+          slug: 'q',
+          components: [
+            { componentFamily: 'response', template: 'numeric-input', props: { dataKey: 'score', label: 'Score' } },
+          ],
+        },
+        { slug: 'end', components: [] },
+      ],
+    };
+    expect(codes(flow)).toEqual([]);
+  });
+
+  it('adds compute outputs to the available set for downstream nodes', () => {
+    const flow: ExperimentFlow = {
+      nodes: [
+        start,
+        makeScreen('s1', 'q'),
+        makeCompute('c1', [
+          { outputKey: 'total', formula: { type: 'sum', inputs: ['$$q.score'] } },
+        ]),
+        makeScreen('s2', 'result'),
+      ],
+      edges: [seq('start', 's1'), seq('s1', 'c1'), seq('c1', 's2')],
+      screens: [
+        {
+          slug: 'q',
+          components: [
+            { componentFamily: 'response', template: 'numeric-input', props: { dataKey: 'score', label: 'Score' } },
+          ],
+        },
+        {
+          slug: 'result',
+          components: [
+            { componentFamily: 'content', template: 'rich-text', props: { content: 'Your score: {{$$c1.total}}' } },
+          ],
+        },
+      ],
+    };
+    expect(codes(flow)).toEqual([]);
+  });
+
+  it('reports duplicate-lookup-key when a lookup table has two entries with the same when value', () => {
+    const flow: ExperimentFlow = {
+      nodes: [
+        start,
+        makeScreen('s1', 'q'),
+        makeCompute('c1', [
+          {
+            outputKey: 'level',
+            formula: {
+              type: 'lookup',
+              input: '$$q.score',
+              table: [
+                { when: 5, then: 'mild' },
+                { when: 5, then: 'moderate' },
+              ],
+            },
+          },
+        ]),
+      ],
+      edges: [seq('start', 's1'), seq('s1', 'c1')],
+      screens: [
+        {
+          slug: 'q',
+          components: [
+            { componentFamily: 'response', template: 'numeric-input', props: { dataKey: 'score', label: 'Score' } },
+          ],
+        },
+      ],
+    };
+    expect(codes(flow)).toContain('duplicate-lookup-key');
+  });
+
+  it('scopes compute outputs under path id when inside a path', () => {
+    const flow: ExperimentFlow = {
+      nodes: [
+        start,
+        { id: 'path-a', type: 'path' as const, props: { name: 'A' } },
+        makeScreen('s1', 'q'),
+        makeCompute('c1', [
+          { outputKey: 'total', formula: { type: 'sum', inputs: ['$$path-a.q.score'] } },
+        ]),
+        makeScreen('s2', 'result'),
+      ],
+      edges: [
+        seq('start', 'path-a'),
+        { type: 'path-contains', from: 'path-a', to: 's1', order: 0 },
+        { type: 'path-contains', from: 'path-a', to: 'c1', order: 1 },
+        seq('path-a', 's2'),
+      ],
+      screens: [
+        {
+          slug: 'q',
+          components: [
+            { componentFamily: 'response', template: 'numeric-input', props: { dataKey: 'score', label: 'Score' } },
+          ],
+        },
+        {
+          slug: 'result',
+          components: [
+            { componentFamily: 'content', template: 'rich-text', props: { content: '{{$$path-a.c1.total}}' } },
+          ],
+        },
+      ],
+    };
+    expect(codes(flow)).toEqual([]);
+  });
+
+  it('reports duplicate-lookup-key when when values are equal after numeric coercion (5 vs "5")', () => {
+    const flow: ExperimentFlow = {
+      nodes: [
+        start,
+        makeScreen('s1', 'q'),
+        makeCompute('c1', [
+          {
+            outputKey: 'level',
+            formula: {
+              type: 'lookup',
+              input: '$$q.score',
+              table: [
+                { when: 5, then: 'mild' },
+                { when: '5' as any, then: 'duplicate' },
+              ],
+            },
+          },
+        ]),
+      ],
+      edges: [seq('start', 's1'), seq('s1', 'c1')],
+      screens: [
+        {
+          slug: 'q',
+          components: [
+            { componentFamily: 'response', template: 'numeric-input', props: { dataKey: 'score', label: 'Score' } },
+          ],
+        },
+      ],
+    };
+    expect(codes(flow)).toContain('duplicate-lookup-key');
+  });
+
+  it('reports duplicate-output-key when two computations share the same outputKey', () => {
+    const flow: ExperimentFlow = {
+      nodes: [
+        start,
+        makeScreen('s1', 'q'),
+        makeCompute('c1', [
+          { outputKey: 'total', formula: { type: 'sum', inputs: ['$$q.a'] } },
+          { outputKey: 'total', formula: { type: 'sum', inputs: ['$$q.b'] } },
+        ]),
+      ],
+      edges: [seq('start', 's1'), seq('s1', 'c1')],
+      screens: [
+        {
+          slug: 'q',
+          components: [
+            { componentFamily: 'response', template: 'numeric-input', props: { dataKey: 'a', label: 'A' } },
+            { componentFamily: 'response', template: 'numeric-input', props: { dataKey: 'b', label: 'B' } },
+          ],
+        },
+      ],
+    };
+    expect(codes(flow)).toContain('duplicate-output-key');
+  });
+});
