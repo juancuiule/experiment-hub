@@ -1585,4 +1585,35 @@ describe('cross-field rule reference checks', () => {
     };
     expect(codes(flow)).toContain('invalid-cross-field-reference');
   });
+
+  it('accepts a $$-ref when the screen follows a compute node', () => {
+    const flow: ExperimentFlow = {
+      nodes: [
+        start,
+        makeScreen('s1', 'first'),
+        { id: 'c1', type: 'compute' as const, props: { name: 'c1', computations: [] } },
+        makeScreen('s2', 'second'),
+      ],
+      edges: [seq('start', 's1'), seq('s1', 'c1'), seq('c1', 's2')],
+      screens: [
+        {
+          slug: 'first',
+          components: [
+            {
+              componentFamily: 'response' as const,
+              template: 'numeric-input' as const,
+              props: { dataKey: 'value', label: 'V' },
+            },
+          ],
+        },
+        screenWithRule('second', {
+          type: 'ordered',
+          a: '$$first.value',
+          b: '$score',
+          operator: 'lte',
+        }),
+      ],
+    };
+    expect(validateExperiment(flow)).toEqual([]);
+  });
 });

@@ -757,16 +757,13 @@ function checkCrossFieldRules(flow: ExperimentFlow): ValidationError[] {
           available.add([...dataPath, node.props.slug, key].join('.'));
         }
       }
-      const next = flow.edges.find(
-        (e) => e.type === 'sequential' && e.from === nodeId,
-      );
-      if (next) walkForAvailability(next.to, available, dataPath);
-    } else if (node.type === 'start' || node.type === 'checkpoint') {
-      const next = flow.edges.find(
-        (e) => e.type === 'sequential' && e.from === nodeId,
-      );
-      if (next) walkForAvailability(next.to, available, dataPath);
     }
+
+    // Follow sequential exit for all node types (compute, branch, checkpoint, etc.)
+    const next = flow.edges.find(
+      (e) => e.type === 'sequential' && e.from === nodeId,
+    );
+    if (next) walkForAvailability(next.to, available, dataPath);
   }
 
   const startNode = flow.nodes.find((n) => n.type === 'start');
