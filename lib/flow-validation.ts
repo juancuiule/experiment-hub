@@ -687,6 +687,149 @@ function checkReferences(flow: ExperimentFlow): ValidationError[] {
   });
 }
 
+function collectScreenDataKeys(screen: { components: ScreenComponent[] }): Set<string> {
+  const keys = new Set<string>();
+  function walk(component: ScreenComponent) {
+    if (component.componentFamily === 'response') {
+      const dataKey = (component.props as Record<string, unknown>).dataKey as string | undefined;
+      if (dataKey && !dataKey.includes('{{')) keys.add(dataKey);
+    } else if (
+      component.componentFamily === 'layout' &&
+      component.template === 'group'
+    ) {
+      for (const c of (component.props as any).components) walk(c);
+    } else if (component.componentFamily === 'control') {
+      if (component.template === 'conditional') {
+        walk((component.props as any).component);
+        if ((component.props as any).else) walk((component.props as any).else);
+      } else if (component.template === 'for-each') {
+        walk((component.props as any).component);
+      }
+    }
+  }
+  for (const c of screen.components) walk(c);
+  return keys;
+}
+
+function collectForeachIds(screen: { components: ScreenComponent[] }): Set<string> {
+  const ids = new Set<string>();
+  function walk(component: ScreenComponent) {
+    if (component.componentFamily === 'control') {
+      if (component.template === 'for-each') {
+        ids.add((component.props as any).id);
+        walk((component.props as any).component);
+      } else if (component.template === 'conditional') {
+        walk((component.props as any).component);
+        if ((component.props as any).else) walk((component.props as any).else);
+      }
+    } else if (
+      component.componentFamily === 'layout' &&
+      component.template === 'group'
+    ) {
+      for (const c of (component.props as any).components) walk(c);
+    }
+  }
+  for (const c of screen.components) walk(c);
+  return ids;
+}
+
+function checkCrossFieldRules(flow: ExperimentFlow): ValidationError[] {
+  const errors: ValidationError[] = [];
+  const screenMap = new Map((flow.screens ?? []).map((s) => [s.slug, s]));
+  const nodeMap = new Map(flow.nodes.map((n) => [n.id, n]));
+
+  // Forward walk to build available-set per screen slug (before the screen runs)
+  const availablePerScreen = new Map<string, Set<string>>();
+
+  function walkForAvailability(
+    nodeId: string,
+    available: Set<string>,
+    dataPath: string[],
+  ) {
+    const node = nodeMap.get(nodeId);
+    if (!node) return;
+
+    if (node.type === 'screen') {
+      availablePerScreen.set(node.props.slug, new Set(available));
+      const screen = screenMap.get(node.props.slug);
+      if (screen) {
+        for (const key of collectScreenDataKeys(screen)) {
+          available.add([...dataPath, node.props.slug, key].join('.'));
+        }
+      }
+      const next = flow.edges.find(
+        (e) => e.type === 'sequential' && e.from === nodeId,
+      );
+      if (next) walkForAvailability(next.to, available, dataPath);
+    } else if (node.type === 'start' || node.type === 'checkpoint') {
+      const next = flow.edges.find(
+        (e) => e.type === 'sequential' && e.from === nodeId,
+      );
+      if (next) walkForAvailability(next.to, available, dataPath);
+    }
+  }
+
+  const startNode = flow.nodes.find((n) => n.type === 'start');
+  if (startNode) walkForAvailability(startNode.id, new Set(), []);
+
+  for (const screen of flow.screens ?? []) {
+    if (!screen.validate?.length) continue;
+
+    const screenDataKeys = collectScreenDataKeys(screen);
+    const foreachIds = collectForeachIds(screen);
+    const available = availablePerScreen.get(screen.slug) ?? new Set<string>();
+
+    for (const rule of screen.validate) {
+      const localRefs: string[] = [];
+      const crossRefs: string[] = [];
+
+      const classifyRef = (ref: string) => {
+        if (ref.startsWith('$$')) crossRefs.push(ref.slice(2));
+        else if (ref.startsWith('$')) localRefs.push(ref.slice(1));
+      };
+
+      if ('fields' in rule) {
+        for (const f of rule.fields) classifyRef(f);
+      }
+      if ('a' in rule) classifyRef(rule.a);
+      if ('b' in rule) classifyRef(rule.b);
+      if ('field' in rule && typeof rule.field === 'string') classifyRef(rule.field);
+
+      for (const key of localRefs) {
+        if (!screenDataKeys.has(key)) {
+          errors.push({
+            code: 'invalid-cross-field-reference',
+            message: `Screen "${screen.slug}" validate rule references "$${key}" but no response component has dataKey "${key}"`,
+          });
+        }
+      }
+
+      for (const path of crossRefs) {
+        const ok = [...available].some(
+          (a) => path === a || path.startsWith(a + '.'),
+        );
+        if (!ok) {
+          errors.push({
+            code: 'unavailable-reference',
+            message: `Screen "${screen.slug}" validate rule references "$$${path}" but that data is not guaranteed to be available at this point`,
+          });
+        }
+      }
+
+      if (rule.type === 'unique-across-foreach') {
+        if (!foreachIds.has(rule.foreachId)) {
+          errors.push({
+            code: 'invalid-cross-field-reference',
+            message: `Screen "${screen.slug}" unique-across-foreach rule references foreachId "${rule.foreachId}" which does not exist on this screen`,
+          });
+        }
+      }
+    }
+  }
+
+  return errors;
+}
+
 function checkSharedOptionReferences(flow: ExperimentFlow): ValidationError[] {
   const errors: ValidationError[] = [];
   const definedOptions = new Set(Object.keys(flow.options ?? {}));
@@ -736,5 +879,6 @@ export function validateExperiment(flow: ExperimentFlow): ValidationError[] {
     ...checkScreenDefinitions(flow),
     ...checkReferences(flow),
     ...checkSharedOptionReferences(flow),
+    ...checkCrossFieldRules(flow),
   ];
 }

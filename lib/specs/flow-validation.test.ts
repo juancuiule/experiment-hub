@@ -1469,3 +1469,120 @@ describe('compute node reference checks', () => {
     expect(codes(flow)).toContain('duplicate-output-key');
   });
 });
+
+// ─── Cross-field rule reference checks ───────────────────────────────────────
+
+describe('cross-field rule reference checks', () => {
+  function screenWithRule(slug: string, rule: any) {
+    return {
+      slug,
+      components: [
+        {
+          componentFamily: 'response' as const,
+          template: 'numeric-input' as const,
+          props: { dataKey: 'score', label: 'Score' },
+        },
+      ],
+      validate: [rule],
+    };
+  }
+
+  it('accepts a valid $-ref that matches a dataKey on the screen', () => {
+    const flow: ExperimentFlow = {
+      nodes: [start, makeScreen('s1', 'q')],
+      edges: [seq('start', 's1')],
+      screens: [
+        screenWithRule('q', {
+          type: 'sum-equals',
+          fields: ['$score'],
+          target: 10,
+        }),
+      ],
+    };
+    expect(validateExperiment(flow)).toEqual([]);
+  });
+
+  it('reports invalid-cross-field-reference for a $-ref with no matching dataKey', () => {
+    const flow: ExperimentFlow = {
+      nodes: [start, makeScreen('s1', 'q')],
+      edges: [seq('start', 's1')],
+      screens: [
+        screenWithRule('q', {
+          type: 'sum-equals',
+          fields: ['$nonexistent'],
+          target: 10,
+        }),
+      ],
+    };
+    expect(codes(flow)).toContain('invalid-cross-field-reference');
+  });
+
+  it('accepts a $$-ref that is available before this screen', () => {
+    const flow: ExperimentFlow = {
+      nodes: [start, makeScreen('s1', 'first'), makeScreen('s2', 'second')],
+      edges: [seq('start', 's1'), seq('s1', 's2')],
+      screens: [
+        {
+          slug: 'first',
+          components: [
+            {
+              componentFamily: 'response' as const,
+              template: 'numeric-input' as const,
+              props: { dataKey: 'value', label: 'V' },
+            },
+          ],
+        },
+        screenWithRule('second', {
+          type: 'ordered',
+          a: '$$first.value',
+          b: '$score',
+          operator: 'lte',
+        }),
+      ],
+    };
+    expect(validateExperiment(flow)).toEqual([]);
+  });
+
+  it('reports unavailable-reference for a $$-ref not yet written at this screen', () => {
+    const flow: ExperimentFlow = {
+      nodes: [start, makeScreen('s1', 'q')],
+      edges: [seq('start', 's1')],
+      screens: [
+        screenWithRule('q', {
+          type: 'ordered',
+          a: '$$future.value',
+          b: '$score',
+          operator: 'lte',
+        }),
+      ],
+    };
+    expect(codes(flow)).toContain('unavailable-reference');
+  });
+
+  it('reports invalid-cross-field-reference for unique-across-foreach with unknown foreachId', () => {
+    const flow: ExperimentFlow = {
+      nodes: [start, makeScreen('s1', 'q')],
+      edges: [seq('start', 's1')],
+      screens: [
+        {
+          slug: 'q',
+          components: [
+            {
+              componentFamily: 'response' as const,
+              template: 'numeric-input' as const,
+              props: { dataKey: 'score', label: 'S' },
+            },
+          ],
+          validate: [
+            {
+              type: 'unique-across-foreach',
+              foreachId: 'ghost',
+              dataKeyPattern: 'rank-{{#ghost.value}}',
+            },
+          ],
+        },
+      ],
+    };
+    expect(codes(flow)).toContain('invalid-cross-field-reference');
+  });
+});
