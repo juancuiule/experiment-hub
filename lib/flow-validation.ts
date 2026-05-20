@@ -411,6 +411,59 @@ function checkReferences(flow: ExperimentFlow): ValidationError[] {
     }
   }
 
+  function checkFormulaInput(
+    input: string,
+    context: string,
+    available: Set<string>,
+    nodeOutputs: Set<string>,
+    insideLoop: boolean,
+  ) {
+    if (input.startsWith('$') && !input.startsWith('$$')) {
+      const key = input.slice(1);
+      if (!nodeOutputs.has(key)) {
+        rawErrors.push({
+          code: 'unavailable-reference',
+          message: `${context} uses "$${key}" but that output is not yet defined earlier in the same compute node`,
+        });
+      }
+    } else {
+      checkText(input, context, available, insideLoop);
+    }
+  }
+
+  function checkFormulaInputs(
+    formula: import('./nodes').Formula,
+    context: string,
+    available: Set<string>,
+    nodeOutputs: Set<string>,
+    insideLoop: boolean,
+  ) {
+    switch (formula.type) {
+      case 'sum':
+      case 'mean':
+      case 'min':
+      case 'max':
+        for (const inp of formula.inputs) checkFormulaInput(inp, context, available, nodeOutputs, insideLoop);
+        break;
+      case 'count':
+        for (const inp of formula.inputs) checkFormulaInput(inp, context, available, nodeOutputs, insideLoop);
+        if (formula.where) {
+          for (const key of collectConditionDataKeys(formula.where)) {
+            if (!key.startsWith('@')) checkFormulaInput(key, context, available, nodeOutputs, insideLoop);
+          }
+        }
+        break;
+      case 'conditional':
+        for (const key of collectConditionDataKeys(formula.condition)) {
+          checkFormulaInput(key, context, available, nodeOutputs, insideLoop);
+        }
+        break;
+      case 'lookup':
+        checkFormulaInput(formula.input, context, available, nodeOutputs, insideLoop);
+        break;
+    }
+  }
+
   // available: dot-joined data paths guaranteed to be written up to this point
   // dataPath: nesting context for how screen data is stored (e.g. ["path-profile"])
   // insideLoop: whether we are walking a loop template subgraph
@@ -469,6 +522,32 @@ function checkReferences(flow: ExperimentFlow): ValidationError[] {
           }
 
           for (const component of screen.components) processComponent(component, {});
+        }
+        const next = seqNext.get(nodeId);
+        if (next) return walk(next, current, dataPath, insideLoop);
+        break;
+      }
+
+      case 'compute': {
+        const nodeLabel = `Compute "${nodeId}"`;
+        const prefix = [...dataPath, nodeId].join('.');
+        const nodeOutputs = new Set<string>();
+        for (const { outputKey, formula } of node.props.computations) {
+          if (formula.type === 'lookup') {
+            const seen = new Set<string | number>();
+            for (const entry of formula.table) {
+              if (seen.has(entry.when)) {
+                rawErrors.push({
+                  code: 'duplicate-lookup-key',
+                  message: `Compute "${nodeId}" output "${outputKey}" has duplicate lookup key "${entry.when}"`,
+                });
+              }
+              seen.add(entry.when);
+            }
+          }
+          checkFormulaInputs(formula, nodeLabel, current, nodeOutputs, insideLoop);
+          current.add(`${prefix}.${outputKey}`);
+          nodeOutputs.add(outputKey);
         }
         const next = seqNext.get(nodeId);
         if (next) return walk(next, current, dataPath, insideLoop);
