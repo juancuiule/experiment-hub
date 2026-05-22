@@ -1,7 +1,7 @@
 import { ScreenComponent } from './components';
 import { ResponseComponent } from './components/response';
 import { mergeContext } from './flow';
-import { resolveValuesInString } from './resolve';
+import { getValue, resolveValuesInString } from './resolve';
 import { FrameworkScreen } from './screen';
 import { Context } from './types';
 
@@ -42,15 +42,18 @@ function collectDefaults(
         if (c.props.else) collectDefaults([c.props.else], context, values);
       } else if (
         c.componentFamily === 'control' &&
-        c.template === 'for-each' &&
-        c.props.type === 'static'
+        c.template === 'for-each'
       ) {
+        const iterValues =
+          c.props.type === 'static'
+            ? c.props.values
+            : ((getValue(c.props.dataKey, context) as string[] | null) ?? []);
         const inner = c.props.component;
-        for (let i = 0; i < c.props.values.length; i++) {
+        for (let i = 0; i < iterValues.length; i++) {
           const subContext = mergeContext(context, {
             screenData: {
               foreachData: {
-                [c.props.id]: { index: i, value: c.props.values[i] },
+                [c.props.id]: { index: i, value: iterValues[i] },
               },
             },
           });
