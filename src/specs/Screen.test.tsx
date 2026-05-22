@@ -816,6 +816,49 @@ describe('randomize options', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Conditional nested inside for-each
+// ---------------------------------------------------------------------------
+
+describe('conditional inside for-each', () => {
+  it('evaluates condition with foreachData when conditional is nested inside for-each', () => {
+    // The condition uses $foreachData.loop.value ($ prefix into screenData.foreachData).
+    // With the bug, Conditional overwrites screenData with raw formValues, dropping
+    // foreachData — so the condition always evaluates to false and no content renders.
+    renderScreen([
+      {
+        componentFamily: 'control',
+        template: 'for-each',
+        props: {
+          id: 'loop',
+          type: 'static',
+          values: ['alpha', 'beta'],
+          component: {
+            componentFamily: 'control',
+            template: 'conditional',
+            props: {
+              if: {
+                type: 'simple',
+                dataKey: '$foreachData.loop.value',
+                operator: 'eq',
+                value: 'alpha',
+              },
+              component: {
+                componentFamily: 'content',
+                template: 'rich-text',
+                props: { content: 'Only for alpha' },
+              },
+            },
+          },
+        },
+      },
+    ]);
+    // Should appear exactly once: for the 'alpha' iteration, not 'beta'
+    expect(screen.getByText('Only for alpha')).toBeInTheDocument();
+    expect(screen.queryAllByText('Only for alpha')).toHaveLength(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // For-each
 // ---------------------------------------------------------------------------
 

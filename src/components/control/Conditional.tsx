@@ -4,7 +4,7 @@ import { ScreenComponent } from '@/lib/components';
 import { ConditionalComponent } from '@/lib/components/control';
 import { evaluateCondition } from '@/lib/conditions';
 import { Context } from '@/lib/types';
-import { UseFormReturn, useWatch } from 'react-hook-form';
+import { UseFormReturn } from 'react-hook-form';
 import { RenderProps } from '../primitives';
 
 type Props = {
@@ -22,18 +22,13 @@ export function Conditional({
   isLoading,
   renderChild,
 }: Props) {
-  const formValues = useWatch({ control: form.control });
   const {
     if: condition,
     component: innerComponent,
     else: elseComponent,
   } = component.props;
 
-  const enrichedContext: Context = {
-    ...context,
-    screenData: formValues as Record<string, any>,
-  };
-  const shouldRender = evaluateCondition(condition, enrichedContext);
+  const shouldRender = evaluateCondition(condition, context);
 
   if (!shouldRender) {
     if (!elseComponent) return null;
