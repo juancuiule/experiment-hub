@@ -37,6 +37,7 @@ export function buildFieldSchema(component: ResponseComponent): z.ZodTypeAny {
       return required ? base.min(1, msg) : base.optional();
     }
 
+    case 'button-group':
     case 'dropdown':
     case 'radio': {
       // TODO: add validation to check that selected options is

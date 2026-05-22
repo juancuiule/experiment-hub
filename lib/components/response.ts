@@ -157,6 +157,20 @@ export interface LikertScaleComponent extends BaseResponseComponent<
   }
 > {}
 
+export interface ButtonGroupComponent extends BaseResponseComponent<
+  "button-group",
+  {
+    label?: string;
+    options: OptionsSource;
+    correctKey?: string;
+    showFeedback?: boolean;
+    advanceAfterMs?: number;
+    randomize?: boolean;
+    reshuffleInLoop?: boolean;
+    storeIsCorrect?: boolean;
+  }
+> {}
+
 export type ResponseComponent =
   | SliderComponent
   | SingleCheckboxComponent
@@ -168,12 +182,14 @@ export type ResponseComponent =
   | RadioComponent
   | CheckboxesComponent
   | NumericInputComponent
-  | LikertScaleComponent;
+  | LikertScaleComponent
+  | ButtonGroupComponent;
 
 type RandomizableResponseComponent =
   | DropdownComponent
   | RadioComponent
-  | CheckboxesComponent;
+  | CheckboxesComponent
+  | ButtonGroupComponent;
 
 export function isRandomizableResponseComponent(
   component: ResponseComponent,
@@ -181,7 +197,8 @@ export function isRandomizableResponseComponent(
   return (
     component.template === "radio" ||
     component.template === "dropdown" ||
-    component.template === "checkboxes"
+    component.template === "checkboxes" ||
+    component.template === "button-group"
   );
 }
 

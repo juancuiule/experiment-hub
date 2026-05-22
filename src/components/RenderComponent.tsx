@@ -12,6 +12,7 @@ import { ForEach } from './control/ForEach';
 import { Button } from './layout/Button';
 import { Group } from './layout/Group';
 import { RenderProps } from './primitives';
+import { ButtonGroup } from './response/ButtonGroup';
 import { Checkboxes } from './response/Checkboxes';
 import { DateInput } from './response/DateInput';
 import { Dropdown } from './response/Dropdown';
@@ -30,11 +31,18 @@ export function RenderComponent({
   context: propContext,
   isLoading,
   sharedOptions,
+  triggerSubmit,
 }: RenderProps) {
   const screenData = form.watch(); // Watch all form values to have them available in context
   const context = deepMerge(propContext, { screenData }); // Add form values to context for easier access in components
 
-  const renderChild = (props: RenderProps) => <RenderComponent {...props} sharedOptions={sharedOptions} />;
+  const renderChild = (props: RenderProps) => (
+    <RenderComponent
+      {...props}
+      sharedOptions={sharedOptions}
+      triggerSubmit={triggerSubmit}
+    />
+  );
 
   switch (component.componentFamily) {
     case 'content': {
@@ -84,6 +92,8 @@ export function RenderComponent({
           return <Slider {...props} />;
         case 'likert-scale':
           return <LikertScale {...props} />;
+        case 'button-group':
+          return <ButtonGroup {...props} triggerSubmit={triggerSubmit} />;
       }
     }
 

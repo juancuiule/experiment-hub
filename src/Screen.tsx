@@ -47,12 +47,14 @@ export function Screen({
     );
   };
 
+  const triggerSubmit = form.handleSubmit(onSubmit);
+
   return (
     <>
       <form
         className="flex h-full flex-1 flex-col gap-4"
         key={screen.slug}
-        onSubmit={form.handleSubmit(onSubmit)}
+        onSubmit={triggerSubmit}
       >
         {screen.components.map((component, i) => (
           <RenderComponent
@@ -66,6 +68,7 @@ export function Screen({
             context={context}
             isLoading={isLoading}
             sharedOptions={sharedOptions}
+            triggerSubmit={triggerSubmit}
           />
         ))}
       </form>

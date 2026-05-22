@@ -39,12 +39,14 @@ type FieldDescriptor =
   | {
       key: string;
       synthetic: true;
+      schema?: z.ZodTypeAny;
       dynamic: false;
       condition: Condition | null;
     }
   | {
       key: string;
       synthetic: true;
+      schema?: z.ZodTypeAny;
       dynamic: true;
       condition: Condition | null;
       foreach: [ForEachMeta, ...ForEachMeta[]];
@@ -84,6 +86,15 @@ function collectDescriptor(
         descriptors.push({
           key: `${key}:order`,
           synthetic: true,
+          dynamic: false,
+          condition: enclosingCondition,
+        });
+      }
+      if (component.template === 'button-group' && component.props.storeIsCorrect) {
+        descriptors.push({
+          key: `${key}:correct`,
+          synthetic: true,
+          schema: z.boolean().optional(),
           dynamic: false,
           condition: enclosingCondition,
         });
@@ -194,7 +205,7 @@ export function buildSchemaFromDescriptors(
     if (descriptor.dynamic) continue;
 
     if (descriptor.synthetic) {
-      shape[descriptor.key] = z.array(z.string()).optional();
+      shape[descriptor.key] = descriptor.schema ?? z.array(z.string()).optional();
     } else if (descriptor.condition === null) {
       shape[descriptor.key] = buildFieldSchema(descriptor.source);
     } else {
@@ -330,13 +341,13 @@ function inspectComponent(
 ): string[] {
   switch (component.componentFamily) {
     case 'response': {
-      if (hasRandomizedOptions(component)) {
-        return [
-          resolveValuesInString(component.props.dataKey, context),
-          `${resolveValuesInString(component.props.dataKey, context)}:order`,
-        ];
+      const key = resolveValuesInString(component.props.dataKey, context);
+      const keys = [key];
+      if (hasRandomizedOptions(component)) keys.push(`${key}:order`);
+      if (component.template === 'button-group' && component.props.storeIsCorrect) {
+        keys.push(`${key}:correct`);
       }
-      return [resolveValuesInString(component.props.dataKey, context)];
+      return keys;
     }
     case 'layout': {
       if (component.template === 'group') {

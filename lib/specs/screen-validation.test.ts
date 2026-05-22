@@ -1357,3 +1357,128 @@ describe('randomize :order key', () => {
   // Note: unknown keys including :order for non-randomized fields are not stripped
   // because the schema uses .passthrough() — required so dynamic for-each keys survive Zod.
 });
+
+describe('button-group', () => {
+  const options = [
+    { label: 'Buenos Aires', value: 'buenos-aires' },
+    { label: 'Córdoba', value: 'cordoba' },
+    { label: 'Rosario', value: 'rosario' },
+  ];
+
+  it('passes when a value is selected and required', () => {
+    const schema = buildSchema(
+      screen([
+        {
+          componentFamily: 'response',
+          template: 'button-group',
+          props: { dataKey: 'answer', options, required: true },
+        },
+      ]),
+    );
+    expect(schema.safeParse({ answer: 'buenos-aires' }).success).toBe(true);
+  });
+
+  it('fails when empty and required', () => {
+    const schema = buildSchema(
+      screen([
+        {
+          componentFamily: 'response',
+          template: 'button-group',
+          props: { dataKey: 'answer', options, required: true },
+        },
+      ]),
+    );
+    expect(schema.safeParse({ answer: '' }).success).toBe(false);
+  });
+
+  it('passes when optional and empty', () => {
+    const schema = buildSchema(
+      screen([
+        {
+          componentFamily: 'response',
+          template: 'button-group',
+          props: { dataKey: 'answer', options, required: false },
+        },
+      ]),
+    );
+    expect(schema.safeParse({ answer: '' }).success).toBe(true);
+  });
+
+  it('includes answer:order field in schema when randomize: true', () => {
+    const schema = buildSchema(
+      screen([
+        {
+          componentFamily: 'response',
+          template: 'button-group',
+          props: { dataKey: 'answer', options, randomize: true },
+        },
+      ]),
+    );
+    expect(
+      schema.safeParse({ answer: 'buenos-aires', 'answer:order': ['buenos-aires', 'cordoba'] }).success,
+    ).toBe(true);
+  });
+
+  it('does not require answer:order when randomize is absent', () => {
+    const schema = buildSchema(
+      screen([
+        {
+          componentFamily: 'response',
+          template: 'button-group',
+          props: { dataKey: 'answer', options },
+        },
+      ]),
+    );
+    expect(schema.safeParse({ answer: 'buenos-aires' }).success).toBe(true);
+  });
+
+  it('includes answer:correct field as optional boolean when storeIsCorrect: true', () => {
+    const schema = buildSchema(
+      screen([
+        {
+          componentFamily: 'response',
+          template: 'button-group',
+          props: { dataKey: 'answer', options, storeIsCorrect: true },
+        },
+      ]),
+    );
+    expect(
+      schema.safeParse({ answer: 'buenos-aires', 'answer:correct': true }).success,
+    ).toBe(true);
+    expect(
+      schema.safeParse({ answer: 'buenos-aires', 'answer:correct': false }).success,
+    ).toBe(true);
+    expect(
+      schema.safeParse({ answer: 'buenos-aires' }).success,
+    ).toBe(true);
+  });
+
+  it('rejects answer:correct as non-boolean when storeIsCorrect: true', () => {
+    const schema = buildSchema(
+      screen([
+        {
+          componentFamily: 'response',
+          template: 'button-group',
+          props: { dataKey: 'answer', options, storeIsCorrect: true },
+        },
+      ]),
+    );
+    expect(
+      schema.safeParse({ answer: 'buenos-aires', 'answer:correct': 'yes' }).success,
+    ).toBe(false);
+  });
+
+  it('does not include answer:correct when storeIsCorrect is absent', () => {
+    const schema = buildSchema(
+      screen([
+        {
+          componentFamily: 'response',
+          template: 'button-group',
+          props: { dataKey: 'answer', options },
+        },
+      ]),
+    );
+    // passthrough allows unknown keys — this just confirms the main field still validates
+    expect(schema.safeParse({ answer: 'buenos-aires' }).success).toBe(true);
+  });
+});

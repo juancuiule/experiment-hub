@@ -448,6 +448,46 @@ describe('slider', () => {
   });
 });
 
+describe('button-group', () => {
+  it('passes a selected value when required', () => {
+    const schema = buildFieldSchema({
+      componentFamily: 'response',
+      template: 'button-group',
+      props: { dataKey: 'answer', options: [], required: true },
+    });
+    expect(schema.safeParse('buenos-aires').success).toBe(true);
+  });
+
+  it('fails an empty string when required', () => {
+    const schema = buildFieldSchema({
+      componentFamily: 'response',
+      template: 'button-group',
+      props: { dataKey: 'answer', options: [], required: true },
+    });
+    expect(schema.safeParse('').success).toBe(false);
+  });
+
+  it('passes when optional and empty', () => {
+    const schema = buildFieldSchema({
+      componentFamily: 'response',
+      template: 'button-group',
+      props: { dataKey: 'answer', options: [], required: false },
+    });
+    expect(schema.safeParse('').success).toBe(true);
+  });
+
+  it('uses custom errorMessage', () => {
+    const schema = buildFieldSchema({
+      componentFamily: 'response',
+      template: 'button-group',
+      props: { dataKey: 'answer', options: [], required: true, errorMessage: 'Pick an option' },
+    });
+    const result = schema.safeParse('');
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error.issues[0].message).toBe('Pick an option');
+  });
+});
+
 describe('single-checkbox', () => {
   it('passes true when required', () => {
     const schema = buildFieldSchema({

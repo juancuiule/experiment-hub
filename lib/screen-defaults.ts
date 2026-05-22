@@ -9,6 +9,7 @@ export function defaultPerTemplate(
   component: ResponseComponent,
 ): string | boolean | string[] | number | null {
   switch (component.template) {
+    case 'button-group':
     case 'radio':
     case 'dropdown':
       return '';

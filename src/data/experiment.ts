@@ -833,6 +833,44 @@ export const experiment: ExperimentFlow = {
 };
 
 export const EXPERIMENTS: Record<string, ExperimentFlow> = {
+  trivia: {
+    nodes: [
+      { id: 'start', type: 'start' },
+      { id: 'screen-1', type: 'screen', props: { slug: 'screen-1' } },
+    ],
+    edges: [{ type: 'sequential', from: 'start', to: 'screen-1' }],
+    screens: [
+      {
+        slug: 'screen-1',
+        components: [
+          {
+            componentFamily: 'content',
+            template: 'rich-text',
+            props: {
+              content: '# Pregunta de trivia',
+            },
+          },
+          {
+            componentFamily: 'response',
+            template: 'button-group',
+            props: {
+              dataKey: 'question-1',
+              correctKey: 'scared',
+              storeIsCorrect: true,
+              showFeedback: true,
+              advanceAfterMs: 10_000,
+              options: [
+                { label: 'Asustada', value: 'scared' },
+                { label: 'Fantasiosa', value: 'imaginative' },
+                { label: 'Impaciente', value: 'impatient' },
+                { label: 'Alarmada', value: 'alarmed' },
+              ],
+            },
+          },
+        ],
+      },
+    ],
+  },
   experiment,
   'ejercicio-1': {
     nodes: [
