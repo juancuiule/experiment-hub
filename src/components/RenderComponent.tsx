@@ -48,6 +48,7 @@ export function RenderComponent({
         case 'audio':
           return <Audio component={component} />;
       }
+      return null;
     }
 
     case 'response': {
@@ -85,6 +86,7 @@ export function RenderComponent({
         case 'likert-scale':
           return <LikertScale {...props} />;
       }
+      return null;
     }
 
     case 'layout': {
@@ -108,6 +110,7 @@ export function RenderComponent({
             />
           );
       }
+      return null;
     }
 
     case 'control': {
@@ -141,6 +144,7 @@ export function RenderComponent({
             />
           );
       }
+      return null;
     }
   }
 
