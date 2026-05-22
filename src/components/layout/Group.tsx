@@ -23,7 +23,7 @@ export function Group({
   renderChild,
 }: Props) {
   return (
-    <div className="my-2 flex flex-col gap-2">
+    <div className="my-2 flex flex-col gap-0.5">
       {component.props.components.map((child, i) => (
         <Fragment
           key={child.componentFamily === 'response' ? child.props.dataKey : i}
