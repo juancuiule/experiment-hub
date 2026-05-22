@@ -46,6 +46,7 @@ next-env.d.ts
 .claude-task/
 
 /docs/superpowers
+/docs/proposals
 
 .claude/CLAUDE.md
 .claude.json

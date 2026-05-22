@@ -31,15 +31,15 @@ Nodes represent steps; edges define how the engine moves between them.
 
 ### Node types
 
-| Node | Purpose |
-|---|---|
-| `start` | Entry point. Supports multiple named entry points via URL parameters. |
-| `screen` | Displays a screen to the participant. Each screen is a list of components. |
-| `branch` | Evaluates conditions against collected data and routes to the first matching arm (or a default). |
-| `fork` | Random assignment. Each arm has a weight; the engine selects one probabilistically. |
-| `path` | A sequential group of child nodes, optionally randomized. Supports a progress stepper. |
-| `loop` | Repeats a template node over a list of values — either static or drawn from collected data. |
-| `checkpoint` | Triggers a data submission at a specific point in the flow (useful for long studies). |
+| Node         | Purpose                                                                                          |
+| ------------ | ------------------------------------------------------------------------------------------------ |
+| `start`      | Entry point. Supports multiple named entry points via URL parameters.                            |
+| `screen`     | Displays a screen to the participant. Each screen is a list of components.                       |
+| `branch`     | Evaluates conditions against collected data and routes to the first matching arm (or a default). |
+| `fork`       | Random assignment. Each arm has a weight; the engine selects one probabilistically.              |
+| `path`       | A sequential group of child nodes, optionally randomized. Supports a progress stepper.           |
+| `loop`       | Repeats a template node over a list of values — either static or drawn from collected data.      |
+| `checkpoint` | Triggers a data submission at a specific point in the flow (useful for long studies).            |
 
 ### Screen components
 
@@ -54,13 +54,13 @@ Each screen is composed of typed components across four families:
 
 Collected values are referenced using a prefix notation:
 
-| Prefix | Scope | Example |
-|---|---|---|
-| `$$` | Experiment-wide collected data | `$$demographics.age` |
-| `@` | Current loop item (keyed by loop node ID) | `@loop-sports.value`, `@loop-sports.index` |
-| `$` | Current screen's live form values | `$hasChildren` |
-| `#` | Current for-each item (keyed by for-each component ID) | `#foreach-sport.value`, `#foreach-sport.index` |
-| `%` | Shared option sets defined in `ExperimentFlow.options` | `%agreement-scale` |
+| Prefix | Scope                                                  | Example                                        |
+| ------ | ------------------------------------------------------ | ---------------------------------------------- |
+| `$$`   | Experiment-wide collected data                         | `$$demographics.age`                           |
+| `@`    | Current loop item (keyed by loop node ID)              | `@loop-sports.value`, `@loop-sports.index`     |
+| `$`    | Current screen's live form values                      | `$hasChildren`                                 |
+| `#`    | Current for-each item (keyed by for-each component ID) | `#foreach-sport.value`, `#foreach-sport.index` |
+| `%`    | Shared option sets defined in `ExperimentFlow.options` | `%agreement-scale`                             |
 
 These references are used in branch conditions, answer piping (string interpolation inside labels and content), and conditional rendering.
 
@@ -164,7 +164,7 @@ This project is an **early-stage working prototype**. The flow engine and compon
 
 ### What is missing or incomplete
 
-**Session persistence** — Zustand's `persist` middleware is present in `src/data/store.ts` but commented out. Any browser refresh resets the experiment from the beginning.
+**Session persistence**
 
 **Data submission** — `send()` in `lib/utils.ts` is a stub (100ms timeout). Checkpoint and end-of-experiment data never reaches any backend. Replacing this with a real POST to a configurable endpoint is the first required step before running real studies.
 
@@ -202,42 +202,59 @@ Unit tests live in `lib/specs/` and `src/specs/`. The flow engine tests cover br
 An experiment config is an `ExperimentFlow` object:
 
 ```ts
-import { ExperimentFlow } from "@/lib/types";
+import { ExperimentFlow } from '@/lib/types';
 
 export const experiment: ExperimentFlow = {
   nodes: [
-    { id: "start", type: "start" },
-    { id: "screen-welcome", type: "screen", props: { slug: "welcome" } },
+    { id: 'start', type: 'start' },
+    { id: 'screen-welcome', type: 'screen', props: { slug: 'welcome' } },
     {
-      id: "branch-age",
-      type: "branch",
+      id: 'branch-age',
+      type: 'branch',
       props: {
-        name: "Age gate",
+        name: 'Age gate',
         branches: [
           {
-            id: "adult",
-            name: "Adult",
-            config: { type: "simple", operator: "gte", dataKey: "$$welcome.age", value: 18 },
+            id: 'adult',
+            name: 'Adult',
+            config: {
+              type: 'simple',
+              operator: 'gte',
+              dataKey: '$$welcome.age',
+              value: 18,
+            },
           },
         ],
       },
     },
-    { id: "screen-adult", type: "screen", props: { slug: "adult-content" } },
-    { id: "screen-ineligible", type: "screen", props: { slug: "ineligible" } },
+    { id: 'screen-adult', type: 'screen', props: { slug: 'adult-content' } },
+    { id: 'screen-ineligible', type: 'screen', props: { slug: 'ineligible' } },
   ],
   edges: [
-    { type: "sequential", from: "start", to: "screen-welcome" },
-    { type: "sequential", from: "screen-welcome", to: "branch-age" },
-    { type: "branch-condition", from: "branch-age.adult", to: "screen-adult" },
-    { type: "branch-default", from: "branch-age", to: "screen-ineligible" },
+    { type: 'sequential', from: 'start', to: 'screen-welcome' },
+    { type: 'sequential', from: 'screen-welcome', to: 'branch-age' },
+    { type: 'branch-condition', from: 'branch-age.adult', to: 'screen-adult' },
+    { type: 'branch-default', from: 'branch-age', to: 'screen-ineligible' },
   ],
   screens: [
     {
-      slug: "welcome",
+      slug: 'welcome',
       components: [
-        { componentFamily: "content", template: "rich-text", props: { content: "## Welcome\nHow old are you?" } },
-        { componentFamily: "response", template: "numeric-input", props: { label: "Age", dataKey: "age", min: 0, max: 120 } },
-        { componentFamily: "layout", template: "button", props: { text: "Continue" } },
+        {
+          componentFamily: 'content',
+          template: 'rich-text',
+          props: { content: '## Welcome\nHow old are you?' },
+        },
+        {
+          componentFamily: 'response',
+          template: 'numeric-input',
+          props: { label: 'Age', dataKey: 'age', min: 0, max: 120 },
+        },
+        {
+          componentFamily: 'layout',
+          template: 'button',
+          props: { text: 'Continue' },
+        },
       ],
     },
     // ...
@@ -248,7 +265,7 @@ export const experiment: ExperimentFlow = {
 Before using a config in production, run:
 
 ```ts
-import { validateExperiment } from "@/lib/validate";
+import { validateExperiment } from '@/lib/validate';
 
 const errors = validateExperiment(experiment);
 if (errors.length > 0) {
