@@ -821,9 +821,6 @@ describe('randomize options', () => {
 
 describe('conditional inside for-each', () => {
   it('evaluates condition with foreachData when conditional is nested inside for-each', () => {
-    // The condition uses $foreachData.loop.value ($ prefix into screenData.foreachData).
-    // With the bug, Conditional overwrites screenData with raw formValues, dropping
-    // foreachData — so the condition always evaluates to false and no content renders.
     renderScreen([
       {
         componentFamily: 'control',
@@ -838,7 +835,7 @@ describe('conditional inside for-each', () => {
             props: {
               if: {
                 type: 'simple',
-                dataKey: '$foreachData.loop.value',
+                dataKey: '#loop.value',
                 operator: 'eq',
                 value: 'alpha',
               },
@@ -1185,7 +1182,11 @@ describe('shared options (%name)', () => {
             {
               componentFamily: 'response',
               template: 'radio',
-              props: { dataKey: 'answer', label: 'Pick one', options: '%yes-no' },
+              props: {
+                dataKey: 'answer',
+                label: 'Pick one',
+                options: '%yes-no',
+              },
             },
           ],
         }}

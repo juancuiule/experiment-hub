@@ -10,7 +10,8 @@ export type Operator = BaseOperator | ArrayOperator;
 export type SimpleCondition = {
   type: 'simple';
   operator: Operator;
-  dataKey: `$$${string}` | `@${string}` | `$${string}`;
+  dataKey: `$$${string}` | `@${string}` | `$${string}` | `#${string}`;
+  // $$ -> global context, @ -> loop data, $ -> screenData, # -> foreachData
   value: string | number | boolean;
 };
 
