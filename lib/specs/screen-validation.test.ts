@@ -1,5 +1,5 @@
+import { buildSchema as _buildSchema } from '@/lib/build-schema';
 import { FrameworkScreen } from '@/lib/screen';
-import { buildSchema as _buildSchema } from '@/lib/screen-validation';
 import { describe, expect, it } from 'vitest';
 
 function screen(components: FrameworkScreen['components']): FrameworkScreen {
@@ -7,7 +7,7 @@ function screen(components: FrameworkScreen['components']): FrameworkScreen {
 }
 
 function buildSchema(s: FrameworkScreen) {
-  return _buildSchema(s, { data: {} });
+  return _buildSchema(s.components, { data: {} });
 }
 
 describe('text-input', () => {
@@ -1103,7 +1103,11 @@ describe('static for-each — generates N schema entries', () => {
             component: {
               componentFamily: 'response',
               template: 'text-input',
-              props: { dataKey: 'item_{{#items.index}}', label: 'Item', required: true },
+              props: {
+                dataKey: 'item_{{#items.index}}',
+                label: 'Item',
+                required: true,
+              },
             },
           },
         },
@@ -1119,7 +1123,7 @@ describe('static for-each — generates N schema entries', () => {
 describe('dynamic for-each with randomized component — :order key validated', () => {
   it('accepts a string array for the :order key', () => {
     const schema = _buildSchema(
-      screen([
+      [
         {
           componentFamily: 'control',
           template: 'for-each',
@@ -1133,13 +1137,16 @@ describe('dynamic for-each with randomized component — :order key validated', 
               props: {
                 dataKey: 'pick_{{#items.index}}',
                 label: 'Pick',
-                options: [{ label: 'A', value: 'a' }, { label: 'B', value: 'b' }],
+                options: [
+                  { label: 'A', value: 'a' },
+                  { label: 'B', value: 'b' },
+                ],
                 randomize: true,
               },
             },
           },
         },
-      ]),
+      ],
       { data: { items: ['x'] } },
     );
     expect(
@@ -1149,7 +1156,7 @@ describe('dynamic for-each with randomized component — :order key validated', 
 
   it('accepts a missing :order key (appended by onSubmit, not a form field)', () => {
     const schema = _buildSchema(
-      screen([
+      [
         {
           componentFamily: 'control',
           template: 'for-each',
@@ -1169,7 +1176,7 @@ describe('dynamic for-each with randomized component — :order key validated', 
             },
           },
         },
-      ]),
+      ],
       { data: { items: ['x'] } },
     );
     expect(schema.safeParse({ pick_0: 'a' }).success).toBe(true);
@@ -1177,7 +1184,7 @@ describe('dynamic for-each with randomized component — :order key validated', 
 
   it('rejects a non-array :order value', () => {
     const schema = _buildSchema(
-      screen([
+      [
         {
           componentFamily: 'control',
           template: 'for-each',
@@ -1197,7 +1204,7 @@ describe('dynamic for-each with randomized component — :order key validated', 
             },
           },
         },
-      ]),
+      ],
       { data: { items: ['x'] } },
     );
     expect(
@@ -1220,7 +1227,11 @@ describe('dynamic for-each — gracefully skipped', () => {
             component: {
               componentFamily: 'response',
               template: 'text-input',
-              props: { dataKey: 'item_{{#items.index}}', label: 'Item', required: true },
+              props: {
+                dataKey: 'item_{{#items.index}}',
+                label: 'Item',
+                required: true,
+              },
             },
           },
         },
@@ -1234,7 +1245,7 @@ describe('dynamic for-each — gracefully skipped', () => {
 describe('dynamic for-each nested inside static for-each', () => {
   it('validates dynamic fields with outer static key resolved and inner dynamic key resolved at runtime', () => {
     const schema = _buildSchema(
-      screen([
+      [
         {
           componentFamily: 'control',
           template: 'for-each',
@@ -1262,7 +1273,7 @@ describe('dynamic for-each nested inside static for-each', () => {
             },
           },
         },
-      ]),
+      ],
       { data: { items: ['x', 'y'] } },
     );
     // outer values ['a','b'] × inner dynamic ['x','y'] → a_0, a_1, b_0, b_1
@@ -1296,7 +1307,10 @@ describe('randomize :order key', () => {
       ],
     };
     const schema = buildSchema(screen);
-    const result = schema.safeParse({ choice: 'a', 'choice:order': ['b', 'a'] });
+    const result = schema.safeParse({
+      choice: 'a',
+      'choice:order': ['b', 'a'],
+    });
     expect(result.success).toBe(true);
     expect(result.data?.['choice:order']).toEqual(['b', 'a']);
   });
@@ -1321,7 +1335,10 @@ describe('randomize :order key', () => {
       ],
     };
     const schema = buildSchema(screen);
-    const result = schema.safeParse({ picks: ['a'], 'picks:order': ['b', 'a'] });
+    const result = schema.safeParse({
+      picks: ['a'],
+      'picks:order': ['b', 'a'],
+    });
     expect(result.success).toBe(true);
     expect(result.data?.['picks:order']).toEqual(['b', 'a']);
   });
