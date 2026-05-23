@@ -41,7 +41,10 @@ export function buildDefaultValues(
 ): Record<string, unknown> {
   const handlers: Handlers<Entry, State> = [
     on({ componentFamily: 'response' }, (c, state) => [
-      [resolveValuesInString(c.props.dataKey, state.context), defaultPerTemplate(c)] as Entry,
+      [
+        resolveValuesInString(c.props.dataKey, state.context),
+        defaultPerTemplate(c),
+      ] as Entry,
     ]),
 
     on({ componentFamily: 'layout', template: 'group' }, (c, state, recur) =>
