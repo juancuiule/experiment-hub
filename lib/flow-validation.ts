@@ -9,7 +9,8 @@ export type ErrorCategory =
   | 'node'
   | 'branch'
   | 'edge'
-  | 'reference';
+  | 'reference'
+  | 'component';
 
 export type ValidationError = {
   code: string;
@@ -732,19 +733,19 @@ const VALID_TEMPLATES: Record<string, Set<string>> = {
 
 function checkComponentTemplates(flow: ExperimentFlow): ValidationError[] {
   const errors: ValidationError[] = [];
-  const pushScreenError = (code: string, message: string) =>
-    errors.push({ code, category: 'screen', message });
+  const pushComponentError = (code: string, message: string) =>
+    errors.push({ code, category: 'component', message });
 
   function checkComponent(component: ScreenComponent, screenSlug: string) {
     const { componentFamily, template } = component;
     const validTemplates = VALID_TEMPLATES[componentFamily];
     if (!validTemplates) {
-      pushScreenError(
+      pushComponentError(
         'unknown-template',
         `Screen "${screenSlug}" uses unknown componentFamily "${componentFamily}"`,
       );
     } else if (!validTemplates.has(template)) {
-      pushScreenError(
+      pushComponentError(
         'unknown-template',
         `Screen "${screenSlug}" uses unknown template "${template}" for componentFamily "${componentFamily}"`,
       );

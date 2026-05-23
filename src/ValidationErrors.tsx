@@ -1,7 +1,7 @@
 'use client'
 
 import { ErrorCategory, ValidationError } from "@/lib/flow-validation";
-import { AlertTriangle, ArrowRightLeft, Box, Hash, LucideIcon, Split, Wallpaper } from "lucide-react";
+import { AlertTriangle, ArrowRightLeft, Box, ClipboardX, Hash, LucideIcon, Split, Wallpaper } from "lucide-react";
 import { NodeTypeBadge } from "./nodeConfig";
 
 const CATEGORY_COLORS: Record<ErrorCategory, string> = {
@@ -10,6 +10,7 @@ const CATEGORY_COLORS: Record<ErrorCategory, string> = {
   edge: "bg-teal-100 text-teal-800 border-teal-300",
   reference: "bg-orange-100 text-orange-800 border-orange-300",
   node: "bg-gray-100 text-gray-700 border-gray-300",
+  component: "bg-red-100 text-red-800 border-red-300",
 };
 
 const CATEGORY_ICONS: Record<ErrorCategory, LucideIcon> = {
@@ -18,6 +19,7 @@ const CATEGORY_ICONS: Record<ErrorCategory, LucideIcon> = {
   edge: ArrowRightLeft,
   reference: Hash,
   node: Box,
+  component: ClipboardX,
 };
 
 function extractNodeType(message: string): string | null {
