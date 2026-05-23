@@ -1,38 +1,51 @@
-import { Condition } from '@/lib/conditions';
+import { buildSchemaFromFields } from '@/lib/build-schema';
 import { ScreenComponent } from '@/lib/components';
-import { collectDescriptors as _collectDescriptors, buildSchemaFromDescriptors } from '@/lib/screen-validation';
+import { Condition } from '@/lib/conditions';
+import {
+  collectFields as _collectFields,
+  DynamicField,
+  StaticField,
+} from '@/lib/field-descriptors';
 import { describe, expect, it } from 'vitest';
 
-function collectDescriptors(components: ScreenComponent[], enclosingCondition: Condition | null) {
-  return _collectDescriptors(components, { data: {} }, enclosingCondition);
+function collectFields(
+  components: ScreenComponent[],
+  enclosingCondition: Condition | null,
+) {
+  return _collectFields(components, { data: {} }, enclosingCondition);
 }
 
-describe('collectDescriptors — response', () => {
+describe('collectFields — response', () => {
   it('emits one descriptor with correct key and no condition', () => {
     const c: ScreenComponent = {
       componentFamily: 'response',
       template: 'text-input',
       props: { dataKey: 'name', label: 'Name' },
     };
-    const result = collectDescriptors([c], null);
+    const result = collectFields([c], null);
     expect(result).toHaveLength(1);
     expect(result[0]).toMatchObject({
+      kind: 'static',
       key: 'name',
-      synthetic: false,
-      dynamic: false,
-      condition: null,
-    });
+      gate: null,
+      source: c,
+    } as StaticField);
   });
 
   it('carries enclosingCondition on the descriptor', () => {
-    const cond: Condition = { type: 'simple', operator: 'eq', dataKey: '$q', value: 'yes' };
+    const cond: Condition = {
+      type: 'simple',
+      operator: 'eq',
+      dataKey: '$q',
+      value: 'yes',
+    };
     const c: ScreenComponent = {
       componentFamily: 'response',
       template: 'text-input',
       props: { dataKey: 'name', label: 'Name' },
     };
-    const result = collectDescriptors([c], cond);
-    expect(result[0].condition).toEqual(cond);
+    const result = collectFields([c], cond);
+    expect(result[0].gate).toEqual(cond);
   });
 
   it('emits synthetic :order descriptor for randomized radio', () => {
@@ -46,18 +59,23 @@ describe('collectDescriptors — response', () => {
         randomize: true,
       },
     };
-    const result = collectDescriptors([c], null);
+    const result = collectFields([c], null);
     expect(result).toHaveLength(2);
     expect(result[1]).toMatchObject({
+      kind: 'static',
       key: 'choice:order',
-      synthetic: true,
-      dynamic: false,
-      condition: null,
-    });
+      gate: null,
+      source: { kind: 'order', ref: c },
+    } as StaticField);
   });
 
   it('synthetic :order inherits enclosingCondition', () => {
-    const cond: Condition = { type: 'simple', operator: 'eq', dataKey: '$x', value: '1' };
+    const cond: Condition = {
+      type: 'simple',
+      operator: 'eq',
+      dataKey: '$x',
+      value: '1',
+    };
     const c: ScreenComponent = {
       componentFamily: 'response',
       template: 'radio',
@@ -68,12 +86,12 @@ describe('collectDescriptors — response', () => {
         randomize: true,
       },
     };
-    const result = collectDescriptors([c], cond);
-    expect(result[1].condition).toEqual(cond);
+    const result = collectFields([c], cond);
+    expect(result[1].gate).toEqual(cond);
   });
 });
 
-describe('collectDescriptors — group', () => {
+describe('collectFields — group', () => {
   it('flattens children into descriptors', () => {
     const c: ScreenComponent = {
       componentFamily: 'layout',
@@ -94,12 +112,17 @@ describe('collectDescriptors — group', () => {
         ],
       },
     };
-    const result = collectDescriptors([c], null);
+    const result = collectFields([c], null) as StaticField[];
     expect(result.map((d) => d.key)).toEqual(['x', 'y']);
   });
 
   it('threads enclosingCondition through group children', () => {
-    const cond: Condition = { type: 'simple', operator: 'eq', dataKey: '$a', value: '1' };
+    const cond: Condition = {
+      type: 'simple',
+      operator: 'eq',
+      dataKey: '$a',
+      value: '1',
+    };
     const c: ScreenComponent = {
       componentFamily: 'layout',
       template: 'group',
@@ -114,25 +137,30 @@ describe('collectDescriptors — group', () => {
         ],
       },
     };
-    const result = collectDescriptors([c], cond);
-    expect(result[0].condition).toEqual(cond);
+    const result = collectFields([c], cond);
+    expect(result[0].gate).toEqual(cond);
   });
 });
 
-describe('collectDescriptors — content', () => {
+describe('collectFields — content', () => {
   it('returns empty for rich-text content', () => {
     const c: ScreenComponent = {
       componentFamily: 'content',
       template: 'rich-text',
       props: { content: 'Hello' },
     };
-    expect(collectDescriptors([c], null)).toHaveLength(0);
+    expect(collectFields([c], null)).toHaveLength(0);
   });
 });
 
-describe('collectDescriptors — conditional', () => {
+describe('collectFields — conditional', () => {
   it('if-branch descriptor gets the conditional condition', () => {
-    const cond: Condition = { type: 'simple', operator: 'eq', dataKey: '$answer', value: 'yes' };
+    const cond: Condition = {
+      type: 'simple',
+      operator: 'eq',
+      dataKey: '$answer',
+      value: 'yes',
+    };
     const c: ScreenComponent = {
       componentFamily: 'control',
       template: 'conditional',
@@ -145,13 +173,18 @@ describe('collectDescriptors — conditional', () => {
         },
       },
     };
-    const result = collectDescriptors([c], null);
+    const result = collectFields([c], null);
     expect(result).toHaveLength(1);
-    expect(result[0]).toMatchObject({ key: 'detail', condition: cond });
+    expect(result[0]).toMatchObject({ key: 'detail', gate: cond });
   });
 
   it('else-branch descriptor gets NOT condition', () => {
-    const cond: Condition = { type: 'simple', operator: 'eq', dataKey: '$answer', value: 'yes' };
+    const cond: Condition = {
+      type: 'simple',
+      operator: 'eq',
+      dataKey: '$answer',
+      value: 'yes',
+    };
     const c: ScreenComponent = {
       componentFamily: 'control',
       template: 'conditional',
@@ -169,16 +202,26 @@ describe('collectDescriptors — conditional', () => {
         },
       },
     };
-    const result = collectDescriptors([c], null);
+    const result = collectFields([c], null) as StaticField[];
     expect(result).toHaveLength(2);
     expect(result[0].key).toBe('if-field');
     expect(result[1].key).toBe('else-field');
-    expect(result[1].condition).toEqual({ type: 'not', condition: cond });
+    expect(result[1].gate).toEqual({ type: 'not', condition: cond });
   });
 
   it('threads enclosingCondition with AND when nesting conditionals', () => {
-    const outer: Condition = { type: 'simple', operator: 'eq', dataKey: '$p', value: 'a' };
-    const inner: Condition = { type: 'simple', operator: 'eq', dataKey: '$q', value: 'b' };
+    const outer: Condition = {
+      type: 'simple',
+      operator: 'eq',
+      dataKey: '$p',
+      value: 'a',
+    };
+    const inner: Condition = {
+      type: 'simple',
+      operator: 'eq',
+      dataKey: '$q',
+      value: 'b',
+    };
     const c: ScreenComponent = {
       componentFamily: 'control',
       template: 'conditional',
@@ -191,12 +234,20 @@ describe('collectDescriptors — conditional', () => {
         },
       },
     };
-    const result = collectDescriptors([c], outer);
-    expect(result[0].condition).toEqual({ type: 'and', conditions: [outer, inner] });
+    const result = collectFields([c], outer);
+    expect(result[0].gate).toEqual({
+      type: 'and',
+      conditions: [outer, inner],
+    });
   });
 
   it('same-key if/else emits two descriptors with complementary conditions', () => {
-    const cond: Condition = { type: 'simple', operator: 'eq', dataKey: '$mode', value: 'advanced' };
+    const cond: Condition = {
+      type: 'simple',
+      operator: 'eq',
+      dataKey: '$mode',
+      value: 'advanced',
+    };
     const c: ScreenComponent = {
       componentFamily: 'control',
       template: 'conditional',
@@ -214,14 +265,14 @@ describe('collectDescriptors — conditional', () => {
         },
       },
     };
-    const result = collectDescriptors([c], null);
+    const result = collectFields([c], null);
     expect(result).toHaveLength(2);
-    expect(result[0].condition).toEqual(cond);
-    expect(result[1].condition).toEqual({ type: 'not', condition: cond });
+    expect(result[0].gate).toEqual(cond);
+    expect(result[1].gate).toEqual({ type: 'not', condition: cond });
   });
 });
 
-describe('collectDescriptors — static for-each', () => {
+describe('collectFields — static for-each', () => {
   it('resolves {{#id.index}} in key for each value', () => {
     const c: ScreenComponent = {
       componentFamily: 'control',
@@ -237,9 +288,9 @@ describe('collectDescriptors — static for-each', () => {
         },
       },
     };
-    const result = collectDescriptors([c], null);
+    const result = collectFields([c], null) as StaticField[];
     expect(result.map((d) => d.key)).toEqual(['sport_0', 'sport_1']);
-    expect(result.every((d) => d.dynamic === false)).toBe(true);
+    expect(result.every((d) => d.kind === 'static')).toBe(true);
   });
 
   it('resolves {{#id.value}} in key for each value', () => {
@@ -257,7 +308,7 @@ describe('collectDescriptors — static for-each', () => {
         },
       },
     };
-    const result = collectDescriptors([c], null);
+    const result = collectFields([c], null) as StaticField[];
     expect(result.map((d) => d.key)).toEqual(['like-apple', 'like-banana']);
   });
 
@@ -273,7 +324,12 @@ describe('collectDescriptors — static for-each', () => {
           componentFamily: 'control',
           template: 'conditional',
           props: {
-            if: { type: 'simple', operator: 'eq', dataKey: '$resp_{{#items.index}}', value: 'yes' },
+            if: {
+              type: 'simple',
+              operator: 'eq',
+              dataKey: '$resp_{{#items.index}}',
+              value: 'yes',
+            },
             component: {
               componentFamily: 'response',
               template: 'text-input',
@@ -283,16 +339,16 @@ describe('collectDescriptors — static for-each', () => {
         },
       },
     };
-    const result = collectDescriptors([c], null);
+    const result = collectFields([c], null) as StaticField[];
     expect(result[0].key).toBe('detail_0');
-    expect(result[0].condition).toEqual({
+    expect(result[0].gate).toEqual({
       type: 'simple',
       operator: 'eq',
       dataKey: '$resp_0',
       value: 'yes',
     });
     expect(result[1].key).toBe('detail_1');
-    expect(result[1].condition).toEqual({
+    expect(result[1].gate).toEqual({
       type: 'simple',
       operator: 'eq',
       dataKey: '$resp_1',
@@ -301,7 +357,12 @@ describe('collectDescriptors — static for-each', () => {
   });
 
   it('threads enclosingCondition into unrolled descriptors', () => {
-    const outer: Condition = { type: 'simple', operator: 'eq', dataKey: '$gate', value: '1' };
+    const outer: Condition = {
+      type: 'simple',
+      operator: 'eq',
+      dataKey: '$gate',
+      value: '1',
+    };
     const c: ScreenComponent = {
       componentFamily: 'control',
       template: 'for-each',
@@ -316,8 +377,8 @@ describe('collectDescriptors — static for-each', () => {
         },
       },
     };
-    const result = collectDescriptors([c], outer);
-    expect(result[0].condition).toEqual(outer);
+    const result = collectFields([c], outer);
+    expect(result[0].gate).toEqual(outer);
   });
 
   it('synthetic :order inherits dynamic:false from static for-each', () => {
@@ -340,13 +401,18 @@ describe('collectDescriptors — static for-each', () => {
         },
       },
     };
-    const result = collectDescriptors([c], null);
+    const result = collectFields([c], null);
     expect(result).toHaveLength(2);
-    expect(result[1]).toMatchObject({ key: 'pick_0:order', synthetic: true, dynamic: false });
+    expect(result[1]).toMatchObject({
+      kind: 'static',
+      key: 'pick_0:order',
+      gate: null,
+      source: { kind: 'order', ref: c.props.component },
+    } as StaticField);
   });
 });
 
-describe('collectDescriptors — dynamic for-each', () => {
+describe('collectFields — dynamic for-each', () => {
   it('marks descriptors as dynamic and keeps template key unresolved', () => {
     const c: ScreenComponent = {
       componentFamily: 'control',
@@ -358,14 +424,19 @@ describe('collectDescriptors — dynamic for-each', () => {
         component: {
           componentFamily: 'response',
           template: 'slider',
-          props: { dataKey: 'slider-{{#countries.value}}', label: 'S', min: 0, max: 10 },
+          props: {
+            dataKey: 'slider-{{#countries.value}}',
+            label: 'S',
+            min: 0,
+            max: 10,
+          },
         },
       },
     };
-    const result = collectDescriptors([c], null);
+    const result = collectFields([c], null) as DynamicField[];
     expect(result).toHaveLength(1);
-    expect(result[0].dynamic).toBe(true);
-    expect(result[0].key).toBe('slider-{{#countries.value}}');
+    expect(result[0].kind).toBe('dynamic');
+    expect(result[0].keyTemplate).toBe('slider-{{#countries.value}}');
   });
 
   it('attaches foreach metadata with id and dataKey', () => {
@@ -379,17 +450,27 @@ describe('collectDescriptors — dynamic for-each', () => {
         component: {
           componentFamily: 'response',
           template: 'slider',
-          props: { dataKey: 'slider-{{#countries.value}}', label: 'S', min: 0, max: 10 },
+          props: {
+            dataKey: 'slider-{{#countries.value}}',
+            label: 'S',
+            min: 0,
+            max: 10,
+          },
         },
       },
     };
-    const result = collectDescriptors([c], null);
-    const d = result[0] as Extract<(typeof result)[0], { dynamic: true }>;
-    expect(d.foreach).toEqual([{ id: 'countries', dataKey: '$countryList' }]);
+    const result = collectFields([c], null) as DynamicField[];
+    const d = result[0];
+    expect(d.loops).toEqual([{ id: 'countries', dataKey: '$countryList' }]);
   });
 
   it('threads enclosingCondition into dynamic descriptors', () => {
-    const cond: Condition = { type: 'simple', operator: 'eq', dataKey: '$enabled', value: 'yes' };
+    const cond: Condition = {
+      type: 'simple',
+      operator: 'eq',
+      dataKey: '$enabled',
+      value: 'yes',
+    };
     const c: ScreenComponent = {
       componentFamily: 'control',
       template: 'for-each',
@@ -404,8 +485,8 @@ describe('collectDescriptors — dynamic for-each', () => {
         },
       },
     };
-    const result = collectDescriptors([c], cond);
-    expect(result[0].condition).toEqual(cond);
+    const result = collectFields([c], cond);
+    expect(result[0].gate).toEqual(cond);
   });
 
   it('synthetic :order from dynamic for-each is also dynamic', () => {
@@ -428,21 +509,27 @@ describe('collectDescriptors — dynamic for-each', () => {
         },
       },
     };
-    const result = collectDescriptors([c], null);
+    const result = collectFields([c], null);
     expect(result).toHaveLength(2);
-    expect(result[1]).toMatchObject({ synthetic: true, dynamic: true, key: 'pick-{{#items.value}}:order' });
+    expect(result[1]).toMatchObject({
+      kind: 'dynamic',
+      keyTemplate: 'pick-{{#items.value}}:order',
+      gate: null,
+      source: { kind: 'order', ref: c.props.component },
+      loops: [{ id: 'items', dataKey: '$items' }],
+    } as DynamicField);
   });
 });
 
-describe('buildSchemaFromDescriptors — base shape', () => {
+describe('buildSchemaFromFields — base shape', () => {
   it('unconditional required text-input validates normally', () => {
     const c: ScreenComponent = {
       componentFamily: 'response',
       template: 'text-input',
       props: { dataKey: 'name', label: 'Name', required: true },
     };
-    const descriptors = collectDescriptors([c], null);
-    const schema = buildSchemaFromDescriptors(descriptors, { data: {} });
+    const descriptors = collectFields([c], null);
+    const schema = buildSchemaFromFields(descriptors, { data: {} });
     expect(schema.safeParse({ name: 'Alice' }).success).toBe(true);
     expect(schema.safeParse({ name: '' }).success).toBe(false);
   });
@@ -453,20 +540,27 @@ describe('buildSchemaFromDescriptors — base shape', () => {
       template: 'radio',
       props: { dataKey: 'choice', label: 'C', options: [], randomize: true },
     };
-    const descriptors = collectDescriptors([c], null);
-    const schema = buildSchemaFromDescriptors(descriptors, { data: {} });
-    expect(schema.safeParse({ choice: 'a', 'choice:order': ['b', 'a'] }).success).toBe(true);
+    const descriptors = collectFields([c], null);
+    const schema = buildSchemaFromFields(descriptors, { data: {} });
+    expect(
+      schema.safeParse({ choice: 'a', 'choice:order': ['b', 'a'] }).success,
+    ).toBe(true);
   });
 
   it('conditional field is z.any().optional() in base shape — accepts any value', () => {
-    const cond: Condition = { type: 'simple', operator: 'eq', dataKey: '$q', value: 'yes' };
+    const cond: Condition = {
+      type: 'simple',
+      operator: 'eq',
+      dataKey: '$q',
+      value: 'yes',
+    };
     const c: ScreenComponent = {
       componentFamily: 'response',
       template: 'text-input',
       props: { dataKey: 'detail', label: 'D', required: true },
     };
-    const descriptors = collectDescriptors([c], cond);
-    const schema = buildSchemaFromDescriptors(descriptors, { data: {} });
+    const descriptors = collectFields([c], cond);
+    const schema = buildSchemaFromFields(descriptors, { data: {} });
     expect(schema.safeParse({ detail: '' }).success).toBe(true);
   });
 
@@ -481,20 +575,29 @@ describe('buildSchemaFromDescriptors — base shape', () => {
         component: {
           componentFamily: 'response',
           template: 'text-input',
-          props: { dataKey: 'field-{{#items.value}}', label: 'F', required: true },
+          props: {
+            dataKey: 'field-{{#items.value}}',
+            label: 'F',
+            required: true,
+          },
         },
       },
     };
-    const descriptors = collectDescriptors([c], null);
-    const schema = buildSchemaFromDescriptors(descriptors, { data: {} });
+    const descriptors = collectFields([c], null);
+    const schema = buildSchemaFromFields(descriptors, { data: {} });
     expect(schema.safeParse({ 'field-argentina': 'hello' }).success).toBe(true);
     expect(schema.safeParse({}).success).toBe(true);
   });
 });
 
-describe('buildSchemaFromDescriptors — superRefine, static conditional', () => {
+describe('buildSchemaFromFields — superRefine, static conditional', () => {
   it('enforces required on conditional field when condition is met', () => {
-    const cond: Condition = { type: 'simple', operator: 'eq', dataKey: '$answer', value: 'yes' };
+    const cond: Condition = {
+      type: 'simple',
+      operator: 'eq',
+      dataKey: '$answer',
+      value: 'yes',
+    };
     const field: ScreenComponent = {
       componentFamily: 'response',
       template: 'text-input',
@@ -510,74 +613,115 @@ describe('buildSchemaFromDescriptors — superRefine, static conditional', () =>
       template: 'conditional',
       props: { if: cond, component: field },
     };
-    const descriptors = collectDescriptors([gate, conditional], null);
-    const schema = buildSchemaFromDescriptors(descriptors, { data: {} });
+    const descriptors = collectFields([gate, conditional], null);
+    const schema = buildSchemaFromFields(descriptors, { data: {} });
     expect(schema.safeParse({ answer: 'yes', detail: '' }).success).toBe(false);
-    expect(schema.safeParse({ answer: 'yes', detail: 'some text' }).success).toBe(true);
+    expect(
+      schema.safeParse({ answer: 'yes', detail: 'some text' }).success,
+    ).toBe(true);
     expect(schema.safeParse({ answer: 'no' }).success).toBe(true);
   });
 
   it('enforces minLength on conditional field when condition is met', () => {
-    const cond: Condition = { type: 'simple', operator: 'eq', dataKey: '$show', value: 'yes' };
+    const cond: Condition = {
+      type: 'simple',
+      operator: 'eq',
+      dataKey: '$show',
+      value: 'yes',
+    };
     const field: ScreenComponent = {
       componentFamily: 'response',
       template: 'text-input',
-      props: { dataKey: 'bio', label: 'Bio', required: false, minLength: { value: 10 } },
+      props: {
+        dataKey: 'bio',
+        label: 'Bio',
+        required: false,
+        minLength: { value: 10 },
+      },
     };
-    const descriptors = collectDescriptors([field], cond);
-    const schema = buildSchemaFromDescriptors(descriptors, { data: {} });
+    const descriptors = collectFields([field], cond);
+    const schema = buildSchemaFromFields(descriptors, { data: {} });
     expect(schema.safeParse({ show: 'yes', bio: 'short' }).success).toBe(false);
-    expect(schema.safeParse({ show: 'yes', bio: 'long enough bio' }).success).toBe(true);
+    expect(
+      schema.safeParse({ show: 'yes', bio: 'long enough bio' }).success,
+    ).toBe(true);
     expect(schema.safeParse({ show: 'no', bio: 'short' }).success).toBe(true);
   });
 
   it('enforces maxLength on conditional field when condition is met', () => {
-    const cond: Condition = { type: 'simple', operator: 'eq', dataKey: '$show', value: 'yes' };
+    const cond: Condition = {
+      type: 'simple',
+      operator: 'eq',
+      dataKey: '$show',
+      value: 'yes',
+    };
     const field: ScreenComponent = {
       componentFamily: 'response',
       template: 'text-input',
       props: { dataKey: 'code', label: 'Code', maxLength: { value: 5 } },
     };
-    const descriptors = collectDescriptors([field], cond);
-    const schema = buildSchemaFromDescriptors(descriptors, { data: {} });
-    expect(schema.safeParse({ show: 'yes', code: 'toolong' }).success).toBe(false);
+    const descriptors = collectFields([field], cond);
+    const schema = buildSchemaFromFields(descriptors, { data: {} });
+    expect(schema.safeParse({ show: 'yes', code: 'toolong' }).success).toBe(
+      false,
+    );
     expect(schema.safeParse({ show: 'yes', code: 'ok' }).success).toBe(true);
   });
 
   it('enforces slider range on conditional field when condition is met', () => {
-    const cond: Condition = { type: 'simple', operator: 'eq', dataKey: '$show', value: 'yes' };
+    const cond: Condition = {
+      type: 'simple',
+      operator: 'eq',
+      dataKey: '$show',
+      value: 'yes',
+    };
     const field: ScreenComponent = {
       componentFamily: 'response',
       template: 'slider',
       props: { dataKey: 'vol', label: 'Volume', min: 0, max: 100 },
     };
-    const descriptors = collectDescriptors([field], cond);
-    const schema = buildSchemaFromDescriptors(descriptors, { data: {} });
+    const descriptors = collectFields([field], cond);
+    const schema = buildSchemaFromFields(descriptors, { data: {} });
     expect(schema.safeParse({ show: 'yes', vol: 150 }).success).toBe(false);
     expect(schema.safeParse({ show: 'yes', vol: 50 }).success).toBe(true);
   });
 
   it('does not run validation on conditional field when condition is not met', () => {
-    const cond: Condition = { type: 'simple', operator: 'eq', dataKey: '$show', value: 'yes' };
+    const cond: Condition = {
+      type: 'simple',
+      operator: 'eq',
+      dataKey: '$show',
+      value: 'yes',
+    };
     const field: ScreenComponent = {
       componentFamily: 'response',
       template: 'text-input',
-      props: { dataKey: 'detail', label: 'Detail', required: true, minLength: { value: 20 } },
+      props: {
+        dataKey: 'detail',
+        label: 'Detail',
+        required: true,
+        minLength: { value: 20 },
+      },
     };
-    const descriptors = collectDescriptors([field], cond);
-    const schema = buildSchemaFromDescriptors(descriptors, { data: {} });
+    const descriptors = collectFields([field], cond);
+    const schema = buildSchemaFromFields(descriptors, { data: {} });
     expect(schema.safeParse({ show: 'no', detail: '' }).success).toBe(true);
   });
 
   it('propagates issues with correct field path', () => {
-    const cond: Condition = { type: 'simple', operator: 'eq', dataKey: '$show', value: 'yes' };
+    const cond: Condition = {
+      type: 'simple',
+      operator: 'eq',
+      dataKey: '$show',
+      value: 'yes',
+    };
     const field: ScreenComponent = {
       componentFamily: 'response',
       template: 'text-input',
       props: { dataKey: 'detail', label: 'Detail', required: true },
     };
-    const descriptors = collectDescriptors([field], cond);
-    const schema = buildSchemaFromDescriptors(descriptors, { data: {} });
+    const descriptors = collectFields([field], cond);
+    const schema = buildSchemaFromFields(descriptors, { data: {} });
     const result = schema.safeParse({ show: 'yes', detail: '' });
     expect(result.success).toBe(false);
     if (!result.success) {
@@ -587,7 +731,12 @@ describe('buildSchemaFromDescriptors — superRefine, static conditional', () =>
   });
 
   it('same-key if/else: only the active branch validates', () => {
-    const cond: Condition = { type: 'simple', operator: 'eq', dataKey: '$mode', value: 'num' };
+    const cond: Condition = {
+      type: 'simple',
+      operator: 'eq',
+      dataKey: '$mode',
+      value: 'num',
+    };
     const numField: ScreenComponent = {
       componentFamily: 'response',
       template: 'numeric-input',
@@ -603,18 +752,30 @@ describe('buildSchemaFromDescriptors — superRefine, static conditional', () =>
       template: 'conditional',
       props: { if: cond, component: numField, else: textField },
     };
-    const descriptors = collectDescriptors([conditional], null);
-    const schema = buildSchemaFromDescriptors(descriptors, { data: {} });
+    const descriptors = collectFields([conditional], null);
+    const schema = buildSchemaFromFields(descriptors, { data: {} });
 
     expect(schema.safeParse({ mode: 'num', value: 5 }).success).toBe(true);
     expect(schema.safeParse({ mode: 'num', value: '' }).success).toBe(false);
-    expect(schema.safeParse({ mode: 'text', value: 'hello' }).success).toBe(true);
+    expect(schema.safeParse({ mode: 'text', value: 'hello' }).success).toBe(
+      true,
+    );
     expect(schema.safeParse({ mode: 'text', value: '' }).success).toBe(false);
   });
 
   it('nested: conditional inside conditional composes conditions with AND', () => {
-    const outerCond: Condition = { type: 'simple', operator: 'eq', dataKey: '$a', value: '1' };
-    const innerCond: Condition = { type: 'simple', operator: 'eq', dataKey: '$b', value: '2' };
+    const outerCond: Condition = {
+      type: 'simple',
+      operator: 'eq',
+      dataKey: '$a',
+      value: '1',
+    };
+    const innerCond: Condition = {
+      type: 'simple',
+      operator: 'eq',
+      dataKey: '$b',
+      value: '2',
+    };
     const outerComp: ScreenComponent = {
       componentFamily: 'control',
       template: 'conditional',
@@ -634,11 +795,13 @@ describe('buildSchemaFromDescriptors — superRefine, static conditional', () =>
         },
       },
     };
-    const descriptors = collectDescriptors([outerComp], null);
-    const schema = buildSchemaFromDescriptors(descriptors, { data: {} });
+    const descriptors = collectFields([outerComp], null);
+    const schema = buildSchemaFromFields(descriptors, { data: {} });
 
     expect(schema.safeParse({ a: '1', b: '2', deep: '' }).success).toBe(false);
-    expect(schema.safeParse({ a: '1', b: '2', deep: 'filled' }).success).toBe(true);
+    expect(schema.safeParse({ a: '1', b: '2', deep: 'filled' }).success).toBe(
+      true,
+    );
     expect(schema.safeParse({ a: '1', b: '3', deep: '' }).success).toBe(true);
     expect(schema.safeParse({ a: '2', b: '2', deep: '' }).success).toBe(true);
   });
@@ -655,26 +818,56 @@ describe('buildSchemaFromDescriptors — superRefine, static conditional', () =>
           componentFamily: 'control',
           template: 'conditional',
           props: {
-            if: { type: 'simple', operator: 'eq', dataKey: '$gate_{{#items.index}}', value: 'show' },
+            if: {
+              type: 'simple',
+              operator: 'eq',
+              dataKey: '$gate_{{#items.index}}',
+              value: 'show',
+            },
             component: {
               componentFamily: 'response',
               template: 'text-input',
-              props: { dataKey: 'resp_{{#items.index}}', label: 'R', required: true },
+              props: {
+                dataKey: 'resp_{{#items.index}}',
+                label: 'R',
+                required: true,
+              },
             },
           },
         },
       },
     };
-    const descriptors = collectDescriptors([forEachComp], null);
-    const schema = buildSchemaFromDescriptors(descriptors, { data: {} });
+    const descriptors = collectFields([forEachComp], null);
+    const schema = buildSchemaFromFields(descriptors, { data: {} });
 
-    expect(schema.safeParse({ gate_0: 'show', resp_0: '', gate_1: 'hide', resp_1: '' }).success).toBe(false);
-    expect(schema.safeParse({ gate_0: 'hide', resp_0: '', gate_1: 'hide', resp_1: '' }).success).toBe(true);
-    expect(schema.safeParse({ gate_0: 'show', resp_0: 'a', gate_1: 'show', resp_1: 'b' }).success).toBe(true);
+    expect(
+      schema.safeParse({
+        gate_0: 'show',
+        resp_0: '',
+        gate_1: 'hide',
+        resp_1: '',
+      }).success,
+    ).toBe(false);
+    expect(
+      schema.safeParse({
+        gate_0: 'hide',
+        resp_0: '',
+        gate_1: 'hide',
+        resp_1: '',
+      }).success,
+    ).toBe(true);
+    expect(
+      schema.safeParse({
+        gate_0: 'show',
+        resp_0: 'a',
+        gate_1: 'show',
+        resp_1: 'b',
+      }).success,
+    ).toBe(true);
   });
 });
 
-describe('buildSchemaFromDescriptors — superRefine, dynamic for-each', () => {
+describe('buildSchemaFromFields — superRefine, dynamic for-each', () => {
   it('does not validate synthetic :order when its condition is false', () => {
     // randomized radio inside a conditional inside a dynamic for-each
     // when the condition is false, neither the field nor its :order key should be enforced
@@ -689,7 +882,12 @@ describe('buildSchemaFromDescriptors — superRefine, dynamic for-each', () => {
           componentFamily: 'control',
           template: 'conditional',
           props: {
-            if: { type: 'simple', dataKey: '$showRadio', operator: 'eq', value: 'yes' },
+            if: {
+              type: 'simple',
+              dataKey: '$showRadio',
+              operator: 'eq',
+              value: 'yes',
+            },
             component: {
               componentFamily: 'response',
               template: 'radio',
@@ -704,8 +902,10 @@ describe('buildSchemaFromDescriptors — superRefine, dynamic for-each', () => {
         },
       },
     };
-    const descriptors = collectDescriptors([c], null);
-    const schema = buildSchemaFromDescriptors(descriptors, { data: { showRadio: 'no' } });
+    const descriptors = collectFields([c], null);
+    const schema = buildSchemaFromFields(descriptors, {
+      data: { showRadio: 'no' },
+    });
 
     // condition is false — neither choice-x nor choice-x:order should be required
     expect(schema.safeParse({ items: ['x', 'y'] }).success).toBe(true);
@@ -722,12 +922,18 @@ describe('buildSchemaFromDescriptors — superRefine, dynamic for-each', () => {
         component: {
           componentFamily: 'response',
           template: 'slider',
-          props: { dataKey: 'slider-{{#countries.value}}', label: 'S', min: 0, max: 10, required: true },
+          props: {
+            dataKey: 'slider-{{#countries.value}}',
+            label: 'S',
+            min: 0,
+            max: 10,
+            required: true,
+          },
         },
       },
     };
-    const descriptors = collectDescriptors([c], null);
-    const schema = buildSchemaFromDescriptors(descriptors, { data: {} });
+    const descriptors = collectFields([c], null);
+    const schema = buildSchemaFromFields(descriptors, { data: {} });
 
     expect(
       schema.safeParse({
@@ -757,12 +963,18 @@ describe('buildSchemaFromDescriptors — superRefine, dynamic for-each', () => {
         component: {
           componentFamily: 'response',
           template: 'slider',
-          props: { dataKey: 'slider-{{#countries.value}}', label: 'S', min: 0, max: 10, required: true },
+          props: {
+            dataKey: 'slider-{{#countries.value}}',
+            label: 'S',
+            min: 0,
+            max: 10,
+            required: true,
+          },
         },
       },
     };
-    const descriptors = collectDescriptors([c], null);
-    const schema = buildSchemaFromDescriptors(descriptors, { data: {} });
+    const descriptors = collectFields([c], null);
+    const schema = buildSchemaFromFields(descriptors, { data: {} });
     expect(schema.safeParse({ selectedCountries: [] }).success).toBe(true);
   });
 
@@ -777,12 +989,16 @@ describe('buildSchemaFromDescriptors — superRefine, dynamic for-each', () => {
         component: {
           componentFamily: 'response',
           template: 'text-input',
-          props: { dataKey: 'field-{{#items.value}}', label: 'F', required: true },
+          props: {
+            dataKey: 'field-{{#items.value}}',
+            label: 'F',
+            required: true,
+          },
         },
       },
     };
-    const descriptors = collectDescriptors([c], null);
-    const schema = buildSchemaFromDescriptors(descriptors, { data: {} });
+    const descriptors = collectFields([c], null);
+    const schema = buildSchemaFromFields(descriptors, { data: {} });
     expect(schema.safeParse({}).success).toBe(true);
   });
 
@@ -807,14 +1023,18 @@ describe('buildSchemaFromDescriptors — superRefine, dynamic for-each', () => {
             component: {
               componentFamily: 'response',
               template: 'text-input',
-              props: { dataKey: 'detail-{{#countries.value}}', label: 'D', required: true },
+              props: {
+                dataKey: 'detail-{{#countries.value}}',
+                label: 'D',
+                required: true,
+              },
             },
           },
         },
       },
     };
-    const descriptors = collectDescriptors([c], null);
-    const schema = buildSchemaFromDescriptors(descriptors, { data: {} });
+    const descriptors = collectFields([c], null);
+    const schema = buildSchemaFromFields(descriptors, { data: {} });
 
     expect(
       schema.safeParse({
@@ -852,15 +1072,24 @@ describe('buildSchemaFromDescriptors — superRefine, dynamic for-each', () => {
         component: {
           componentFamily: 'response',
           template: 'slider',
-          props: { dataKey: 'rating-{{#items.value}}', label: 'R', min: 1, max: 5 },
+          props: {
+            dataKey: 'rating-{{#items.value}}',
+            label: 'R',
+            min: 1,
+            max: 5,
+          },
         },
       },
     };
-    const descriptors = collectDescriptors([c], null);
-    const schema = buildSchemaFromDescriptors(descriptors, { data: {} });
+    const descriptors = collectFields([c], null);
+    const schema = buildSchemaFromFields(descriptors, { data: {} });
 
-    expect(schema.safeParse({ items: ['a'], 'rating-a': 10 }).success).toBe(false);
-    expect(schema.safeParse({ items: ['a'], 'rating-a': 3 }).success).toBe(true);
+    expect(schema.safeParse({ items: ['a'], 'rating-a': 10 }).success).toBe(
+      false,
+    );
+    expect(schema.safeParse({ items: ['a'], 'rating-a': 3 }).success).toBe(
+      true,
+    );
   });
 
   it('validates nested dynamic for-each — outer × inner produces correct concrete keys', () => {
@@ -890,11 +1119,16 @@ describe('buildSchemaFromDescriptors — superRefine, dynamic for-each', () => {
     const outer: ScreenComponent = {
       componentFamily: 'control',
       template: 'for-each',
-      props: { type: 'dynamic', id: 'groups', dataKey: '$groups', component: inner },
+      props: {
+        type: 'dynamic',
+        id: 'groups',
+        dataKey: '$groups',
+        component: inner,
+      },
     };
 
-    const descriptors = collectDescriptors([outer], null);
-    const schema = buildSchemaFromDescriptors(descriptors, {
+    const descriptors = collectFields([outer], null);
+    const schema = buildSchemaFromFields(descriptors, {
       screenData: { groups: ['g1', 'g2'], items: ['i1', 'i2'] },
     });
 

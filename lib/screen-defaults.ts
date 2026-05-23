@@ -1,7 +1,8 @@
 import { ScreenComponent } from './components';
 import { ResponseComponent } from './components/response';
 import { evaluateCondition, resolveCondition } from './conditions';
-import { deepMerge, mergeContext } from './flow';
+import { flatMap, Handlers, on } from './flatMap';
+import { mergeContext } from './flow';
 import { getValue, resolveValuesInString } from './resolve';
 import { Context } from './types';
 
@@ -25,93 +26,64 @@ export function defaultPerTemplate(
   }
 }
 
-function defaultFromComponent(
-  component: ScreenComponent,
-  context: Context,
-): Record<string, unknown> {
-  switch (component.componentFamily) {
-    case 'layout': {
-      if (component.template === 'group') {
-        return buildDefaultValues(component.props.components, context);
-      }
-      return {};
-    }
-    case 'control': {
-      switch (component.template) {
-        case 'conditional': {
-          // We can't determine which branch of the condition will be
-          // taken at build time, so we evaluate the condition with the
-          // current context and return defaults for the branch that is
-          // taken. This means that if the condition depends on user
-          // input or other dynamic data, the defaults may not be accurate
-          // until that data is available in the context.
-          const condition = resolveCondition(component.props.if, context);
-          const branch = evaluateCondition(condition, context)
-            ? component.props.component
-            : component.props.else;
-          return branch ? defaultFromComponent(branch, context) : {};
-        }
-        case 'for-each': {
-          // If iter values are static, we can compute defaults at build time.
-          // If they are dynamic we try to get the current value from context,
-          // but if it's not there we return an empty array since we don't
-          // know how many iterations there will be and which values they will have.
-          const iterValues =
-            component.props.type === 'static'
-              ? component.props.values
-              : ((getValue(component.props.dataKey, context) as
-                  | string[]
-                  | null) ?? []);
-          const inner = component.props.component;
-
-          // Remap the inner component for each iter value,
-          // resolving any data keys that depend on the iter value.
-          // TODO: check if this happens multiple times and check if we should
-          // TODO: resolve other values too, like labels that might depend on iter values.
-          const components = iterValues.map((value, i) => {
-            const newContext = mergeContext(context, {
-              screenData: {
-                foreachData: { [component.props.id]: { index: i, value } },
-              },
-            });
-
-            if (inner.componentFamily === 'response') {
-              return deepMerge(inner, {
-                props: {
-                  dataKey: resolveValuesInString(
-                    inner.props.dataKey,
-                    newContext,
-                  ),
-                },
-              });
-            } else {
-              return inner;
-            }
-          });
-
-          return buildDefaultValues(components, context);
-        }
-        default:
-          return {};
-      }
-    }
-    case 'response': {
-      return { [component.props.dataKey]: defaultPerTemplate(component) };
-    }
-    default:
-      return {};
-  }
-}
+/**
+ * Each handler emits zero or more [key, value] pairs.
+ * `buildDefaultValues` collects them into a record at the end.
+ * State carries the current Context — needed because for-each rewrites it
+ * per iteration.
+ */
+type Entry = [string, unknown];
+type State = { context: Context };
 
 export function buildDefaultValues(
   components: ScreenComponent[],
   context: Context,
 ): Record<string, unknown> {
-  return components.reduce<Record<string, unknown>>(
-    (defaults, component) => ({
-      ...defaults,
-      ...defaultFromComponent(component, context),
-    }),
-    {},
-  );
+  const handlers: Handlers<Entry, State> = [
+    on({ componentFamily: 'response' }, (c, state) => [
+      [
+        resolveValuesInString(c.props.dataKey, state.context),
+        defaultPerTemplate(c),
+      ] as Entry,
+    ]),
+
+    on({ componentFamily: 'layout', template: 'group' }, (c, state, recur) =>
+      recur(c.props.components, state),
+    ),
+
+    on(
+      { componentFamily: 'control', template: 'conditional' },
+      (c, state, recur) => {
+        const condition = resolveCondition(c.props.if, state.context);
+        const branch = evaluateCondition(condition, state.context)
+          ? c.props.component
+          : c.props.else;
+        return branch ? recur([branch], state) : [];
+      },
+    ),
+
+    on(
+      { componentFamily: 'control', template: 'for-each' },
+      (c, state, recur) => {
+        const iterValues =
+          c.props.type === 'static'
+            ? c.props.values
+            : ((getValue(c.props.dataKey, state.context) as string[] | null) ??
+              []);
+        const inner = c.props.component;
+
+        return iterValues.flatMap((value, index) => {
+          const iterCtx = mergeContext(state.context, {
+            screenData: { foreachData: { [c.props.id]: { index, value } } },
+          });
+          return recur([inner], { context: iterCtx });
+        });
+      },
+    ),
+
+    on({ componentFamily: 'content' }, (): Entry[] => []),
+  ];
+
+  const entries = flatMap(components, { context }, handlers);
+  return Object.fromEntries(entries);
 }

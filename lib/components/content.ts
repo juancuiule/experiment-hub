@@ -1,19 +1,19 @@
-import { BaseComponent } from ".";
+import { BaseComponent } from '.';
 
 export interface BaseContentComponent<
   U extends string,
   Props,
-> extends BaseComponent<"content", U> {
+> extends BaseComponent<'content', U> {
   props: Props;
 }
 
 export interface RichTextComponent extends BaseContentComponent<
-  "rich-text",
+  'rich-text',
   { content: string }
 > {}
 
 export interface ImageComponent extends BaseContentComponent<
-  "image",
+  'image',
   {
     url: string;
     alt: string;
@@ -22,7 +22,7 @@ export interface ImageComponent extends BaseContentComponent<
 > {}
 
 export interface VideoComponent extends BaseContentComponent<
-  "video",
+  'video',
   {
     url: string;
     autoplay?: boolean;
@@ -33,7 +33,7 @@ export interface VideoComponent extends BaseContentComponent<
 > {}
 
 export interface AudioComponent extends BaseContentComponent<
-  "audio",
+  'audio',
   {
     url: string;
     autoplay?: boolean;

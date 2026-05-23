@@ -1,15 +1,14 @@
-import { Condition } from "./conditions";
-
+import { Condition } from './conditions';
 
 export type NodeType =
-  | "start"
-  | "screen"
-  | "branch"
-  | "path"
-  | "fork"
-  | "loop"
-  | "checkpoint"
-  | "compute";
+  | 'start'
+  | 'screen'
+  | 'branch'
+  | 'path'
+  | 'fork'
+  | 'loop'
+  | 'checkpoint'
+  | 'compute';
 
 interface BaseNode {
   id: string;
@@ -17,7 +16,7 @@ interface BaseNode {
 }
 
 export interface StartNode extends BaseNode {
-  type: "start";
+  type: 'start';
   props?: {
     name: string;
     param: { key: string; value: string };
@@ -25,14 +24,14 @@ export interface StartNode extends BaseNode {
 }
 
 export interface CheckpointNode extends BaseNode {
-  type: "checkpoint";
+  type: 'checkpoint';
   props: {
     name: string;
   };
 }
 
 export interface ScreenNode extends BaseNode {
-  type: "screen";
+  type: 'screen';
   props: {
     slug: string;
   };
@@ -46,7 +45,7 @@ export type Branch = {
 };
 
 export interface BranchNode extends BaseNode {
-  type: "branch";
+  type: 'branch';
   props: {
     name: string;
     description?: string;
@@ -54,10 +53,10 @@ export interface BranchNode extends BaseNode {
   };
 }
 
-export type StepperConfig = { label?: string; style: "continuous" | "dashed" };
+export type StepperConfig = { label?: string; style: 'continuous' | 'dashed' };
 
 export interface PathNode extends BaseNode {
-  type: "path";
+  type: 'path';
   props: {
     name: string;
     description?: string;
@@ -74,7 +73,7 @@ export type Fork = {
 };
 
 export interface ForkNode extends BaseNode {
-  type: "fork";
+  type: 'fork';
   props: {
     name: string;
     description?: string;
@@ -83,28 +82,32 @@ export interface ForkNode extends BaseNode {
 }
 
 export interface LoopNode extends BaseNode {
-  type: "loop";
+  type: 'loop';
   props: (
-    | { type: "static"; values: string[] }
-    | { type: "dynamic"; dataKey: `$$${string}` }
+    | { type: 'static'; values: string[] }
+    | { type: 'dynamic'; dataKey: `$$${string}` }
   ) & { stepper?: StepperConfig };
 }
 
 export type FormulaInput = `$$${string}` | `$${string}`;
 
-export type SumFormula         = { type: "sum";  inputs: FormulaInput[] };
-export type MeanFormula        = { type: "mean"; inputs: FormulaInput[] };
-export type MinFormula         = { type: "min";  inputs: FormulaInput[] };
-export type MaxFormula         = { type: "max";  inputs: FormulaInput[] };
-export type CountFormula       = { type: "count"; inputs: FormulaInput[]; where?: Condition };
+export type SumFormula = { type: 'sum'; inputs: FormulaInput[] };
+export type MeanFormula = { type: 'mean'; inputs: FormulaInput[] };
+export type MinFormula = { type: 'min'; inputs: FormulaInput[] };
+export type MaxFormula = { type: 'max'; inputs: FormulaInput[] };
+export type CountFormula = {
+  type: 'count';
+  inputs: FormulaInput[];
+  where?: Condition;
+};
 export type ConditionalFormula = {
-  type: "conditional";
+  type: 'conditional';
   condition: Condition;
   then: string | number | boolean;
   else: string | number | boolean;
 };
 export type LookupFormula = {
-  type: "lookup";
+  type: 'lookup';
   input: FormulaInput;
   table: Array<{ when: number; then: string | number }>;
   default?: string | number;
@@ -125,7 +128,7 @@ export type Computation = {
 };
 
 export interface ComputeNode extends BaseNode {
-  type: "compute";
+  type: 'compute';
   props: {
     name: string;
     description?: string;
