@@ -1,5 +1,6 @@
 import { evaluateCondition } from '../conditions';
 import {
+  FrameworkEdge,
   isBranchConditionEdge,
   isBranchDefaultEdge,
   isForkEdge,
@@ -15,23 +16,25 @@ export function getNode(experiment: ExperimentFlow, nodeId: string) {
   return experiment.nodes.find((n) => n.id === nodeId);
 }
 
+function findEdgeTo(
+  experiment: ExperimentFlow,
+  guard: (e: FrameworkEdge) => boolean,
+  fromId: string,
+): FrameworkNode | null {
+  const edge = experiment.edges.filter(guard).find((e) => e.from === fromId);
+  if (!edge) return null;
+  return getNode(experiment, edge.to) ?? null;
+}
+
 export function getNextSequentialNode(
   experiment: ExperimentFlow,
   fromNodeId: string,
 ) {
-  const edge = experiment.edges
-    .filter(isSequentialEdge)
-    .find((e) => e.from === fromNodeId);
-  if (!edge) return null;
-  return getNode(experiment, edge.to);
+  return findEdgeTo(experiment, isSequentialEdge, fromNodeId);
 }
 
 export function getTemplateNode(experiment: ExperimentFlow, nodeId: string) {
-  const edge = experiment.edges
-    .filter(isLoopEdge)
-    .find((e) => e.from === nodeId);
-  if (!edge) return null;
-  return getNode(experiment, edge.to);
+  return findEdgeTo(experiment, isLoopEdge, nodeId);
 }
 
 export function getChildNodes(experiment: ExperimentFlow, nodeId: string) {
@@ -50,23 +53,14 @@ export function getBranchNode(
   nodeId: string,
   winnerId: string,
 ) {
-  const fromId = `${nodeId}.${winnerId}`;
-  const edge = experiment.edges
-    .filter(isBranchConditionEdge)
-    .find((e) => e.from === fromId);
-  if (!edge) return null;
-  return getNode(experiment, edge.to);
+  return findEdgeTo(experiment, isBranchConditionEdge, `${nodeId}.${winnerId}`);
 }
 
 export function getDefaultBranchNode(
   experiment: ExperimentFlow,
   nodeId: string,
 ) {
-  const edge = experiment.edges
-    .filter(isBranchDefaultEdge)
-    .find((e) => e.from === nodeId);
-  if (!edge) return null;
-  return getNode(experiment, edge.to);
+  return findEdgeTo(experiment, isBranchDefaultEdge, nodeId);
 }
 
 export function getForkEdgeNode(
@@ -74,12 +68,7 @@ export function getForkEdgeNode(
   nodeId: string,
   winnerId: string,
 ) {
-  const fromId = `${nodeId}.${winnerId}`;
-  const edge = experiment.edges
-    .filter(isForkEdge)
-    .find((e) => e.from === fromId);
-  if (!edge) return null;
-  return getNode(experiment, edge.to);
+  return findEdgeTo(experiment, isForkEdge, `${nodeId}.${winnerId}`);
 }
 
 function selectForkByWeight(forks: Fork[]): Fork {

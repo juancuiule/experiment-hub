@@ -26,6 +26,20 @@ import { computePathVisibility, countChainFromNode } from './visibility';
 
 export type { FlowHandlers };
 
+function nestData(
+  context: Context,
+  dataPath: string[] | undefined,
+  key: string,
+  data: Record<string, unknown>,
+): Context {
+  const keys = [...(dataPath ?? []), key];
+  const nested = keys.reduceRight<Record<string, unknown>>(
+    (acc, k) => ({ [k]: acc }),
+    data,
+  );
+  return mergeContext(context, { data: nested });
+}
+
 function shouldAutoTraverse(step: FlowStep): boolean {
   const { state } = step;
 
@@ -338,12 +352,7 @@ export async function traverseInNode(
       });
     }
     case 'screen': {
-      const keys = [...(step.dataPath ?? []), state.node.props.slug];
-      const nestedData = keys.reduceRight<Record<string, any>>(
-        (acc, key) => ({ [key]: acc }),
-        data ?? {},
-      );
-      const nContext = mergeContext(context, { data: nestedData });
+      const nContext = nestData(context, step.dataPath, state.node.props.slug, data ?? {});
       const nNode = getNextSequentialNode(experiment, state.node.id);
       if (!nNode) return { ...step, context: nContext, state: { type: 'end' } };
 
@@ -357,7 +366,7 @@ export async function traverseInNode(
       });
     }
     case 'compute': {
-      const nodeOutputs: Record<string, any> = {};
+      const nodeOutputs: Record<string, unknown> = {};
       for (const computation of state.node.props.computations) {
         nodeOutputs[computation.outputKey] = evaluateFormula(
           computation.formula,
@@ -365,12 +374,7 @@ export async function traverseInNode(
           nodeOutputs,
         );
       }
-      const keys = [...(step.dataPath ?? []), state.node.id];
-      const nestedData = keys.reduceRight<Record<string, any>>(
-        (acc, key) => ({ [key]: acc }),
-        nodeOutputs,
-      );
-      const nContext = mergeContext(context, { data: nestedData });
+      const nContext = nestData(context, step.dataPath, state.node.id, nodeOutputs);
       const nNode = getNextSequentialNode(experiment, state.node.id);
       if (!nNode) return { ...step, context: nContext, state: { type: 'end' } };
       const nState = initialState(experiment, nContext, nNode);
