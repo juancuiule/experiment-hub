@@ -1,6 +1,6 @@
 import { validateExperiment } from '@/lib/flow-validation';
 import { ExperimentFlow } from '@/lib/types';
-import { experiment } from '@/src/data/experiment';
+import experiment from '@/src/data/experiments/pandemic';
 import { DataDebug, StateDebug } from '@/src/Debug';
 import Experiment from '@/src/Experiment';
 import { ValidationErrors } from '@/src/ValidationErrors';
