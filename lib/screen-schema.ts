@@ -8,7 +8,7 @@ import {
   ForEachMeta,
   isOrderMarker,
   StaticField,
-} from './field-descriptors';
+} from './fields';
 import { buildFieldSchema } from './field-schema';
 import { mergeContext } from './flow';
 import { getValue, resolveValuesInString } from './resolve';

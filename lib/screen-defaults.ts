@@ -1,7 +1,7 @@
 import { ScreenComponent } from './components';
 import { ResponseComponent } from './components/response';
 import { evaluateCondition, resolveCondition } from './conditions';
-import { flatMap, Handlers, on } from './flatMap';
+import { flatMap, Handlers, on } from './component-walker';
 import { mergeContext } from './flow';
 import { getValue, resolveValuesInString } from './resolve';
 import { Context } from './types';

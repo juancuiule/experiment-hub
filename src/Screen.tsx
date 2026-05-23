@@ -3,7 +3,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 
-import { buildSchema } from '@/lib/build-schema';
+import { buildSchema } from '@/lib/screen-schema';
 import { Option } from '@/lib/components/response';
 import { FrameworkScreen } from '@/lib/screen';
 import { buildDefaultValues } from '@/lib/screen-defaults';

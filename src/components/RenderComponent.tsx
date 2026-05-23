@@ -58,11 +58,13 @@ export function RenderComponent({
         form,
         context,
         sharedOptions,
+        // deepMerge returns the union type; narrowing happens in the switch below
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         component: deepMerge(component, {
           props: {
             dataKey: resolveValuesInString(component.props.dataKey, context),
           },
-        }),
+        }) as any,
       };
       switch (component.template) {
         case 'text-input':
@@ -121,11 +123,12 @@ export function RenderComponent({
           const props = {
             form,
             context,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             component: deepMerge(component, {
               props: {
                 if: resolveCondition(component.props.if, context),
               },
-            }),
+            }) as any,
           };
           return (
             <Conditional
