@@ -16,10 +16,15 @@ all of this between {{ and }} will be replaced with the value of the key in the 
 -  # => context.screenData.foreachData
         example: {{#foreachSport.value}} => context.screenData.foreachData.foreachSport.value
 */
-export function resolveValuesInString(text: string, context: Context): string {
+export function resolveValuesInString(
+  text: string,
+  context: Context,
+  _depth = 0,
+): string {
+  if (_depth > 10) return text;
   const regex = /\{\{(\$\$|\$|@|#)([a-zA-Z0-9_.\-]+)\}\}/g;
   return text.replace(regex, (match, prefix: Prefix, path: string) => {
-    const resolved = getValue(`${prefix}${path}`, context);
+    const resolved = getValue(`${prefix}${path}`, context, _depth + 1);
     return resolved != null ? String(resolved) : match;
   });
 }
@@ -92,10 +97,10 @@ export function resolveInterpolatedImageUrl(
   }
 }
 
-export function getValue(key: string, context: Context) {
+export function getValue(key: string, context: Context, _depth = 0) {
   const { data = {}, screenData, loopData = {} } = context;
 
-  const resolvedKey = resolveValuesInString(key, context);
+  const resolvedKey = resolveValuesInString(key, context, _depth);
   const { prefix, path } = getPrefixAndPath(resolvedKey) || {};
   if (!prefix || !path) {
     throw new Error(`Invalid key format: ${key}`);

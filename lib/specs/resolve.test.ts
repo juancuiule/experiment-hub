@@ -203,4 +203,28 @@ describe("resolveValuesInString", () => {
       expect(resolveValuesInString("Score: {{@loop-scores.value}}", ctx)).toBe("Score: 42");
     });
   });
+
+  describe("depth guard", () => {
+    it("returns text unchanged when _depth exceeds 10", () => {
+      const ctx = { data: { key: "value" } };
+      expect(resolveValuesInString("{{$$key}}", ctx, 11)).toBe("{{$$key}}");
+    });
+
+    it("normal resolution still works at depth 0", () => {
+      const ctx = { data: { name: "Alice" } };
+      expect(resolveValuesInString("Hello {{$$name}}", ctx, 0)).toBe("Hello Alice");
+    });
+
+    it("does not stack overflow when a resolved value contains a template reference", () => {
+      // context.data.a resolves to "{{$$b}}", which itself resolves to "world"
+      const ctx = { data: { a: "{{$$b}}", b: "world" } };
+      expect(() => resolveValuesInString("{{$$a}}", ctx)).not.toThrow();
+    });
+
+    it("leaves tokens as-is when a self-referential cycle would otherwise overflow", () => {
+      // context.data.loop resolves to "{{$$loop}}" — a direct self-reference
+      const ctx = { data: { loop: "{{$$loop}}" } };
+      expect(() => resolveValuesInString("{{$$loop}}", ctx)).not.toThrow();
+    });
+  });
 });
