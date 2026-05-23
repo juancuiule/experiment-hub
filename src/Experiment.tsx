@@ -8,38 +8,21 @@ import { useEffect } from 'react';
 
 type Props = {
   startingNode?: string;
-  experiment?: ExperimentFlow;
+  experiment: ExperimentFlow;
 };
 
 export default function Experiment(props: Props) {
-  const { startingNode, experiment: experimentProp } = props;
+  const { startingNode, experiment } = props;
   const { step, isLoading, start, next } = useExperimentStore();
 
   useEffect(() => {
     if (!step) {
-      start(startingNode, experimentProp);
+      start(experiment, startingNode);
     }
-  }, [step, startingNode, experimentProp]);
+  }, [step, startingNode, experiment]);
 
   if (!step) {
-    return (
-      <>
-        <h1 className="mb-6 text-2xl font-semibold">Experiment</h1>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            start(startingNode, experimentProp);
-          }}
-        >
-          <button
-            type="submit"
-            className="bg-background-inverted text-content-inverted hover:bg-background-inverted/80 h-10 w-full cursor-pointer rounded-sm text-sm font-medium tracking-wide uppercase transition duration-150 ease-out active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100"
-          >
-            Start
-          </button>
-        </form>
-      </>
-    );
+    return <></>;
   }
 
   const activeState = getActiveState(step.state);

@@ -50,7 +50,7 @@ export default async function Home(props: Props) {
         </summary>
         <StateDebug />
       </details>
-      <Experiment startingNode={startingNode} />
+      <Experiment startingNode={startingNode} experiment={experiment} />
       <details>
         <summary className="text-content-secondary cursor-pointer text-xs">
           Data Debug
