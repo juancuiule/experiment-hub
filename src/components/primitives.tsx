@@ -3,12 +3,12 @@
 import { ScreenComponent } from "@/lib/components";
 import { Option, OptionsSource } from "@/lib/components/response";
 import { resolveOptionsSource } from "@/lib/resolve";
-import { Context } from "@/lib/types";
+import { Context, ScreenFormData } from "@/lib/types";
 import { UseFormReturn } from "react-hook-form";
 
 export type RenderProps = {
   component: ScreenComponent;
-  form: UseFormReturn<Record<string, any>>;
+  form: UseFormReturn<ScreenFormData>;
   context: Context;
   isLoading: boolean;
   sharedOptions?: Record<string, Option[]>;

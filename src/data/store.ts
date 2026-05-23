@@ -3,14 +3,14 @@ import {
   startExperiment,
   traverseWithTiming,
 } from '@/lib/flow';
-import { ExperimentFlow, FlowStep } from '@/lib/types';
+import { ExperimentFlow, FlowStep, ScreenFormData } from '@/lib/types';
 import { create } from 'zustand';
 
 type ExperimentStore = {
   step: FlowStep | null;
   isLoading: boolean;
   start: (experiment: ExperimentFlow, startNodeId?: string) => Promise<void>;
-  next: (data?: Record<string, any>) => Promise<void>;
+  next: (data?: ScreenFormData) => Promise<void>;
 };
 
 export const useExperimentStore = create<ExperimentStore>()((set, get) => ({
@@ -27,7 +27,7 @@ export const useExperimentStore = create<ExperimentStore>()((set, get) => ({
       set({ isLoading: false });
     }
   },
-  next: async (data?: Record<string, any>) => {
+  next: async (data?: ScreenFormData) => {
     const { step } = get();
     if (!step) return;
     set({ isLoading: true });

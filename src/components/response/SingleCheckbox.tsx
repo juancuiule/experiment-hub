@@ -2,7 +2,7 @@
 
 import { SingleCheckboxComponent } from '@/lib/components/response';
 import { defaultPerTemplate } from '@/lib/screen-defaults';
-import { Context } from '@/lib/types';
+import { Context, ScreenFormData } from '@/lib/types';
 import * as CheckboxPrimitive from '@radix-ui/react-checkbox';
 import { Check } from 'lucide-react';
 import { Controller, UseFormReturn } from 'react-hook-form';
@@ -12,7 +12,7 @@ import { FieldError } from '../primitives';
 
 type Props = {
   component: SingleCheckboxComponent;
-  form: UseFormReturn<Record<string, any>>;
+  form: UseFormReturn<ScreenFormData>;
   context: Context;
 };
 

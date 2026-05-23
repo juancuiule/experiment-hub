@@ -10,6 +10,8 @@ export type ExperimentFlow = {
   options?: Record<string, Option[]>;
 };
 
+export type ScreenFormData = Record<string, string | boolean | string[] | number | null>;
+
 type IterativeItem = { value: any; index: number };
 type ScreenData = Record<string, any> & {
   foreachData?: { [foreachId: string]: IterativeItem };
@@ -21,7 +23,7 @@ export type TimingEntry = { enteredAt: string; submittedAt: string };
 export type Context = Partial<{
   start: { group: string };
   checkpoints: { [checkpointName: string]: string };
-  data: Record<string, any>;
+  data: ScreenFormData;
   // In the store this only holds foreachData from the engine.
   // RenderComponent merges live form values (form.watch()) into this key at render time
   // so that $ prefix references ({{$fieldName}}) resolve correctly inside components

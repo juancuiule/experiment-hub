@@ -1,7 +1,7 @@
 "use client";
 
 import { Option, RadioComponent } from "@/lib/components/response";
-import { Context } from "@/lib/types";
+import { Context, ScreenFormData } from "@/lib/types";
 import * as RadioGroupPrimitive from "@radix-ui/react-radio-group";
 import { Controller, UseFormReturn } from "react-hook-form";
 import { Label } from "../Label";
@@ -9,7 +9,7 @@ import { FieldError, resolveOptions } from "../primitives";
 
 type Props = {
   component: RadioComponent;
-  form: UseFormReturn<Record<string, any>>;
+  form: UseFormReturn<ScreenFormData>;
   context: Context;
   sharedOptions?: Record<string, Option[]>;
 };

@@ -7,14 +7,14 @@ import { Option } from '@/lib/components/response';
 import { FrameworkScreen } from '@/lib/screen';
 import { buildDefaultValues } from '@/lib/screen-defaults';
 import { buildSchema } from '@/lib/screen-validation';
-import { Context } from '@/lib/types';
+import { Context, ScreenFormData } from '@/lib/types';
 import { RenderComponent } from './components/RenderComponent';
 import { DataSection } from './components/DataTree';
 
 type ScreenProps = {
   screen: FrameworkScreen;
   isLoading: boolean;
-  onNext: (data?: Record<string, any>) => Promise<void>;
+  onNext: (data?: ScreenFormData) => Promise<void>;
   context: Context;
   sharedOptions?: Record<string, Option[]>;
 };
@@ -26,13 +26,13 @@ export function Screen({
   context,
   sharedOptions,
 }: ScreenProps) {
-  const form = useForm<Record<string, any>>({
+  const form = useForm<ScreenFormData>({
     resolver: zodResolver(buildSchema(screen, context)),
     defaultValues: buildDefaultValues(screen.components, context),
     shouldUnregister: true,
   });
 
-  const onSubmit = (data: Record<string, any>) => {
+  const onSubmit = (data: ScreenFormData) => {
     const shuffledOptions = context.screenData?.shuffledOptions ?? {};
     const orders = Object.fromEntries(
       Object.entries(shuffledOptions)

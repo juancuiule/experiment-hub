@@ -2,14 +2,14 @@
 
 import { ScreenComponent } from '@/lib/components';
 import { GroupComponent } from '@/lib/components/layout';
-import { Context } from '@/lib/types';
+import { Context, ScreenFormData } from '@/lib/types';
 import { Fragment } from 'react';
 import { UseFormReturn } from 'react-hook-form';
 import { RenderProps } from '../primitives';
 
 type Props = {
   component: GroupComponent;
-  form: UseFormReturn<Record<string, any>>;
+  form: UseFormReturn<ScreenFormData>;
   context: Context;
   isLoading: boolean;
   renderChild: (props: RenderProps) => React.ReactNode;

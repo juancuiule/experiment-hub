@@ -2,7 +2,7 @@
 
 import { TextInputComponent } from "@/lib/components/response";
 import { resolveValuesInString } from "@/lib/resolve";
-import { Context } from "@/lib/types";
+import { Context, ScreenFormData } from "@/lib/types";
 import { UseFormReturn } from "react-hook-form";
 import { Input } from "../Input";
 import { Label } from "../Label";
@@ -10,7 +10,7 @@ import { FieldError } from "../primitives";
 
 type Props = {
   component: TextInputComponent;
-  form: UseFormReturn<Record<string, any>>;
+  form: UseFormReturn<ScreenFormData>;
   context: Context;
 };
 

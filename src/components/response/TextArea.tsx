@@ -2,7 +2,7 @@
 
 import { TextAreaComponent } from "@/lib/components/response";
 import { resolveValuesInString } from "@/lib/resolve";
-import { Context } from "@/lib/types";
+import { Context, ScreenFormData } from "@/lib/types";
 import { UseFormReturn } from "react-hook-form";
 import { twMerge } from "tailwind-merge";
 import { Label } from "../Label";
@@ -10,7 +10,7 @@ import { FieldError } from "../primitives";
 
 type Props = {
   component: TextAreaComponent;
-  form: UseFormReturn<Record<string, any>>;
+  form: UseFormReturn<ScreenFormData>;
   context: Context;
 };
 

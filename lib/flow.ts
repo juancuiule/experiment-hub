@@ -23,6 +23,7 @@ import {
   InLoopState,
   InNodeState,
   InPathState,
+  ScreenFormData,
   State,
 } from './types';
 import { isDefined, send, shuffle, shuffleAnchored } from './utils';
@@ -368,7 +369,7 @@ async function enterStep(step: FlowStep): Promise<FlowStep> {
 
 export async function traverse(
   step: FlowStep,
-  data?: Record<string, any>,
+  data?: ScreenFormData,
 ): Promise<FlowStep> {
   const { state, experiment, context } = step;
 
@@ -529,7 +530,7 @@ function selectForkByWeight(forks: Fork[]): Fork {
 }
 
 // Curried helper for .then()-based chaining:
-export function next(data?: Record<string, any>) {
+export function next(data?: ScreenFormData) {
   return (step: FlowStep) => traverse(step, data);
 }
 
@@ -611,7 +612,7 @@ function evaluateFormula(
 
 export async function traverseInNode(
   step: FlowStep<InNodeState>,
-  data: Record<string, any>,
+  data: ScreenFormData,
 ): Promise<FlowStep> {
   const { state, experiment, context } = step;
   switch (state.node.type) {
@@ -735,7 +736,7 @@ export async function traverseInNode(
 
 export async function traverseInPath(
   step: FlowStep<InPathState>,
-  data: Record<string, any>,
+  data: ScreenFormData,
 ): Promise<FlowStep> {
   const { state, experiment, context } = step;
 
@@ -839,7 +840,7 @@ export async function traverseInPath(
 
 export async function traverseInLoop(
   step: FlowStep<InLoopState>,
-  data: Record<string, any>,
+  data: ScreenFormData,
 ): Promise<FlowStep> {
   const { state, experiment, context } = step;
 
@@ -968,7 +969,7 @@ export function buildTimingKey(step: FlowStep): string | null {
 
 export async function traverseWithTiming(
   step: FlowStep,
-  data?: Record<string, any>,
+  data?: ScreenFormData,
 ): Promise<FlowStep> {
   const key = buildTimingKey(step);
   const submittedAt = new Date().toISOString();
