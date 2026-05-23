@@ -1,10 +1,8 @@
 'use client'
 
-import { ValidationError } from "@/lib/flow-validation";
+import { ErrorCategory, ValidationError } from "@/lib/flow-validation";
 import { AlertTriangle, ArrowRightLeft, Box, Hash, LucideIcon, Split, Wallpaper } from "lucide-react";
 import { NodeTypeBadge } from "./nodeConfig";
-
-type ErrorCategory = 'screen' | 'node' | 'branch' | 'edge' | 'reference';
 
 const CATEGORY_COLORS: Record<ErrorCategory, string> = {
   screen: "bg-blue-100 text-blue-800 border-blue-300",
@@ -22,15 +20,6 @@ const CATEGORY_ICONS: Record<ErrorCategory, LucideIcon> = {
   node: Box,
 };
 
-
-function getCategory(code: string): ErrorCategory {
-  if (code.includes('screen')) return 'screen';
-  if (code.includes('branch') || code.includes('condition')) return 'branch';
-  if (code.includes('reference')) return 'reference';
-  if (code.includes('edge')) return 'edge';
-  return 'node';
-}
-
 function extractNodeType(message: string): string | null {
   const match = message.match(/^(Start node|Branch|Checkpoint|Fork|Loop|Path|Screen node|Screen)\s/);
   if (!match) return null;
@@ -38,7 +27,7 @@ function extractNodeType(message: string): string | null {
 }
 
 function ErrorCard({ error }: { error: ValidationError }) {
-  const category = getCategory(error.code);
+  const category = error.category;
   const nodeType = extractNodeType(error.message);
   const colorClass = CATEGORY_COLORS[category];
   const Icon = CATEGORY_ICONS[category];

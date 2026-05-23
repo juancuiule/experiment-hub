@@ -13,6 +13,10 @@ function messages(flow: ExperimentFlow) {
   return validateExperiment(flow).map((e) => e.message);
 }
 
+function categories(flow: ExperimentFlow) {
+  return validateExperiment(flow).map((e) => e.category);
+}
+
 // Minimal valid flow used as a baseline across tests
 const minimalFlow: ExperimentFlow = {
   nodes: [start, makeScreen('s1', 'welcome')],
@@ -30,6 +34,90 @@ const minimalFlow: ExperimentFlow = {
     },
   ],
 };
+
+describe('error categories', () => {
+  it('assigns explicit categories to validation errors', () => {
+    const missingStartFlow: ExperimentFlow = {
+      nodes: [makeScreen('s1', 'welcome')],
+      edges: [],
+      screens: [],
+    };
+    expect(categories(missingStartFlow)).toContain('node');
+
+    const missingEdgeFlow: ExperimentFlow = {
+      nodes: [start],
+      edges: [],
+    };
+    expect(categories(missingEdgeFlow)).toContain('edge');
+
+    const missingScreenFlow: ExperimentFlow = {
+      nodes: [start, makeScreen('s1', 'welcome')],
+      edges: [seq('start', 's1')],
+      screens: [],
+    };
+    expect(categories(missingScreenFlow)).toContain('screen');
+
+    const branchFlow: ExperimentFlow = {
+      nodes: [
+        start,
+        makeScreen('s1', 'q'),
+        {
+          id: 'b',
+          type: 'branch',
+          props: {
+            name: 'B',
+            branches: [
+              {
+                id: 'yes',
+                name: 'Yes',
+                config: {
+                  type: 'simple',
+                  operator: 'eq',
+                  dataKey: '$$q.answer',
+                  value: 'y',
+                },
+              },
+            ],
+          },
+        },
+        makeScreen('s2', 'fallback'),
+      ],
+      edges: [seq('start', 's1'), seq('s1', 'b'), { type: 'branch-default', from: 'b', to: 's2' }],
+      screens: [
+        {
+          slug: 'q',
+          components: [
+            {
+              componentFamily: 'response',
+              template: 'text-input',
+              props: { dataKey: 'answer', label: '?' },
+            },
+          ],
+        },
+        { slug: 'fallback', components: [] },
+      ],
+    };
+    expect(categories(branchFlow)).toContain('branch');
+
+    const referenceFlow: ExperimentFlow = {
+      nodes: [start, makeScreen('s1', 'welcome')],
+      edges: [seq('start', 's1')],
+      screens: [
+        {
+          slug: 'welcome',
+          components: [
+            {
+              componentFamily: 'content',
+              template: 'rich-text',
+              props: { content: '{{$$missing.value}}' },
+            },
+          ],
+        },
+      ],
+    };
+    expect(categories(referenceFlow)).toContain('reference');
+  });
+});
 
 describe('node identity', () => {
   it('passes a valid minimal flow', () => {
