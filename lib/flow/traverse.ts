@@ -1,21 +1,5 @@
-import { Condition, evaluateCondition } from './conditions';
-
-import { ScreenComponent } from './components';
-import { hasRandomizedOptions, Option } from './components/response';
-import {
-  isBranchConditionEdge,
-  isBranchDefaultEdge,
-  isForkEdge,
-  isLoopEdge,
-  isPathEdge,
-  isSequentialEdge,
-} from './edges';
-import { BranchNode, Fork, ForkNode, Formula, FrameworkNode } from './nodes';
-import {
-  getValue,
-  resolveOptionsSource,
-  resolveValuesInString,
-} from './resolve';
+import { FrameworkNode } from '../nodes';
+import { getValue } from '../resolve';
 import {
   Context,
   ContextData,
@@ -26,108 +10,22 @@ import {
   InNodeState,
   InPathState,
   State,
-} from './types';
-import { isDefined, shuffle, shuffleAnchored } from './utils';
+} from '../types';
+import { shuffle } from '../utils';
+import { mergeContext, withCurrentItem } from './context';
+import { evaluateFormula } from './formulas';
+import {
+  getChildNodes,
+  getNextSequentialNode,
+  getTemplateNode,
+  getWinnerFork,
+  getWinnerNode,
+} from './graph';
+import { computeShuffledOptions } from './shuffles';
+import { computePathVisibility, countChainFromNode } from './visibility';
 
 export type { FlowHandlers };
 
-// Returns false when any data key referenced by a condition is absent from context,
-// meaning evaluateCondition would silently fall to branch-default for the wrong reason.
-// Used to decide whether a branch contribution can be pre-computed at path init time.
-function isConditionDataAvailable(
-  condition: Condition,
-  context: Context,
-): boolean {
-  switch (condition.type) {
-    case 'simple': {
-      try {
-        return getValue(condition.dataKey, context) !== undefined;
-      } catch {
-        return false;
-      }
-    }
-    case 'and':
-    case 'or': {
-      return condition.conditions.every((c) =>
-        isConditionDataAvailable(c, context),
-      );
-    }
-    case 'not': {
-      return isConditionDataAvailable(condition.condition, context);
-    }
-  }
-
-  return false;
-}
-
-// Counts screens reachable from startNodeId by following sequential edges,
-// stopping when a path child is hit or there is no further sequential edge.
-// Used to count all extra screens a branch arm adds, not just the first one.
-function countChainFromNode(
-  experiment: ExperimentFlow,
-  startNodeId: string,
-  pathChildren: FrameworkNode[],
-): number {
-  const node = getNode(experiment, startNodeId);
-  if (!node || pathChildren.some((c) => c.id === startNodeId)) return 0;
-  const next = getNextSequentialNode(experiment, startNodeId);
-  return (
-    (node.type === 'screen' ? 1 : 0) +
-    (next ? countChainFromNode(experiment, next.id, pathChildren) : 0)
-  );
-}
-
-// Pre-computes visible screen count and per-branch contributions at path entry.
-// - screen children count directly
-// - branch children: if all condition data is available, evaluate and count the
-//   chain from the winner; if data is missing, contribute 0 and correct at traversal
-// - checkpoint children: their sequential target contributes 1 if not a path child
-// - loops/forks: counted via their own steppers, skipped here
-function computePathVisibility(
-  experiment: ExperimentFlow,
-  context: Context,
-  children: FrameworkNode[],
-): { total: number; branchContributions: Record<string, number> } {
-  return children.reduce(
-    (acc, child) => {
-      if (child.type === 'screen') {
-        return { ...acc, total: acc.total + 1 };
-      }
-      if (child.type === 'branch') {
-        const branchNode = child as BranchNode;
-        const allAvailable = branchNode.props.branches.every((b) =>
-          isConditionDataAvailable(b.config, context),
-        );
-        const { nNode } = allAvailable
-          ? getWinnerNode(experiment, branchNode, context)
-          : { nNode: null };
-        const contribution =
-          nNode && !children.some((c) => c.id === nNode.id)
-            ? countChainFromNode(experiment, nNode.id, children)
-            : 0;
-        return {
-          total: acc.total + contribution,
-          branchContributions: {
-            ...acc.branchContributions,
-            [branchNode.id]: contribution,
-          },
-        };
-      }
-      if (child.type === 'checkpoint') {
-        const nNode = getNextSequentialNode(experiment, child.id);
-        return nNode?.type === 'screen' &&
-          !children.some((c) => c.id === nNode.id)
-          ? { ...acc, total: acc.total + 1 }
-          : acc;
-      }
-      return acc;
-    },
-    { total: 0, branchContributions: {} as Record<string, number> },
-  );
-}
-
-// This function determines if we should auto-traverse from
-// the current step without waiting for external input.
 function shouldAutoTraverse(step: FlowStep): boolean {
   const { state } = step;
 
@@ -140,8 +38,6 @@ function shouldAutoTraverse(step: FlowStep): boolean {
   return isAutoNode;
 }
 
-// This function computes the initial state when entering a node.
-// When we enter a path or a loop, we need to setup the inner state.
 function initialState(
   experiment: ExperimentFlow,
   context: Context,
@@ -207,92 +103,6 @@ function initialState(
   }
 }
 
-function computeShuffledOptions(
-  experiment: ExperimentFlow,
-  context: Context,
-  slug: string,
-): Record<string, Array<Option>> {
-  const screen = experiment.screens?.find((s) => s.slug === slug);
-  if (!screen) return {};
-
-  const inLoop = Object.keys(context.loopData ?? {}).length > 0;
-  const previous = context.screenData?.shuffledOptions ?? {};
-
-  function processComponent(
-    component: ScreenComponent,
-    ctx: Context,
-  ): [string, Array<Option>][] {
-    switch (component.componentFamily) {
-      case 'response': {
-        if (!hasRandomizedOptions(component)) return [];
-        const key = resolveValuesInString(component.props.dataKey, ctx);
-        const options =
-          inLoop && !component.props.reshuffleInLoop && previous[key]
-            ? previous[key]
-            : shuffleAnchored(
-                resolveOptionsSource(component.props.options, ctx),
-              );
-        return [[key, options]];
-      }
-      case 'control': {
-        if (component.template === 'for-each') {
-          const values =
-            component.props.type === 'static'
-              ? component.props.values
-              : ((getValue(component.props.dataKey, ctx) as string[] | null) ??
-                []);
-          return values.flatMap((value, index) =>
-            Object.entries<Array<Option>>(
-              processComponents(
-                [component.props.component],
-                mergeContext(ctx, {
-                  screenData: {
-                    foreachData: { [component.props.id]: { index, value } },
-                  },
-                }),
-              ),
-            ),
-          );
-        }
-        if (component.template === 'conditional') {
-          const thenEntries = Object.entries<Array<Option>>(
-            processComponents([component.props.component], ctx),
-          );
-          const elseEntries = component.props.else
-            ? Object.entries<Array<Option>>(
-                processComponents([component.props.else], ctx),
-              )
-            : [];
-          return [...thenEntries, ...elseEntries];
-        }
-        return [];
-      }
-      case 'layout': {
-        if (component.template === 'group') {
-          return Object.entries<Array<Option>>(
-            processComponents(component.props.components, ctx),
-          );
-        }
-        return [];
-      }
-      default:
-        return [];
-    }
-  }
-
-  function processComponents(
-    components: ScreenComponent[],
-    ctx: Context,
-  ): Record<string, Array<Option>> {
-    return Object.fromEntries(
-      components.flatMap((c) => processComponent(c, ctx)),
-    );
-  }
-
-  return processComponents(screen.components, context);
-}
-
-// This function handles entering a step, applying any auto-traversal logic if needed.
 async function enterStep(step: FlowStep): Promise<FlowStep> {
   if (step.state.type === 'in-loop') {
     const { index, node, template } = step.state;
@@ -379,6 +189,21 @@ async function enterStep(step: FlowStep): Promise<FlowStep> {
   return step;
 }
 
+async function exitToNextNode(
+  experiment: ExperimentFlow,
+  context: Context,
+  nodeId: string,
+  dataPath: string[],
+  handlers?: FlowHandlers,
+): Promise<FlowStep> {
+  const nNode = getNextSequentialNode(experiment, nodeId);
+  if (!nNode) {
+    return { experiment, state: { type: 'end' }, context, dataPath, handlers };
+  }
+  const nState = initialState(experiment, context, nNode);
+  return enterStep({ state: nState, experiment, context, dataPath, handlers });
+}
+
 export async function traverse(
   step: FlowStep,
   data?: ContextData,
@@ -392,7 +217,7 @@ export async function traverse(
     case 'initial': {
       const startNodeId = data?.startNodeId as string | undefined;
       const startNode = startNodeId
-        ? getNode(experiment, startNodeId)
+        ? experiment.nodes.find((n) => n.id === startNodeId)
         : experiment.nodes.find((n) => n.type === 'start');
 
       if (!startNode || startNode.type !== 'start') {
@@ -418,214 +243,6 @@ export async function traverse(
     }
     case 'in-loop': {
       return await traverseInLoop({ ...step, state }, data ?? {});
-    }
-  }
-}
-
-function getNextSequentialNode(experiment: ExperimentFlow, fromNodeId: string) {
-  const edge = experiment.edges
-    .filter(isSequentialEdge)
-    .find((e) => e.from === fromNodeId);
-  if (!edge) return null;
-  return getNode(experiment, edge.to);
-}
-
-function getTemplateNode(experiment: ExperimentFlow, nodeId: string) {
-  const edge = experiment.edges
-    .filter(isLoopEdge)
-    .find((e) => e.from === nodeId);
-  if (!edge) return null;
-  return getNode(experiment, edge.to);
-}
-
-function getChildNodes(experiment: ExperimentFlow, nodeId: string) {
-  const edges = experiment.edges
-    .filter(isPathEdge)
-    .filter((e) => e.from === nodeId)
-    .sort((a, b) => a.order - b.order);
-  if (edges.length === 0) return null;
-  return edges
-    .map((e) => getNode(experiment, e.to))
-    .filter((n) => isDefined<FrameworkNode>(n));
-}
-
-function getBranchNode(
-  experiment: ExperimentFlow,
-  nodeId: string,
-  winnerId: string,
-) {
-  const fromId = `${nodeId}.${winnerId}`;
-  const edge = experiment.edges
-    .filter(isBranchConditionEdge)
-    .find((e) => e.from === fromId);
-  if (!edge) return null;
-  return getNode(experiment, edge.to);
-}
-
-function getDefaultBranchNode(experiment: ExperimentFlow, nodeId: string) {
-  const edge = experiment.edges
-    .filter(isBranchDefaultEdge)
-    .find((e) => e.from === nodeId);
-  if (!edge) return null;
-  return getNode(experiment, edge.to);
-}
-
-function getForkEdgeNode(
-  experiment: ExperimentFlow,
-  nodeId: string,
-  winnerId: string,
-) {
-  const fromId = `${nodeId}.${winnerId}`;
-  const edge = experiment.edges
-    .filter(isForkEdge)
-    .find((e) => e.from === fromId);
-  if (!edge) return null;
-  return getNode(experiment, edge.to);
-}
-
-function getNode(experiment: ExperimentFlow, nodeId: string) {
-  return experiment.nodes.find((n) => n.id === nodeId);
-}
-
-// Arrays are replaced wholesale, not recursively merged.
-export function deepMerge(target: any, source: any): any {
-  const result = { ...target };
-  for (const key of Object.keys(source)) {
-    const val = source[key];
-    if (typeof val === 'object' && val !== null && !Array.isArray(val)) {
-      result[key] = deepMerge(target[key] ?? {}, val);
-    } else {
-      result[key] = val;
-    }
-  }
-  return result;
-}
-
-export function mergeContext(context: Context, toMerge: Context): Context {
-  return deepMerge(context, toMerge);
-}
-
-function withCurrentItem(
-  context: Context,
-  loopId: string,
-  values: string[],
-  index: number,
-): Context {
-  return mergeContext(context, {
-    loopData: {
-      [loopId]: { value: values[index], index },
-    },
-  });
-}
-
-async function exitToNextNode(
-  experiment: ExperimentFlow,
-  context: Context,
-  nodeId: string,
-  dataPath: string[],
-  handlers?: FlowHandlers,
-): Promise<FlowStep> {
-  const nNode = getNextSequentialNode(experiment, nodeId);
-  if (!nNode) {
-    return { experiment, state: { type: 'end' }, context, dataPath, handlers };
-  }
-  const nState = initialState(experiment, context, nNode);
-  return enterStep({ state: nState, experiment, context, dataPath, handlers });
-}
-
-function selectForkByWeight(forks: Fork[]): Fork {
-  const total = forks.reduce((sum, f) => sum + (f.weight ?? 1), 0);
-  let rand = Math.random() * total;
-  for (const fork of forks) {
-    rand -= fork.weight ?? 1;
-    if (rand <= 0) return fork;
-  }
-  return forks[forks.length - 1];
-}
-
-// Curried helper for .then()-based chaining:
-export function next(data?: ContextData) {
-  return (step: FlowStep) => traverse(step, data);
-}
-
-export async function startExperiment(
-  experiment: ExperimentFlow,
-  startNodeId?: string,
-  handlers?: FlowHandlers,
-): Promise<FlowStep> {
-  return await traverse(
-    { state: { type: 'initial' }, experiment, context: {}, handlers },
-    startNodeId ? { startNodeId } : undefined,
-  );
-}
-
-function getFormulaInputValue(
-  input: string,
-  context: Context,
-  nodeOutputs: ContextData,
-): any {
-  if (input.startsWith('$') && !input.startsWith('$$')) {
-    return nodeOutputs[input.slice(1)];
-  }
-  return getValue(input, context);
-}
-
-function evaluateFormula(
-  formula: Formula,
-  context: Context,
-  nodeOutputs: Record<string, any>,
-): any {
-  switch (formula.type) {
-    case 'sum':
-      return formula.inputs.reduce(
-        (acc, inp) =>
-          acc + (Number(getFormulaInputValue(inp, context, nodeOutputs)) || 0),
-        0,
-      );
-    case 'mean': {
-      const vals = formula.inputs.map(
-        (inp) => Number(getFormulaInputValue(inp, context, nodeOutputs)) || 0,
-      );
-      return vals.length === 0
-        ? 0
-        : vals.reduce((a, b) => a + b, 0) / vals.length;
-    }
-    case 'min': {
-      const vals = formula.inputs.map(
-        (inp) => Number(getFormulaInputValue(inp, context, nodeOutputs)) || 0,
-      );
-      return vals.length === 0 ? 0 : Math.min(...vals);
-    }
-    case 'max': {
-      const vals = formula.inputs.map(
-        (inp) => Number(getFormulaInputValue(inp, context, nodeOutputs)) || 0,
-      );
-      return vals.length === 0 ? 0 : Math.max(...vals);
-    }
-    case 'count':
-      return formula.inputs.filter((inp) => {
-        const val = getFormulaInputValue(inp, context, nodeOutputs);
-        if (val == null || val === '') return false;
-        if (!formula.where) return true;
-        const evalCtx = mergeContext(context, {
-          screenData: nodeOutputs,
-          loopData: { current: val },
-        });
-        return evaluateCondition(formula.where, evalCtx);
-      }).length;
-    case 'conditional': {
-      const ctxWithOutputs = mergeContext(context, { screenData: nodeOutputs });
-      return evaluateCondition(formula.condition, ctxWithOutputs)
-        ? formula.then
-        : formula.else;
-    }
-    case 'lookup': {
-      const val = getFormulaInputValue(formula.input, context, nodeOutputs);
-      const sorted = [...formula.table].sort(
-        (a, b) => Number(b.when) - Number(a.when),
-      );
-      const match = sorted.find((entry) => Number(val) >= Number(entry.when));
-      return match ? match.then : formula.default;
     }
   }
 }
@@ -954,28 +571,20 @@ export async function traverseInLoop(
   };
 }
 
-function getWinnerNode(
-  experiment: ExperimentFlow,
-  branchNode: BranchNode,
-  context: Context,
-) {
-  const branches = branchNode.props.branches;
-  const winner = branches.find((b) => evaluateCondition(b.config, context));
-
-  const nNode = winner
-    ? getBranchNode(experiment, branchNode.id, winner.id)
-    : getDefaultBranchNode(experiment, branchNode.id);
-
-  return { nNode, winnerId: winner?.id ?? 'default' };
+// Curried helper for .then()-based chaining:
+export function next(data?: ContextData) {
+  return (step: FlowStep) => traverse(step, data);
 }
 
-async function getWinnerFork(experiment: ExperimentFlow, forkNode: ForkNode) {
-  const forks = forkNode.props.forks;
-  const winner = selectForkByWeight(forks);
-
-  const nNode = getForkEdgeNode(experiment, forkNode.id, winner.id);
-
-  return { nNode, winnerId: winner.id };
+export async function startExperiment(
+  experiment: ExperimentFlow,
+  startNodeId?: string,
+  handlers?: FlowHandlers,
+): Promise<FlowStep> {
+  return await traverse(
+    { state: { type: 'initial' }, experiment, context: {}, handlers },
+    startNodeId ? { startNodeId } : undefined,
+  );
 }
 
 // Resolves the innermost active state by unwrapping in-path / in-loop wrappers.
@@ -983,66 +592,4 @@ export function getActiveState(state: State): State {
   if (state.type === 'in-path') return getActiveState(state.innerState);
   if (state.type === 'in-loop') return getActiveState(state.innerState);
   return state;
-}
-
-// Builds a timing key from a FlowStep for tracking screen response times.
-// Returns null for non-screen states, otherwise returns the slug or dataPath/slug.
-// Walks in-path / in-loop state wrappers to derive the full nesting key so that
-// the returned key matches context.data's nested structure (e.g. "path-a/q1").
-export function buildTimingKey(step: FlowStep): string | null {
-  const segments: string[] = [...(step.dataPath ?? [])];
-
-  function walkState(state: State): State {
-    if (state.type === 'in-path') {
-      segments.push(state.node.id);
-      return walkState(state.innerState);
-    }
-    if (state.type === 'in-loop') {
-      segments.push(state.node.id, state.values[state.index]);
-      return walkState(state.innerState);
-    }
-    return state;
-  }
-
-  const leaf = walkState(step.state);
-  if (leaf.type !== 'in-node') return null;
-  if (leaf.node.type !== 'screen') return null;
-  segments.push(leaf.node.props.slug);
-  return segments.join('/');
-}
-
-export async function traverseWithTiming(
-  step: FlowStep,
-  data?: ContextData,
-): Promise<FlowStep> {
-  const key = buildTimingKey(step);
-  const submittedAt = new Date().toISOString();
-  const contextWithSubmit = key
-    ? mergeContext(step.context, {
-        timings: {
-          [key]: {
-            ...(step.context.timings?.[key] ?? {}),
-            submittedAt,
-          },
-        },
-      })
-    : step.context;
-  return traverse({ ...step, context: contextWithSubmit }, data);
-}
-
-export function recordEnteredAt(step: FlowStep): FlowStep {
-  const key = buildTimingKey(step);
-  if (!key) return step;
-  const enteredAt = new Date().toISOString();
-  return {
-    ...step,
-    context: mergeContext(step.context, {
-      timings: {
-        [key]: {
-          ...(step.context.timings?.[key] ?? {}),
-          enteredAt,
-        },
-      },
-    }),
-  };
 }
