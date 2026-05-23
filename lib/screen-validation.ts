@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { ScreenComponent } from './components';
 import { hasRandomizedOptions, ResponseComponent } from './components/response';
+import { ComponentVisitor, ForEachMeta, walkComponents } from './components/walk';
 import { Condition, evaluateCondition, resolveCondition } from './conditions';
 import { buildFieldSchema } from './field-schema';
 import { mergeContext } from './flow';
@@ -15,7 +16,7 @@ export function buildSchema(screen: FrameworkScreen, context: Context) {
 
 // ─── Descriptor-based pipeline ───────────────────────────────────────────────
 
-type ForEachMeta = {
+type DynamicForEachMeta = {
   id: string;
   dataKey: `$$${string}` | `$${string}`;
 };
@@ -34,7 +35,7 @@ type FieldDescriptor =
       dynamic: true;
       source: ResponseComponent;
       condition: Condition | null;
-      foreach: [ForEachMeta, ...ForEachMeta[]];
+      foreach: [DynamicForEachMeta, ...DynamicForEachMeta[]];
     }
   | {
       key: string;
@@ -47,7 +48,7 @@ type FieldDescriptor =
       synthetic: true;
       dynamic: true;
       condition: Condition | null;
-      foreach: [ForEachMeta, ...ForEachMeta[]];
+      foreach: [DynamicForEachMeta, ...DynamicForEachMeta[]];
     };
 
 function and(a: Condition | null, b: Condition): Condition {
@@ -59,28 +60,24 @@ export function collectDescriptors(
   context: Context,
   enclosingCondition: Condition | null,
 ): FieldDescriptor[] {
-  return components.flatMap((component) =>
-    collectDescriptor(component, context, enclosingCondition),
-  );
+  return walkComponents(components, context, buildDescriptorVisitor(enclosingCondition));
 }
 
-function collectDescriptor(
-  component: ScreenComponent,
-  context: Context,
+function buildDescriptorVisitor(
   enclosingCondition: Condition | null,
-): FieldDescriptor[] {
-  switch (component.componentFamily) {
-    case 'response': {
-      const key = resolveValuesInString(component.props.dataKey, context);
+): ComponentVisitor<FieldDescriptor> {
+  const visitor: ComponentVisitor<FieldDescriptor> = {
+    response: (c, ctx) => {
+      const key = resolveValuesInString(c.props.dataKey, ctx);
       const base: FieldDescriptor = {
         key,
         synthetic: false,
         dynamic: false,
-        source: component,
+        source: c,
         condition: enclosingCondition,
       };
       const descriptors: FieldDescriptor[] = [base];
-      if (hasRandomizedOptions(component)) {
+      if (hasRandomizedOptions(c)) {
         descriptors.push({
           key: `${key}:order`,
           synthetic: true,
@@ -89,99 +86,66 @@ function collectDescriptor(
         });
       }
       return descriptors;
-    }
-
-    case 'layout': {
-      if (component.template === 'group') {
-        return collectDescriptors(
-          component.props.components,
-          context,
-          enclosingCondition,
-        );
-      }
-      return [];
-    }
-
-    case 'content': {
-      return [];
-    }
-
-    case 'control': {
-      if (component.template === 'conditional') {
-        const ifDescriptors = collectDescriptors(
-          [component.props.component],
-          context,
-          and(enclosingCondition, component.props.if),
-        );
-        const elseDescriptors = component.props.else
-          ? collectDescriptors(
-              [component.props.else],
-              context,
-              and(enclosingCondition, {
-                type: 'not',
-                condition: component.props.if,
-              }),
-            )
-          : [];
-        return [...ifDescriptors, ...elseDescriptors];
-      }
-
-      if (component.template === 'for-each') {
-        if (component.props.type === 'static') {
-          const inner = collectDescriptors(
-            [component.props.component],
-            context,
-            enclosingCondition,
-          );
-          return component.props.values.flatMap((value, index) => {
-            const subContext = mergeContext(context, {
-              screenData: {
-                foreachData: { [component.props.id]: { index, value } },
-              },
-            });
-            return inner.map((descriptor) => {
-              const resolvedKey = resolveValuesInString(
-                descriptor.key,
-                subContext,
-              );
-              const resolvedCondition =
-                descriptor.condition !== null
-                  ? resolveCondition(descriptor.condition, subContext)
-                  : null;
-              return {
-                ...descriptor,
-                key: resolvedKey,
-                condition: resolvedCondition,
-              } as FieldDescriptor;
-            });
+    },
+    group: (children, ctx) => walkComponents(children, ctx, visitor),
+    conditional: (thenC, elseC, condition, ctx) => {
+      const ifDescriptors = walkComponents(
+        [thenC],
+        ctx,
+        buildDescriptorVisitor(and(enclosingCondition, condition)),
+      );
+      const elseDescriptors = elseC
+        ? walkComponents(
+            [elseC],
+            ctx,
+            buildDescriptorVisitor(
+              and(enclosingCondition, { type: 'not', condition }),
+            ),
+          )
+        : [];
+      return [...ifDescriptors, ...elseDescriptors];
+    },
+    forEach: (template, meta, ctx) => {
+      if (meta.type === 'static') {
+        const inner = walkComponents([template], ctx, visitor);
+        return meta.values.flatMap((value, index) => {
+          const subContext = mergeContext(ctx, {
+            screenData: {
+              foreachData: { [meta.id]: { index, value } },
+            },
           });
-        }
-
-        // dynamic
-        const inner = collectDescriptors(
-          [component.props.component],
-          context,
-          enclosingCondition,
-        );
-        const meta: ForEachMeta = {
-          id: component.props.id,
-          dataKey: component.props.dataKey,
-        };
-        return inner.map(
-          (descriptor) =>
-            ({
-              ...descriptor,
-              dynamic: true,
-              foreach: descriptor.dynamic
-                ? [meta, ...descriptor.foreach]
-                : [meta],
-            }) as FieldDescriptor,
-        );
+          return inner.map(
+            (descriptor) =>
+              ({
+                ...descriptor,
+                key: resolveValuesInString(descriptor.key, subContext),
+                condition:
+                  descriptor.condition !== null
+                    ? resolveCondition(descriptor.condition, subContext)
+                    : null,
+              }) as FieldDescriptor,
+          );
+        });
       }
-
-      return [];
-    }
-  }
+      // dynamic — meta.type === 'dynamic' after the static branch above
+      const inner = walkComponents([template], ctx, visitor);
+      const dynMeta: DynamicForEachMeta = {
+        id: meta.id,
+        dataKey: meta.dataKey,
+      };
+      return inner.map(
+        (descriptor) =>
+          ({
+            ...descriptor,
+            dynamic: true,
+            foreach: descriptor.dynamic
+              ? [dynMeta, ...descriptor.foreach]
+              : [dynMeta],
+          }) as FieldDescriptor,
+      );
+    },
+  };
+  return visitor;
 }
 
 export function buildSchemaFromDescriptors(
