@@ -1,7 +1,7 @@
 "use client";
 
 import { Option, RadioComponent } from "@/lib/components/response";
-import { Context } from "@/lib/types";
+import { Context, ContextData } from "@/lib/types";
 import * as RadioGroupPrimitive from "@radix-ui/react-radio-group";
 import { Controller, UseFormReturn } from "react-hook-form";
 import { Label } from "../Label";

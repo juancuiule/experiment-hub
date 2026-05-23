@@ -1,11 +1,11 @@
-"use client";
+'use client';
 
-import { DateInputComponent } from "@/lib/components/response";
-import { Context } from "@/lib/types";
-import { UseFormReturn } from "react-hook-form";
-import { Input } from "../Input";
-import { Label } from "../Label";
-import { FieldError } from "../primitives";
+import { DateInputComponent } from '@/lib/components/response';
+import { Context, ContextData } from '@/lib/types';
+import { UseFormReturn } from 'react-hook-form';
+import { Input } from '../Input';
+import { Label } from '../Label';
+import { FieldError } from '../primitives';
 
 type Props = {
   component: DateInputComponent;
@@ -22,7 +22,9 @@ export function DateInput({ component, form, context }: Props) {
 
   return (
     <div className="flex flex-col gap-1">
-      <Label htmlFor={dataKey} context={context}>{component.props.label}</Label>
+      <Label htmlFor={dataKey} context={context}>
+        {component.props.label}
+      </Label>
       <Input id={dataKey} {...register(dataKey)} type="date" />
       <FieldError message={errors[dataKey]?.message as string | undefined} />
     </div>

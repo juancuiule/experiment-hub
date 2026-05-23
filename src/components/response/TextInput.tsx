@@ -2,7 +2,7 @@
 
 import { TextInputComponent } from "@/lib/components/response";
 import { resolveValuesInString } from "@/lib/resolve";
-import { Context } from "@/lib/types";
+import { Context, ContextData } from "@/lib/types";
 import { UseFormReturn } from "react-hook-form";
 import { Input } from "../Input";
 import { Label } from "../Label";

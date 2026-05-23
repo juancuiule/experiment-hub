@@ -2,7 +2,7 @@
 
 import { TextAreaComponent } from "@/lib/components/response";
 import { resolveValuesInString } from "@/lib/resolve";
-import { Context } from "@/lib/types";
+import { Context, ContextData } from "@/lib/types";
 import { UseFormReturn } from "react-hook-form";
 import { twMerge } from "tailwind-merge";
 import { Label } from "../Label";
