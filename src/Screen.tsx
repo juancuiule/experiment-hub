@@ -28,7 +28,7 @@ export function Screen({
 }: ScreenProps) {
   const form = useForm<Record<string, any>>({
     resolver: zodResolver(buildSchema(screen, context)),
-    defaultValues: buildDefaultValues(screen, context),
+    defaultValues: buildDefaultValues(screen.components, context),
     shouldUnregister: true,
   });
 
