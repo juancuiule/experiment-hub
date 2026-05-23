@@ -1224,7 +1224,7 @@ describe('condition reference checks', () => {
 
 describe('actual experiment', () => {
   it('has no validation errors', async () => {
-    const { experiment } = await import('@/src/data/experiment');
+    const { default: experiment } = await import('@/src/data/experiments/pandemic');
     expect(validateExperiment(experiment)).toEqual([]);
   });
 });
