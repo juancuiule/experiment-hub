@@ -2,7 +2,7 @@ import { ScreenComponent } from './components';
 import { ResponseComponent } from './components/response';
 import { evaluateCondition, resolveCondition } from './conditions';
 import { flatMap, Handlers, on } from './flatMap';
-import { deepMerge, mergeContext } from './flow';
+import { mergeContext } from './flow';
 import { getValue, resolveValuesInString } from './resolve';
 import { Context } from './types';
 
@@ -40,8 +40,8 @@ export function buildDefaultValues(
   context: Context,
 ): Record<string, unknown> {
   const handlers: Handlers<Entry, State> = [
-    on({ componentFamily: 'response' }, (c) => [
-      [c.props.dataKey, defaultPerTemplate(c)] as Entry,
+    on({ componentFamily: 'response' }, (c, state) => [
+      [resolveValuesInString(c.props.dataKey, state.context), defaultPerTemplate(c)] as Entry,
     ]),
 
     on({ componentFamily: 'layout', template: 'group' }, (c, state, recur) =>
@@ -73,18 +73,7 @@ export function buildDefaultValues(
           const iterCtx = mergeContext(state.context, {
             screenData: { foreachData: { [c.props.id]: { index, value } } },
           });
-          const rewritten: ScreenComponent =
-            inner.componentFamily === 'response'
-              ? deepMerge(inner, {
-                  props: {
-                    dataKey: resolveValuesInString(
-                      inner.props.dataKey,
-                      iterCtx,
-                    ),
-                  },
-                })
-              : inner;
-          return recur([rewritten], { context: iterCtx });
+          return recur([inner], { context: iterCtx });
         });
       },
     ),
