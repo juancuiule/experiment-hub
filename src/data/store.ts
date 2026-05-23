@@ -4,6 +4,7 @@ import {
   traverseWithTiming,
 } from '@/lib/flow';
 import { ExperimentFlow, FlowStep } from '@/lib/types';
+import { send } from '@/lib/utils';
 import { create } from 'zustand';
 
 type ExperimentStore = {
@@ -19,9 +20,9 @@ export const useExperimentStore = create<ExperimentStore>()((set, get) => ({
   start: async (experiment: ExperimentFlow, startNodeId?: string) => {
     set({ isLoading: true });
     try {
-      const step = await startExperiment(experiment, startNodeId).then(
-        recordEnteredAt,
-      );
+      const step = await startExperiment(experiment, startNodeId, {
+        onCheckpoint: async (context) => { await send(context); },
+      }).then(recordEnteredAt);
       set({ step });
     } finally {
       set({ isLoading: false });

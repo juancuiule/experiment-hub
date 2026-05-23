@@ -1073,6 +1073,7 @@ describe('dynamic mount default values', () => {
         props: {
           dataKey: 'agree-{{#loop.value}}',
           label: 'Agree for {{#loop.value}}',
+          defaultValue: false,
           required: false,
         },
       }),

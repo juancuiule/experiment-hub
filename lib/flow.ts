@@ -19,13 +19,16 @@ import {
 import {
   Context,
   ExperimentFlow,
+  FlowHandlers,
   FlowStep,
   InLoopState,
   InNodeState,
   InPathState,
   State,
 } from './types';
-import { isDefined, send, shuffle, shuffleAnchored } from './utils';
+import { isDefined, shuffle, shuffleAnchored } from './utils';
+
+export type { FlowHandlers };
 
 // Returns false when any data key referenced by a condition is absent from context,
 // meaning evaluateCondition would silently fall to branch-default for the wrong reason.
@@ -304,7 +307,7 @@ async function enterStep(step: FlowStep): Promise<FlowStep> {
       const ctx = mergeContext(step.context, {
         loops: { [node.id]: { order: [] } },
       });
-      return exitToNextNode(step.experiment, ctx, node.id, step.dataPath ?? []);
+      return exitToNextNode(step.experiment, ctx, node.id, step.dataPath ?? [], step.handlers);
     }
 
     const contextWithItem = mergeContext(
@@ -326,6 +329,7 @@ async function enterStep(step: FlowStep): Promise<FlowStep> {
       experiment: step.experiment,
       context: contextWithItem,
       dataPath: step.dataPath,
+      handlers: step.handlers,
     });
 
     return {
@@ -394,6 +398,7 @@ export async function traverse(
         state: initialState(experiment, context, startNode),
         experiment,
         context,
+        handlers: step.handlers,
       });
     }
     case 'in-node': {
@@ -509,13 +514,14 @@ async function exitToNextNode(
   context: Context,
   nodeId: string,
   dataPath: string[],
+  handlers?: FlowHandlers,
 ): Promise<FlowStep> {
   const nNode = getNextSequentialNode(experiment, nodeId);
   if (!nNode) {
-    return { experiment, state: { type: 'end' }, context, dataPath };
+    return { experiment, state: { type: 'end' }, context, dataPath, handlers };
   }
   const nState = initialState(experiment, context, nNode);
-  return enterStep({ state: nState, experiment, context, dataPath });
+  return enterStep({ state: nState, experiment, context, dataPath, handlers });
 }
 
 function selectForkByWeight(forks: Fork[]): Fork {
@@ -536,9 +542,10 @@ export function next(data?: Record<string, any>) {
 export async function startExperiment(
   experiment: ExperimentFlow,
   startNodeId?: string,
+  handlers?: FlowHandlers,
 ): Promise<FlowStep> {
   return await traverse(
-    { state: { type: 'initial' }, experiment, context: {} },
+    { state: { type: 'initial' }, experiment, context: {}, handlers },
     startNodeId ? { startNodeId } : undefined,
   );
 }
@@ -630,10 +637,10 @@ export async function traverseInNode(
         },
       });
 
-      return await enterStep({ state: nState, experiment, context: nContext });
+      return await enterStep({ state: nState, experiment, context: nContext, handlers: step.handlers });
     }
     case 'checkpoint': {
-      await send(context); // retried on failure in a real implementation
+      await step.handlers?.onCheckpoint?.(context, state.node.props.name);
       const nNode = getNextSequentialNode(experiment, state.node.id);
 
       const nContext = mergeContext(context, {
@@ -645,7 +652,7 @@ export async function traverseInNode(
       if (!nNode) return { ...step, context: nContext, state: { type: 'end' } };
 
       const nState = initialState(experiment, nContext, nNode);
-      return await enterStep({ state: nState, experiment, context: nContext });
+      return await enterStep({ state: nState, experiment, context: nContext, handlers: step.handlers });
     }
     case 'branch': {
       const { nNode, winnerId } = getWinnerNode(
@@ -668,6 +675,7 @@ export async function traverseInNode(
             [state.node.id]: winnerId,
           },
         }),
+        handlers: step.handlers,
       });
     }
     case 'fork': {
@@ -685,6 +693,7 @@ export async function traverseInNode(
             [state.node.id]: winnerId,
           },
         }),
+        handlers: step.handlers,
       });
     }
     case 'screen': {
@@ -703,6 +712,7 @@ export async function traverseInNode(
         experiment,
         context: nContext,
         dataPath: step.dataPath,
+        handlers: step.handlers,
       });
     }
     case 'compute': {
@@ -728,6 +738,7 @@ export async function traverseInNode(
         experiment,
         context: nContext,
         dataPath: step.dataPath,
+        handlers: step.handlers,
       });
     }
   }
@@ -747,6 +758,7 @@ export async function traverseInPath(
       experiment,
       context,
       dataPath: [...(step.dataPath ?? []), state.node.id],
+      handlers: step.handlers,
     },
     data,
   );
@@ -775,6 +787,7 @@ export async function traverseInPath(
         experiment,
         context: nContext,
         dataPath: [...(step.dataPath ?? []), state.node.id],
+        handlers: step.handlers,
       });
 
       // If the entered child immediately auto-traversed to end (e.g. a compute
@@ -818,6 +831,7 @@ export async function traverseInPath(
         },
         context: innerStep.context,
         dataPath: step.dataPath,
+        handlers: step.handlers,
       };
     }
 
@@ -826,6 +840,7 @@ export async function traverseInPath(
       nContext,
       state.node.id,
       step.dataPath ?? [],
+      step.handlers,
     );
   }
 
@@ -834,6 +849,7 @@ export async function traverseInPath(
     state: { ...state, innerState: nInnerState },
     context: nContext,
     dataPath: step.dataPath,
+    handlers: step.handlers,
   };
 }
 
@@ -855,6 +871,7 @@ export async function traverseInLoop(
         state.node.id,
         state.values[state.index],
       ],
+      handlers: step.handlers,
     },
     data,
   );
@@ -883,12 +900,14 @@ export async function traverseInLoop(
           state.node.id,
           state.values[nextIteration],
         ],
+        handlers: step.handlers,
       });
       return {
         experiment,
         state: { ...state, index: nextIteration, innerState: innerStep.state },
         context: innerStep.context,
         dataPath: step.dataPath,
+        handlers: step.handlers,
       };
     }
 
@@ -898,6 +917,7 @@ export async function traverseInLoop(
       nContext,
       state.node.id,
       step.dataPath ?? [],
+      step.handlers,
     );
   }
 
@@ -906,6 +926,7 @@ export async function traverseInLoop(
     state: { ...state, innerState: nInnerState },
     context: nContext,
     dataPath: step.dataPath,
+    handlers: step.handlers,
   };
 }
 
