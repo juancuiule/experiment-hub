@@ -46,8 +46,10 @@ lib/           # Pure TypeScript engine — zero React imports
   conditions.ts       # Condition evaluation
   resolve.ts          # Data key resolution and {{ }} string interpolation
   flow-validation.ts  # validateExperiment() — static graph validator, 15 error codes
-  screen-validation.ts# buildSchema() — Zod schema builder for per-screen form validation
+  screen-schema.ts    # buildSchema() — Zod schema builder for per-screen form validation
   field-schema.ts     # Field schema extraction from screen component definitions
+  fields.ts           # collectFields() — flat field descriptor list from screen components
+  component-walker.ts # flatMap() — tree-shaped traversal over screen components
   components/         # Component type definitions (content, response, layout, control)
   specs/              # Unit tests for the engine
 
@@ -142,7 +144,7 @@ Changing these incorrectly breaks participant-facing behavior:
 - `src/data/experiment.ts` — the `EXPERIMENTS` dict; removing or renaming a key breaks its route
 - `lib/flow.ts` — the traversal state machine; affects path step counting and all data nesting
 - `lib/flow-validation.ts` — any regression here silently allows malformed experiments through
-- `lib/screen-validation.ts` — `buildSchema()` failing silently disables all per-screen form validation
+- `lib/screen-schema.ts` — `buildSchema()` failing silently disables all per-screen form validation
 
 ## Documentation
 
