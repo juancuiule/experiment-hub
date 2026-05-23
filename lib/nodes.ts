@@ -1,9 +1,19 @@
 import { Condition } from "./conditions";
 
 
+export type NodeType =
+  | "start"
+  | "screen"
+  | "branch"
+  | "path"
+  | "fork"
+  | "loop"
+  | "checkpoint"
+  | "compute";
+
 interface BaseNode {
   id: string;
-  type: string;
+  type: NodeType;
 }
 
 export interface StartNode extends BaseNode {
