@@ -67,10 +67,15 @@ export type State =
   | InLoopState
   | EndState;
 
+export type FlowHandlers = {
+  onCheckpoint?: (context: Context, name: string) => Promise<void>;
+};
+
 // This is a step in the traversal process.
 export type FlowStep<S extends State = State> = {
   state: S; // current state in the traversal
   experiment: ExperimentFlow; // the experiment flow being traversed
   context: Context;
   dataPath?: string[]; // nesting path for screen data writes (e.g. ["path-regressors"])
+  handlers?: FlowHandlers;
 };
