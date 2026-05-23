@@ -1557,3 +1557,156 @@ describe('compute node reference checks', () => {
     expect(codes(flow)).toContain('duplicate-output-key');
   });
 });
+
+describe('unknown-template', () => {
+  function flowWithComponents(
+    components: ExperimentFlow['screens'][0]['components'],
+  ): ExperimentFlow {
+    return {
+      nodes: [start, makeScreen('s1', 'pg')],
+      edges: [seq('start', 's1')],
+      screens: [{ slug: 'pg', components }],
+    };
+  }
+
+  it('passes valid templates for all families', () => {
+    const flow = flowWithComponents([
+      { componentFamily: 'content', template: 'rich-text', props: { content: 'hello' } },
+      { componentFamily: 'content', template: 'image', props: { url: 'x.png', alt: '' } },
+      { componentFamily: 'content', template: 'video', props: { url: 'v.mp4' } },
+      { componentFamily: 'content', template: 'audio', props: { url: 'a.mp3' } },
+      { componentFamily: 'response', template: 'text-input', props: { dataKey: 'a', label: 'A' } },
+      { componentFamily: 'response', template: 'text-area', props: { dataKey: 'b', label: 'B' } },
+      { componentFamily: 'response', template: 'numeric-input', props: { dataKey: 'c', label: 'C' } },
+      { componentFamily: 'response', template: 'slider', props: { dataKey: 'd', label: 'D' } },
+      { componentFamily: 'response', template: 'radio', props: { dataKey: 'e', label: 'E', options: [] } },
+      { componentFamily: 'response', template: 'checkboxes', props: { dataKey: 'f', label: 'F', options: [] } },
+      { componentFamily: 'response', template: 'dropdown', props: { dataKey: 'g', label: 'G', options: [] } },
+      { componentFamily: 'response', template: 'single-checkbox', props: { dataKey: 'h', label: 'H', defaultValue: false } },
+      { componentFamily: 'response', template: 'date-input', props: { dataKey: 'i', label: 'I' } },
+      { componentFamily: 'response', template: 'time-input', props: { dataKey: 'j', label: 'J' } },
+      { componentFamily: 'response', template: 'likert-scale', props: { dataKey: 'k', label: 'K', options: [] } },
+      { componentFamily: 'layout', template: 'button', props: {} },
+    ]);
+    expect(codes(flow).filter((c) => c === 'unknown-template')).toEqual([]);
+  });
+
+  it('reports unknown-template for an unknown componentFamily', () => {
+    const flow: ExperimentFlow = {
+      nodes: [start, makeScreen('s1', 'pg')],
+      edges: [seq('start', 's1')],
+      screens: [
+        {
+          slug: 'pg',
+          components: [
+            // @ts-expect-error intentionally invalid
+            { componentFamily: 'display', template: 'card', props: {} },
+          ],
+        },
+      ],
+    };
+    expect(codes(flow)).toContain('unknown-template');
+    expect(messages(flow).some((m) => m.includes('"display"'))).toBe(true);
+  });
+
+  it('reports unknown-template for an unknown template within a known family', () => {
+    const flow: ExperimentFlow = {
+      nodes: [start, makeScreen('s1', 'pg')],
+      edges: [seq('start', 's1')],
+      screens: [
+        {
+          slug: 'pg',
+          components: [
+            // @ts-expect-error intentionally invalid
+            { componentFamily: 'content', template: 'carousel', props: {} },
+          ],
+        },
+      ],
+    };
+    expect(codes(flow)).toContain('unknown-template');
+    expect(messages(flow).some((m) => m.includes('"carousel"'))).toBe(true);
+  });
+
+  it('reports unknown-template for unknown template in each family', () => {
+    const cases: Array<ExperimentFlow['screens'][0]['components'][0]> = [
+      // @ts-expect-error intentionally invalid
+      { componentFamily: 'content', template: 'nonexistent', props: {} },
+      // @ts-expect-error intentionally invalid
+      { componentFamily: 'response', template: 'nonexistent', props: { dataKey: 'x', label: 'X' } },
+      // @ts-expect-error intentionally invalid
+      { componentFamily: 'layout', template: 'nonexistent', props: {} },
+      // @ts-expect-error intentionally invalid
+      { componentFamily: 'control', template: 'nonexistent', props: {} },
+    ];
+    for (const component of cases) {
+      const flow = flowWithComponents([component]);
+      expect(codes(flow)).toContain('unknown-template');
+    }
+  });
+
+  it('detects unknown template nested inside a group', () => {
+    const flow = flowWithComponents([
+      {
+        componentFamily: 'layout',
+        template: 'group',
+        props: {
+          name: 'g',
+          components: [
+            // @ts-expect-error intentionally invalid
+            { componentFamily: 'content', template: 'unknown', props: {} },
+          ],
+        },
+      },
+    ]);
+    expect(codes(flow)).toContain('unknown-template');
+  });
+
+  it('detects unknown template nested inside a conditional', () => {
+    const flow = flowWithComponents([
+      {
+        componentFamily: 'control',
+        template: 'conditional',
+        props: {
+          if: { type: 'simple', operator: 'eq', dataKey: '$$pg.x', value: '1' },
+          // @ts-expect-error intentionally invalid
+          component: { componentFamily: 'content', template: 'unknown', props: {} },
+        },
+      },
+    ]);
+    expect(codes(flow)).toContain('unknown-template');
+  });
+
+  it('detects unknown template nested inside a for-each', () => {
+    const flow = flowWithComponents([
+      {
+        componentFamily: 'control',
+        template: 'for-each',
+        props: {
+          type: 'static',
+          id: 'iter',
+          values: ['a', 'b'],
+          // @ts-expect-error intentionally invalid
+          component: { componentFamily: 'response', template: 'unknown', props: { dataKey: 'x', label: 'X' } },
+        },
+      },
+    ]);
+    expect(codes(flow)).toContain('unknown-template');
+  });
+
+  it('reports the screen slug in the error message', () => {
+    const flow: ExperimentFlow = {
+      nodes: [start, makeScreen('s1', 'my-screen')],
+      edges: [seq('start', 's1')],
+      screens: [
+        {
+          slug: 'my-screen',
+          components: [
+            // @ts-expect-error intentionally invalid
+            { componentFamily: 'content', template: 'bad', props: {} },
+          ],
+        },
+      ],
+    };
+    expect(messages(flow).some((m) => m.includes('"my-screen"'))).toBe(true);
+  });
+});

@@ -711,6 +711,71 @@ function checkReferences(flow: ExperimentFlow): ValidationError[] {
   });
 }
 
+const VALID_TEMPLATES: Record<string, Set<string>> = {
+  content: new Set(['rich-text', 'image', 'video', 'audio']),
+  response: new Set([
+    'slider',
+    'single-checkbox',
+    'text-input',
+    'text-area',
+    'date-input',
+    'time-input',
+    'dropdown',
+    'radio',
+    'checkboxes',
+    'numeric-input',
+    'likert-scale',
+  ]),
+  layout: new Set(['button', 'group']),
+  control: new Set(['conditional', 'for-each']),
+};
+
+function checkComponentTemplates(flow: ExperimentFlow): ValidationError[] {
+  const errors: ValidationError[] = [];
+  const pushScreenError = (code: string, message: string) =>
+    errors.push({ code, category: 'screen', message });
+
+  function checkComponent(component: ScreenComponent, screenSlug: string) {
+    const { componentFamily, template } = component;
+    const validTemplates = VALID_TEMPLATES[componentFamily];
+    if (!validTemplates) {
+      pushScreenError(
+        'unknown-template',
+        `Screen "${screenSlug}" uses unknown componentFamily "${componentFamily}"`,
+      );
+    } else if (!validTemplates.has(template)) {
+      pushScreenError(
+        'unknown-template',
+        `Screen "${screenSlug}" uses unknown template "${template}" for componentFamily "${componentFamily}"`,
+      );
+    }
+
+    if (
+      component.componentFamily === 'layout' &&
+      component.template === 'group'
+    ) {
+      for (const child of component.props.components)
+        checkComponent(child, screenSlug);
+    } else if (component.componentFamily === 'control') {
+      if (component.template === 'conditional') {
+        checkComponent(component.props.component, screenSlug);
+        if (component.props.else)
+          checkComponent(component.props.else, screenSlug);
+      } else if (component.template === 'for-each') {
+        checkComponent(component.props.component, screenSlug);
+      }
+    }
+  }
+
+  for (const screen of flow.screens ?? []) {
+    for (const component of screen.components) {
+      checkComponent(component, screen.slug);
+    }
+  }
+
+  return errors;
+}
+
 function checkSharedOptionReferences(flow: ExperimentFlow): ValidationError[] {
   const errors: ValidationError[] = [];
   const pushReferenceError = (code: string, message: string) =>
@@ -762,5 +827,6 @@ export function validateExperiment(flow: ExperimentFlow): ValidationError[] {
     ...checkScreenDefinitions(flow),
     ...checkReferences(flow),
     ...checkSharedOptionReferences(flow),
+    ...checkComponentTemplates(flow),
   ];
 }
