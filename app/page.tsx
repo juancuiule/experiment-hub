@@ -44,19 +44,23 @@ export default async function Home(props: Props) {
 
   return (
     <>
-      <details className="my-2">
-        <summary className="text-content-secondary cursor-pointer text-xs">
-          Debug Info
-        </summary>
-        <StateDebug />
-      </details>
+      {process.env.NODE_ENV === 'development' && (
+        <details className="my-2">
+          <summary className="text-content-secondary cursor-pointer text-xs">
+            Debug Info
+          </summary>
+          <StateDebug />
+        </details>
+      )}
       <Experiment startingNode={startingNode} experiment={experiment} />
-      <details>
-        <summary className="text-content-secondary cursor-pointer text-xs">
-          Data Debug
-        </summary>
-        <DataDebug />
-      </details>
+      {process.env.NODE_ENV === 'development' && (
+        <details>
+          <summary className="text-content-secondary cursor-pointer text-xs">
+            Data Debug
+          </summary>
+          <DataDebug />
+        </details>
+      )}
     </>
   );
 }
