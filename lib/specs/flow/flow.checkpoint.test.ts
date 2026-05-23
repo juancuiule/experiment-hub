@@ -5,7 +5,7 @@ import { makeScreen, seq } from "../test-helpers";
 
 const flow: ExperimentFlow = {
   nodes: [
-    { id: "start", type: "start", props: null },
+    { id: "start", type: "start" },
     { id: "cp1", type: "checkpoint", props: { name: "my-checkpoint" } },
     makeScreen("screen-q1", "q1"),
     { id: "cp2", type: "checkpoint", props: { name: "end-checkpoint" } },

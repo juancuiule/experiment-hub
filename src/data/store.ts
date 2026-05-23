@@ -21,7 +21,7 @@ export const useExperimentStore = create<ExperimentStore>()((set, get) => ({
     set({ isLoading: true });
     try {
       const step = await startExperiment(experiment, startNodeId, {
-        onCheckpoint: (context) => send(context),
+        onCheckpoint: async (context) => { await send(context); },
       }).then(recordEnteredAt);
       set({ step });
     } finally {
