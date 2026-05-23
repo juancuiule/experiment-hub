@@ -1,14 +1,14 @@
-"use client";
+'use client';
 
-import { ScreenComponent } from "@/lib/components";
-import { Option, OptionsSource } from "@/lib/components/response";
-import { resolveOptionsSource } from "@/lib/resolve";
-import { Context } from "@/lib/types";
-import { UseFormReturn } from "react-hook-form";
+import { ScreenComponent } from '@/lib/components';
+import { Option, OptionsSource } from '@/lib/components/response';
+import { resolveOptionsSource } from '@/lib/resolve';
+import { Context, ContextData } from '@/lib/types';
+import { UseFormReturn } from 'react-hook-form';
 
 export type RenderProps = {
   component: ScreenComponent;
-  form: UseFormReturn<Record<string, any>>;
+  form: UseFormReturn<ContextData>;
   context: Context;
   isLoading: boolean;
   sharedOptions?: Record<string, Option[]>;
@@ -28,5 +28,9 @@ export function resolveOptions(
 
 export function FieldError({ message }: { message?: string }) {
   if (!message) return null;
-  return <p role="alert" aria-live="polite" className="text-error text-xs mt-1">{message}</p>;
+  return (
+    <p role="alert" aria-live="polite" className="text-error mt-1 text-xs">
+      {message}
+    </p>
+  );
 }

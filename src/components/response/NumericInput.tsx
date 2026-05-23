@@ -10,7 +10,7 @@ import { FieldError } from "../primitives";
 
 type Props = {
   component: NumericInputComponent;
-  form: UseFormReturn<Record<string, any>>;
+  form: UseFormReturn<ContextData>;
   context: Context;
 };
 

@@ -18,6 +18,7 @@ import {
 } from './resolve';
 import {
   Context,
+  ContextData,
   ExperimentFlow,
   FlowHandlers,
   FlowStep,
@@ -132,7 +133,9 @@ function shouldAutoTraverse(step: FlowStep): boolean {
 
   const isAutoNode =
     state.type === 'in-node' &&
-    ['start', 'checkpoint', 'branch', 'fork', 'compute'].includes(state.node.type);
+    ['start', 'checkpoint', 'branch', 'fork', 'compute'].includes(
+      state.node.type,
+    );
 
   return isAutoNode;
 }
@@ -307,7 +310,13 @@ async function enterStep(step: FlowStep): Promise<FlowStep> {
       const ctx = mergeContext(step.context, {
         loops: { [node.id]: { order: [] } },
       });
-      return exitToNextNode(step.experiment, ctx, node.id, step.dataPath ?? [], step.handlers);
+      return exitToNextNode(
+        step.experiment,
+        ctx,
+        node.id,
+        step.dataPath ?? [],
+        step.handlers,
+      );
     }
 
     const contextWithItem = mergeContext(
@@ -372,7 +381,7 @@ async function enterStep(step: FlowStep): Promise<FlowStep> {
 
 export async function traverse(
   step: FlowStep,
-  data?: Record<string, any>,
+  data?: ContextData,
 ): Promise<FlowStep> {
   const { state, experiment, context } = step;
 
@@ -535,7 +544,7 @@ function selectForkByWeight(forks: Fork[]): Fork {
 }
 
 // Curried helper for .then()-based chaining:
-export function next(data?: Record<string, any>) {
+export function next(data?: ContextData) {
   return (step: FlowStep) => traverse(step, data);
 }
 
@@ -553,7 +562,7 @@ export async function startExperiment(
 function getFormulaInputValue(
   input: string,
   context: Context,
-  nodeOutputs: Record<string, any>,
+  nodeOutputs: ContextData,
 ): any {
   if (input.startsWith('$') && !input.startsWith('$$')) {
     return nodeOutputs[input.slice(1)];
@@ -569,14 +578,17 @@ function evaluateFormula(
   switch (formula.type) {
     case 'sum':
       return formula.inputs.reduce(
-        (acc, inp) => acc + (Number(getFormulaInputValue(inp, context, nodeOutputs)) || 0),
+        (acc, inp) =>
+          acc + (Number(getFormulaInputValue(inp, context, nodeOutputs)) || 0),
         0,
       );
     case 'mean': {
       const vals = formula.inputs.map(
         (inp) => Number(getFormulaInputValue(inp, context, nodeOutputs)) || 0,
       );
-      return vals.length === 0 ? 0 : vals.reduce((a, b) => a + b, 0) / vals.length;
+      return vals.length === 0
+        ? 0
+        : vals.reduce((a, b) => a + b, 0) / vals.length;
     }
     case 'min': {
       const vals = formula.inputs.map(
@@ -609,7 +621,9 @@ function evaluateFormula(
     }
     case 'lookup': {
       const val = getFormulaInputValue(formula.input, context, nodeOutputs);
-      const sorted = [...formula.table].sort((a, b) => Number(b.when) - Number(a.when));
+      const sorted = [...formula.table].sort(
+        (a, b) => Number(b.when) - Number(a.when),
+      );
       const match = sorted.find((entry) => Number(val) >= Number(entry.when));
       return match ? match.then : formula.default;
     }
@@ -618,7 +632,7 @@ function evaluateFormula(
 
 export async function traverseInNode(
   step: FlowStep<InNodeState>,
-  data: Record<string, any>,
+  data: ContextData,
 ): Promise<FlowStep> {
   const { state, experiment, context } = step;
   switch (state.node.type) {
@@ -637,7 +651,12 @@ export async function traverseInNode(
         },
       });
 
-      return await enterStep({ state: nState, experiment, context: nContext, handlers: step.handlers });
+      return await enterStep({
+        state: nState,
+        experiment,
+        context: nContext,
+        handlers: step.handlers,
+      });
     }
     case 'checkpoint': {
       await step.handlers?.onCheckpoint?.(context, state.node.props.name);
@@ -652,7 +671,12 @@ export async function traverseInNode(
       if (!nNode) return { ...step, context: nContext, state: { type: 'end' } };
 
       const nState = initialState(experiment, nContext, nNode);
-      return await enterStep({ state: nState, experiment, context: nContext, handlers: step.handlers });
+      return await enterStep({
+        state: nState,
+        experiment,
+        context: nContext,
+        handlers: step.handlers,
+      });
     }
     case 'branch': {
       const { nNode, winnerId } = getWinnerNode(
@@ -746,7 +770,7 @@ export async function traverseInNode(
 
 export async function traverseInPath(
   step: FlowStep<InPathState>,
-  data: Record<string, any>,
+  data: ContextData,
 ): Promise<FlowStep> {
   const { state, experiment, context } = step;
 
@@ -855,7 +879,7 @@ export async function traverseInPath(
 
 export async function traverseInLoop(
   step: FlowStep<InLoopState>,
-  data: Record<string, any>,
+  data: ContextData,
 ): Promise<FlowStep> {
   const { state, experiment, context } = step;
 
@@ -989,7 +1013,7 @@ export function buildTimingKey(step: FlowStep): string | null {
 
 export async function traverseWithTiming(
   step: FlowStep,
-  data?: Record<string, any>,
+  data?: ContextData,
 ): Promise<FlowStep> {
   const key = buildTimingKey(step);
   const submittedAt = new Date().toISOString();

@@ -10,7 +10,7 @@ import { FieldError } from "../primitives";
 
 type Props = {
   component: TextAreaComponent;
-  form: UseFormReturn<Record<string, any>>;
+  form: UseFormReturn<ContextData>;
   context: Context;
 };
 

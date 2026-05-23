@@ -3,13 +3,13 @@
 import { ScreenComponent } from '@/lib/components';
 import { ConditionalComponent } from '@/lib/components/control';
 import { evaluateCondition } from '@/lib/conditions';
-import { Context } from '@/lib/types';
+import { Context, ContextData } from '@/lib/types';
 import { UseFormReturn } from 'react-hook-form';
 import { RenderProps } from '../primitives';
 
 type Props = {
   component: ConditionalComponent;
-  form: UseFormReturn<Record<string, any>>;
+  form: UseFormReturn<ContextData>;
   context: Context;
   isLoading: boolean;
   renderChild: (props: RenderProps) => React.ReactNode;

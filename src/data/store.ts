@@ -3,7 +3,7 @@ import {
   startExperiment,
   traverseWithTiming,
 } from '@/lib/flow';
-import { ExperimentFlow, FlowStep } from '@/lib/types';
+import { Context, ExperimentFlow, FlowStep } from '@/lib/types';
 import { send } from '@/lib/utils';
 import { create } from 'zustand';
 
@@ -11,7 +11,7 @@ type ExperimentStore = {
   step: FlowStep | null;
   isLoading: boolean;
   start: (experiment: ExperimentFlow, startNodeId?: string) => Promise<void>;
-  next: (data?: Record<string, any>) => Promise<void>;
+  next: (data?: Context['data']) => Promise<void>;
 };
 
 export const useExperimentStore = create<ExperimentStore>()((set, get) => ({
@@ -21,14 +21,16 @@ export const useExperimentStore = create<ExperimentStore>()((set, get) => ({
     set({ isLoading: true });
     try {
       const step = await startExperiment(experiment, startNodeId, {
-        onCheckpoint: async (context) => { await send(context); },
+        onCheckpoint: async (context) => {
+          await send(context);
+        },
       }).then(recordEnteredAt);
       set({ step });
     } finally {
       set({ isLoading: false });
     }
   },
-  next: async (data?: Record<string, any>) => {
+  next: async (data?: Context['data']) => {
     const { step } = get();
     if (!step) return;
     set({ isLoading: true });

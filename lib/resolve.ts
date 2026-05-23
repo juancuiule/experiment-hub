@@ -1,4 +1,9 @@
-import { LikertOption, LikertOptionsSource, Option, OptionsSource } from './components/response';
+import {
+  LikertOption,
+  LikertOptionsSource,
+  Option,
+  OptionsSource,
+} from './components/response';
 import { Context } from './types';
 
 type Prefix = '$$' | '@' | '$' | '#';

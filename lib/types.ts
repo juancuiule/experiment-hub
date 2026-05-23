@@ -18,10 +18,12 @@ type ScreenData = Record<string, any> & {
 
 export type TimingEntry = { enteredAt: string; submittedAt: string };
 
+export type ContextData = Record<string, any>;
+
 export type Context = Partial<{
   start: { group: string };
   checkpoints: { [checkpointName: string]: string };
-  data: Record<string, any>;
+  data: ContextData;
   // In the store this only holds foreachData from the engine.
   // RenderComponent merges live form values (form.watch()) into this key at render time
   // so that $ prefix references ({{$fieldName}}) resolve correctly inside components

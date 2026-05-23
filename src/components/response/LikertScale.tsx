@@ -3,7 +3,7 @@
 import { LikertScaleComponent, Option } from '@/lib/components/response';
 import { resolveLikertOptionsSource } from '@/lib/resolve';
 import { defaultPerTemplate } from '@/lib/screen-defaults';
-import { Context } from '@/lib/types';
+import { Context, ContextData } from '@/lib/types';
 import * as RadioGroupPrimitive from '@radix-ui/react-radio-group';
 import { Controller, UseFormReturn } from 'react-hook-form';
 import { twMerge } from 'tailwind-merge';
@@ -12,7 +12,7 @@ import { FieldError } from '../primitives';
 
 type Props = {
   component: LikertScaleComponent;
-  form: UseFormReturn<Record<string, any>>;
+  form: UseFormReturn<ContextData>;
   context: Context;
   sharedOptions?: Record<string, Option[]>;
 };

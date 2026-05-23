@@ -9,7 +9,7 @@ import { FieldError, resolveOptions } from "../primitives";
 
 type Props = {
   component: RadioComponent;
-  form: UseFormReturn<Record<string, any>>;
+  form: UseFormReturn<ContextData>;
   context: Context;
   sharedOptions?: Record<string, Option[]>;
 };

@@ -2,7 +2,7 @@
 
 import { DropdownComponent, Option } from '@/lib/components/response';
 import { resolveValuesInString } from '@/lib/resolve';
-import { Context } from '@/lib/types';
+import { Context, ContextData } from '@/lib/types';
 import * as SelectPrimitive from '@radix-ui/react-select';
 import { ChevronDown } from 'lucide-react';
 import { Controller, UseFormReturn } from 'react-hook-form';
@@ -12,7 +12,7 @@ import { defaultPerTemplate } from '@/lib/screen-defaults';
 
 type Props = {
   component: DropdownComponent;
-  form: UseFormReturn<Record<string, any>>;
+  form: UseFormReturn<ContextData>;
   context: Context;
   sharedOptions?: Record<string, Option[]>;
 };

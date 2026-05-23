@@ -9,7 +9,7 @@ import { FieldError } from "../primitives";
 
 type Props = {
   component: TimeInputComponent;
-  form: UseFormReturn<Record<string, any>>;
+  form: UseFormReturn<ContextData>;
   context: Context;
 };
 
