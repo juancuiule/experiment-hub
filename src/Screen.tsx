@@ -9,7 +9,7 @@ import { buildDefaultValues } from '@/lib/screen-defaults';
 import { buildSchema } from '@/lib/screen-validation';
 import { Context } from '@/lib/types';
 import { RenderComponent } from './components/RenderComponent';
-import { DataSection } from './Debug';
+import { DataSection } from './components/DataTree';
 
 type ScreenProps = {
   screen: FrameworkScreen;
@@ -69,12 +69,14 @@ export function Screen({
           />
         ))}
       </form>
-      <details className="my-2">
-        <summary className="text-content-secondary cursor-pointer text-xs">
-          Form Data (for debugging)
-        </summary>
-        <DataSection title="form" data={form.watch()} />
-      </details>
+      {process.env.NODE_ENV === 'development' && (
+        <details className="my-2">
+          <summary className="text-content-secondary cursor-pointer text-xs">
+            Form Data (for debugging)
+          </summary>
+          <DataSection title="form" data={form.watch()} />
+        </details>
+      )}
     </>
   );
 }
