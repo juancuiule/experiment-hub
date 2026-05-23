@@ -34,7 +34,9 @@ export function RenderComponent({
   const screenData = form.watch(); // Watch all form values to have them available in context
   const context = deepMerge(propContext, { screenData }); // Add form values to context for easier access in components
 
-  const renderChild = (props: RenderProps) => <RenderComponent {...props} sharedOptions={sharedOptions} />;
+  const renderChild = (props: RenderProps) => (
+    <RenderComponent {...props} sharedOptions={sharedOptions} />
+  );
 
   switch (component.componentFamily) {
     case 'content': {

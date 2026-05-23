@@ -1,12 +1,12 @@
-"use client";
+'use client';
 
-import { ForEachComponent } from "@/lib/components/control";
-import { mergeContext } from "@/lib/flow";
-import { getValue } from "@/lib/resolve";
-import { Context } from "@/lib/types";
-import { Fragment, useMemo } from "react";
-import { UseFormReturn, useWatch } from "react-hook-form";
-import { RenderProps } from "../primitives";
+import { ForEachComponent } from '@/lib/components/control';
+import { mergeContext } from '@/lib/flow';
+import { getValue } from '@/lib/resolve';
+import { Context } from '@/lib/types';
+import { Fragment, useMemo } from 'react';
+import { UseFormReturn } from 'react-hook-form';
+import { RenderProps } from '../primitives';
 
 type Props = {
   component: ForEachComponent;
@@ -24,13 +24,12 @@ export function ForEach({
   renderChild,
 }: Props) {
   const { component: template } = component.props;
-  const formValues = useWatch({ control: form.control });
 
   const items: string[] = useMemo(() => {
-    return component.props.type === "static"
+    return component.props.type === 'static'
       ? component.props.values
       : (getValue(component.props.dataKey, context) as string[]) || [];
-  }, [context, formValues]);
+  }, [context]);
 
   return (
     <>
