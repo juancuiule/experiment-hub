@@ -185,6 +185,32 @@ Same rule as component references — `@`-keyed conditions only make sense insid
 
 ---
 
+## 7. Component templates
+
+Every component in a screen definition must use a `componentFamily` and `template` pair that the renderer knows how to handle. An unknown family or template causes `RenderComponent` to silently render nothing or a raw JSON dump.
+
+### 7.1 `componentFamily` must be one of the four known families
+
+Valid values: `content`, `response`, `layout`, `control`.
+
+- **Code:** `unknown-template`
+- **Why:** `RenderComponent` switches on `componentFamily`. An unrecognised value falls through to a raw JSON dump shown to the participant.
+
+### 7.2 `template` must be valid for its `componentFamily`
+
+Valid templates per family:
+- `content`: `rich-text`, `image`, `video`, `audio`
+- `response`: `slider`, `single-checkbox`, `text-input`, `text-area`, `date-input`, `time-input`, `dropdown`, `radio`, `checkboxes`, `numeric-input`, `likert-scale`
+- `layout`: `button`, `group`
+- `control`: `conditional`, `for-each`
+
+- **Code:** `unknown-template`
+- **Why:** `RenderComponent` returns `null` for an unrecognised template within a known family, silently rendering nothing and collecting no data.
+
+This check recurses into `group`, `conditional`, and `for-each` containers so nested components are also validated.
+
+---
+
 ## Error code summary
 
 | Code                    | Description                                                                               |
@@ -204,3 +230,4 @@ Same rule as component references — `@`-keyed conditions only make sense insid
 | `invalid-reference`       | An `@` token is used outside a loop context                                             |
 | `unknown-shared-options`  | A `%name` options reference has no matching entry in `ExperimentFlow.options`           |
 | `unwrapped-token`         | A `$$key` token appears without `{{ }}` wrapping and will not be interpolated at runtime |
+| `unknown-template`        | A component uses a `componentFamily` or `template` value that is not recognized by the renderer |
