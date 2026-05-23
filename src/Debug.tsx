@@ -3,9 +3,9 @@
 import { FrameworkEdge } from '@/lib/edges';
 import { FrameworkNode, LoopNode } from '@/lib/nodes';
 import { InLoopState, State } from '@/lib/types';
+import { DataSection } from './components/DataTree';
 import { useExperimentStore } from './data/store';
 import { NodeTypeBadge } from './nodeConfig';
-import { DataSection } from './components/DataTree';
 
 function findLoopState(state: State, nodeId: string): InLoopState | null {
   if (state.type === 'in-loop') {
@@ -260,8 +260,6 @@ export function DataDebug() {
     loops,
     start,
   } = context;
-
-  const { type } = state;
 
   const hasScreenData = screenData && Object.keys(screenData).length > 0;
   const hasData = data && Object.keys(data).length > 0;

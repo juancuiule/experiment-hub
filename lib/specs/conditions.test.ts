@@ -373,7 +373,7 @@ describe("evaluateCondition — and", () => {
   });
 
   it("short-circuits on the first false", () => {
-    let evaluated = 0;
+    const evaluated = 0;
     const ctx2 = {
       data: { a: 1, b: 2 },
     };

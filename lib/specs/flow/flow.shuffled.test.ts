@@ -1,6 +1,8 @@
-import { describe, it, expect } from 'vitest';
+import { ScreenComponent } from '@/lib/components';
+import { Option } from '@/lib/components/response';
 import { startExperiment, traverse } from '@/lib/flow';
 import { ExperimentFlow } from '@/lib/types';
+import { describe, expect, it } from 'vitest';
 import { seq } from '../test-helpers';
 
 const OPTIONS = [
@@ -9,7 +11,10 @@ const OPTIONS = [
   { label: 'C', value: 'c' },
 ];
 
-function makeFlow(components: any[], values?: string[]): ExperimentFlow {
+function makeFlow(
+  components: ScreenComponent[],
+  values?: string[],
+): ExperimentFlow {
   const nodes: ExperimentFlow['nodes'] = values
     ? [
         { id: 'start', type: 'start' },
@@ -60,7 +65,7 @@ describe('option anchoring', () => {
     const step = await startExperiment(flow, 'start');
     const shuffled = step.context.screenData?.shuffledOptions?.['choice'];
     expect(shuffled).toHaveLength(5);
-    const lastTwo = shuffled!.slice(-2).map((o: any) => o.value);
+    const lastTwo = shuffled?.slice(-2).map((o: Option) => o.value);
     expect(lastTwo).toEqual(['none', 'other']);
   });
 
@@ -102,9 +107,9 @@ describe('option anchoring', () => {
     ]);
     const step = await startExperiment(flow, 'start');
     const shuffled = step.context.screenData?.shuffledOptions?.['topics'];
-    const lastTwo = shuffled!.slice(-2).map((o: any) => o.value);
+    const lastTwo = shuffled?.slice(-2).map((o: Option) => o.value);
     expect(lastTwo).toEqual(['none', 'other']);
-    const middle = shuffled!.slice(0, -2).map((o: any) => o.value);
+    const middle = shuffled?.slice(0, -2).map((o: Option) => o.value);
     expect(middle).toEqual(expect.arrayContaining(['a', 'b', 'c']));
   });
 });
@@ -126,7 +131,7 @@ describe('shuffled options injected by enterStep', () => {
     const step = await startExperiment(flow, 'start');
     const shuffled = step.context.screenData?.shuffledOptions?.['choice'];
     expect(shuffled).toHaveLength(3);
-    expect(shuffled!.map((o: any) => o.value)).toEqual(
+    expect(shuffled?.map((o: Option) => o.value)).toEqual(
       expect.arrayContaining(['a', 'b', 'c']),
     );
   });
@@ -213,11 +218,19 @@ describe('shuffled options injected by enterStep', () => {
       ],
     };
     const step = await traverse(
-      { state: { type: 'initial' }, experiment: flow, context: { data: { items: ['x', 'y'] } } },
+      {
+        state: { type: 'initial' },
+        experiment: flow,
+        context: { data: { items: ['x', 'y'] } },
+      },
       { startNodeId: 'start' },
     );
-    expect(step.context.screenData?.shuffledOptions?.['pick_0']).toHaveLength(3);
-    expect(step.context.screenData?.shuffledOptions?.['pick_1']).toHaveLength(3);
+    expect(step.context.screenData?.shuffledOptions?.['pick_0']).toHaveLength(
+      3,
+    );
+    expect(step.context.screenData?.shuffledOptions?.['pick_1']).toHaveLength(
+      3,
+    );
   });
 
   it('preserves order in loops when reshuffleInLoop:false', async () => {

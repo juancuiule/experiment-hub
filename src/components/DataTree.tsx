@@ -19,7 +19,9 @@ function Leaf({ value }: { value: unknown }) {
     return <span className="text-blue-600 dark:text-blue-400">{value}</span>;
   if (typeof value === 'string')
     return (
-      <span className="text-green-700 dark:text-green-300">"{value}"</span>
+      <span className="text-green-700 dark:text-green-300">
+        &quot;{value}&quot;
+      </span>
     );
   if (Array.isArray(value)) {
     return (
@@ -57,12 +59,12 @@ function DataTree({
           const children = isPlainObject(value)
             ? value
             : (value as unknown[]).reduce<Record<string, unknown>>(
-                (acc, v, i) => {
-                  acc[i] = v;
-                  return acc;
-                },
-                {},
-              );
+              (acc, v, i) => {
+                acc[i] = v;
+                return acc;
+              },
+              {},
+            );
           return (
             <div key={key} className="flex flex-col gap-0.5">
               <span className="text-content-secondary">{key}</span>

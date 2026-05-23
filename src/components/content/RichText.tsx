@@ -1,9 +1,9 @@
-"use client";
+'use client';
 
-import { RichTextComponent } from "@/lib/components/content";
-import { resolveValuesInString } from "@/lib/resolve";
-import { Context } from "@/lib/types";
-import Markdown from "react-markdown";
+import { RichTextComponent } from '@/lib/components/content';
+import { resolveValuesInString } from '@/lib/resolve';
+import { Context } from '@/lib/types';
+import Markdown from 'react-markdown';
 
 type Props = {
   component: RichTextComponent;
@@ -17,13 +17,22 @@ export function RichText({ component, context }: Props) {
       <Markdown
         components={{
           h1: ({ node, ...props }) => (
-            <h1 {...props} className="text-5xl font-bold mb-4 text-content-primary" />
+            <h1
+              {...props}
+              className="text-content-primary mb-4 text-5xl font-bold"
+            />
           ),
           h2: ({ node, ...props }) => (
-            <h2 {...props} className="text-3xl font-bold mb-3 text-content-primary" />
+            <h2
+              {...props}
+              className="text-content-primary mb-3 text-3xl font-bold"
+            />
           ),
           h3: ({ node, ...props }) => (
-            <h3 {...props} className="text-xl font-bold mb-2 text-content-primary" />
+            <h3
+              {...props}
+              className="text-content-primary mb-2 text-xl font-bold"
+            />
           ),
           p: ({ node, ...props }) => (
             <p {...props} className="text-content-primary mb-[1lh]" />
@@ -35,15 +44,15 @@ export function RichText({ component, context }: Props) {
             <strong {...props} className="font-bold" />
           ),
           ul: ({ node, ...props }) => (
-            <ul {...props} className="list-disc list-inside mb-2" />
+            <ul {...props} className="mb-2 list-inside list-disc" />
           ),
           ol: ({ node, ...props }) => (
-            <ol {...props} className="list-decimal list-inside mb-2" />
+            <ol {...props} className="mb-2 list-inside list-decimal" />
           ),
           blockquote: ({ node, ...props }) => (
             <blockquote
               {...props}
-              className="border-l-4 border-border-default pl-4 *:text-content-secondary!"
+              className="border-border-default *:text-content-secondary! border-l-4 pl-4"
             />
           ),
           code: ({ node, ...props }) => (
