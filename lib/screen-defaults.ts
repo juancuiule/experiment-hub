@@ -1,3 +1,4 @@
+import { childrenOf, on, Visitor, walk } from './component-walker';
 import { ScreenComponent } from './components';
 import { ResponseComponent } from './components/response';
 import { evaluateCondition, resolveCondition } from './conditions';
@@ -25,93 +26,88 @@ export function defaultPerTemplate(
   }
 }
 
-function defaultFromComponent(
-  component: ScreenComponent,
-  context: Context,
-): Record<string, unknown> {
-  switch (component.componentFamily) {
-    case 'layout': {
-      if (component.template === 'group') {
-        return buildDefaultValues(component.props.components, context);
-      }
-      return {};
-    }
-    case 'control': {
-      switch (component.template) {
-        case 'conditional': {
-          // We can't determine which branch of the condition will be
-          // taken at build time, so we evaluate the condition with the
-          // current context and return defaults for the branch that is
-          // taken. This means that if the condition depends on user
-          // input or other dynamic data, the defaults may not be accurate
-          // until that data is available in the context.
-          const condition = resolveCondition(component.props.if, context);
-          const branch = evaluateCondition(condition, context)
-            ? component.props.component
-            : component.props.else;
-          return branch ? defaultFromComponent(branch, context) : {};
-        }
-        case 'for-each': {
-          // If iter values are static, we can compute defaults at build time.
-          // If they are dynamic we try to get the current value from context,
-          // but if it's not there we return an empty array since we don't
-          // know how many iterations there will be and which values they will have.
-          const iterValues =
-            component.props.type === 'static'
-              ? component.props.values
-              : ((getValue(component.props.dataKey, context) as
-                  | string[]
-                  | null) ?? []);
-          const inner = component.props.component;
-
-          // Remap the inner component for each iter value,
-          // resolving any data keys that depend on the iter value.
-          // TODO: check if this happens multiple times and check if we should
-          // TODO: resolve other values too, like labels that might depend on iter values.
-          const components = iterValues.map((value, i) => {
-            const newContext = mergeContext(context, {
-              screenData: {
-                foreachData: { [component.props.id]: { index: i, value } },
-              },
-            });
-
-            if (inner.componentFamily === 'response') {
-              return deepMerge(inner, {
-                props: {
-                  dataKey: resolveValuesInString(
-                    inner.props.dataKey,
-                    newContext,
-                  ),
-                },
-              });
-            } else {
-              return inner;
-            }
-          });
-
-          return buildDefaultValues(components, context);
-        }
-        default:
-          return {};
-      }
-    }
-    case 'response': {
-      return { [component.props.dataKey]: defaultPerTemplate(component) };
-    }
-    default:
-      return {};
-  }
-}
-
 export function buildDefaultValues(
   components: ScreenComponent[],
   context: Context,
 ): Record<string, unknown> {
-  return components.reduce<Record<string, unknown>>(
-    (defaults, component) => ({
-      ...defaults,
-      ...defaultFromComponent(component, context),
+  // Accumulator closed over by the visitor entries. A fresh one per call —
+  // that's why the visitor is built inside this function.
+  const defaults: Record<string, unknown> = {};
+
+  const visitor: Visitor = [
+    // Groups: transparently descend into their children with the same context.
+    on({ componentFamily: 'layout', template: 'group' }, (c, ctx, walk) => {
+      walk(c.props.components, ctx);
     }),
-    {},
-  );
+
+    // Conditional: evaluate `if` against the current context and recurse
+    // only into the chosen branch. At build time the result may flip later
+    // when user input lands, but defaults are best-effort for the branch
+    // currently taken.
+    on(
+      { componentFamily: 'control', template: 'conditional' },
+      (c, ctx, walk) => {
+        const condition = resolveCondition(c.props.if, ctx);
+        const branch = evaluateCondition(condition, ctx)
+          ? c.props.component
+          : c.props.else;
+        if (branch) walk([branch], ctx);
+      },
+    ),
+
+    // For-each: resolve iter values, then for each iteration build a context
+    // with the loop variable bound and (for response children only) rewrite
+    // the inner component's dataKey with the resolved string.
+    on({ componentFamily: 'control', template: 'for-each' }, (c, ctx, walk) => {
+      // Get iterValues from the component props if it's static, or resolve them
+      // from the context if it's dynamic.
+      // If the dynamic value is null or not an array (may happen if not
+      // resolvable at this point), default to an empty array.
+      const iterValues =
+        c.props.type === 'static'
+          ? c.props.values
+          : ((getValue(c.props.dataKey, ctx) as string[] | null) ?? []);
+      const inner = c.props.component;
+
+      iterValues.forEach((value, index) => {
+        const iterCtx = mergeContext(ctx, {
+          screenData: {
+            foreachData: { [c.props.id]: { index, value } },
+          },
+        });
+
+        // The original rewrites the inner component if it's a response so
+        // that `dataKey` gets resolved against the iteration context.
+        // Non-response children pass through unchanged.
+        const rewritten: ScreenComponent =
+          inner.componentFamily === 'response'
+            ? deepMerge(inner, {
+                props: {
+                  dataKey: resolveValuesInString(inner.props.dataKey, iterCtx),
+                },
+              })
+            : inner;
+
+        walk([rewritten], iterCtx);
+      });
+    }),
+
+    // Response leaves: contribute one entry to the accumulator. The walker
+    // doesn't recurse further (responses have no children).
+    on({ componentFamily: 'response' }, (c) => {
+      defaults[c.props.dataKey] = defaultPerTemplate(c);
+    }),
+
+    // Catch-all: descend into anything else we don't care about. With
+    // first-match semantics this only fires for components no earlier entry
+    // matched — content, buttons, etc. — none of which have children, so it's
+    // effectively a no-op today. Kept for safety as the union grows.
+    on({}, (c, ctx, walk) => {
+      walk(childrenOf(c), ctx);
+    }),
+  ];
+
+  walk(components, context, visitor);
+
+  return defaults;
 }
