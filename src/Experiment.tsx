@@ -1,10 +1,21 @@
 'use client';
 import { getActiveState } from '@/lib/flow';
-import { ExperimentFlow } from '@/lib/types';
+import { StepperConfig } from '@/lib/nodes';
+import { ExperimentFlow, State } from '@/lib/types';
 import { Screen } from '@/src/Screen';
 import Stepper from '@/src/components/Stepper';
 import { useExperimentStore } from '@/src/data/store';
 import { useEffect } from 'react';
+
+type StepperProps = { config: StepperConfig; step: number; total: number };
+
+function getStepperProps(state: State): StepperProps | null {
+  if (state.type === 'in-path' && state.node.props.stepper)
+    return { config: state.node.props.stepper, step: state.visibleStep, total: state.visibleTotal };
+  if (state.type === 'in-loop' && state.node.props.stepper)
+    return { config: state.node.props.stepper, step: state.index, total: state.values.length };
+  return null;
+}
 
 type Props = {
   startingNode?: string;
@@ -41,22 +52,10 @@ export default function Experiment(props: Props) {
   if (activeState.type === 'in-node' && activeState.node.type === 'screen') {
     const slug = activeState.node.props.slug;
     const screen = step.experiment.screens?.find((s) => s.slug === slug);
+    const stepperProps = getStepperProps(step.state);
     return (
       <>
-        {step.state.type === 'in-path' && step.state.node.props.stepper && (
-          <Stepper
-            config={step.state.node.props.stepper}
-            step={step.state.visibleStep}
-            total={step.state.visibleTotal}
-          />
-        )}
-        {step.state.type === 'in-loop' && step.state.node.props.stepper && (
-          <Stepper
-            config={step.state.node.props.stepper}
-            step={step.state.index}
-            total={step.state.values.length}
-          />
-        )}
+        {stepperProps && <Stepper {...stepperProps} />}
         {screen ? (
           <Screen
             key={[
