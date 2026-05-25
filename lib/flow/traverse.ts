@@ -591,9 +591,19 @@ export async function startExperiment(
   );
 }
 
+export function walkStatePath(state: State): { segments: string[]; leaf: State } {
+  if (state.type === 'in-path') {
+    const { segments, leaf } = walkStatePath(state.innerState);
+    return { segments: [state.node.id, ...segments], leaf };
+  }
+  if (state.type === 'in-loop') {
+    const { segments, leaf } = walkStatePath(state.innerState);
+    return { segments: [state.node.id, state.values[state.index], ...segments], leaf };
+  }
+  return { segments: [], leaf: state };
+}
+
 // Resolves the innermost active state by unwrapping in-path / in-loop wrappers.
 export function getActiveState(state: State): State {
-  if (state.type === 'in-path') return getActiveState(state.innerState);
-  if (state.type === 'in-loop') return getActiveState(state.innerState);
-  return state;
+  return walkStatePath(state).leaf;
 }

@@ -8,5 +8,6 @@ export {
   traverseInLoop,
   traverseInNode,
   traverseInPath,
+  walkStatePath,
 } from './traverse';
 export type { FlowHandlers } from './traverse';
