@@ -17,6 +17,8 @@ import { evaluateFormula } from './formulas';
 import {
   getChildNodes,
   getNextSequentialNode,
+  getNode,
+  getStartNode,
   getTemplateNode,
   getWinnerFork,
   getWinnerNode,
@@ -231,8 +233,8 @@ export async function traverse(
     case 'initial': {
       const startNodeId = data?.startNodeId as string | undefined;
       const startNode = startNodeId
-        ? experiment.nodes.find((n) => n.id === startNodeId)
-        : experiment.nodes.find((n) => n.type === 'start');
+        ? getNode(experiment, startNodeId)
+        : getStartNode(experiment);
 
       if (!startNode || startNode.type !== 'start') {
         throw new Error(

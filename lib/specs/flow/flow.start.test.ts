@@ -49,6 +49,20 @@ describe('startExperiment', () => {
       'Start node not found: nope',
     );
   });
+
+  it('keeps first sequential edge when malformed flow has duplicate from nodes', async () => {
+    const malformedFlow: ExperimentFlow = {
+      nodes: [
+        { id: 'start', type: 'start' },
+        makeScreen('screen-1'),
+        makeScreen('screen-2'),
+      ],
+      edges: [seq('start', 'screen-1'), seq('start', 'screen-2')],
+    };
+
+    const step = await startExperiment(malformedFlow, 'start');
+    expect((step.state as InNodeState).node.id).toBe('screen-1');
+  });
 });
 
 describe('start node without props', () => {
