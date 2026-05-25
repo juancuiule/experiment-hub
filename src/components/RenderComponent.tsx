@@ -4,7 +4,7 @@ import { resolveCondition } from '@/lib/conditions';
 import { deepMerge } from '@/lib/flow';
 import { resolveValuesInString } from '@/lib/resolve';
 import { Audio } from './content/Audio';
-import { Image } from './content/Image';
+import { Image as ImageRenderer } from './content/Image';
 import { RichText } from './content/RichText';
 import { Video } from './content/Video';
 import { Conditional } from './control/Conditional';
@@ -44,7 +44,7 @@ export function RenderComponent({
         case 'rich-text':
           return <RichText component={component} context={context} />;
         case 'image':
-          return <Image component={component} context={context} />;
+          return <ImageRenderer component={component} context={context} />;
         case 'video':
           return <Video component={component} />;
         case 'audio':
@@ -54,17 +54,16 @@ export function RenderComponent({
     }
 
     case 'response': {
+      const mergedResponseComponent: any = deepMerge(component, {
+        props: {
+          dataKey: resolveValuesInString(component.props.dataKey, context),
+        },
+      });
       const props = {
         form,
         context,
         sharedOptions,
-        // deepMerge returns the union type; narrowing happens in the switch below
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        component: deepMerge(component, {
-          props: {
-            dataKey: resolveValuesInString(component.props.dataKey, context),
-          },
-        }) as any,
+        component: mergedResponseComponent,
       };
       switch (component.template) {
         case 'text-input':
@@ -120,15 +119,15 @@ export function RenderComponent({
     case 'control': {
       switch (component.template) {
         case 'conditional': {
+          const mergedConditionalComponent: any = deepMerge(component, {
+            props: {
+              if: resolveCondition(component.props.if, context),
+            },
+          });
           const props = {
             form,
             context,
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            component: deepMerge(component, {
-              props: {
-                if: resolveCondition(component.props.if, context),
-              },
-            }) as any,
+            component: mergedConditionalComponent,
           };
           return (
             <Conditional

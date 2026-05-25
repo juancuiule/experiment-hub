@@ -7,21 +7,21 @@ export interface BaseContentComponent<
   props: Props;
 }
 
-export interface RichTextComponent extends BaseContentComponent<
+export type RichTextComponent = BaseContentComponent<
   'rich-text',
   { content: string }
-> {}
+>;
 
-export interface ImageComponent extends BaseContentComponent<
+export type ImageComponent = BaseContentComponent<
   'image',
   {
     url: string;
     alt: string;
     className?: string;
   }
-> {}
+>;
 
-export interface VideoComponent extends BaseContentComponent<
+export type VideoComponent = BaseContentComponent<
   'video',
   {
     url: string;
@@ -30,9 +30,9 @@ export interface VideoComponent extends BaseContentComponent<
     loop?: boolean;
     controls?: boolean;
   }
-> {}
+>;
 
-export interface AudioComponent extends BaseContentComponent<
+export type AudioComponent = BaseContentComponent<
   'audio',
   {
     url: string;
@@ -40,7 +40,7 @@ export interface AudioComponent extends BaseContentComponent<
     loop?: boolean;
     controls?: boolean;
   }
-> {}
+>;
 
 export type ContentComponent =
   | RichTextComponent

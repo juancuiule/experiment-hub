@@ -30,7 +30,7 @@ export function Label({ children, context, ...props }: Props) {
         allowedElements={allowedElements}
         components={{
           p: ({ children }) => <>{children}</>,
-          code: ({ node, className, children, ...props }) => {
+          code: ({ node: _node, className, children, ...props }) => {
             return (
               <code
                 className={twMerge(

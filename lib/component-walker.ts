@@ -61,7 +61,7 @@ export function on<const P extends ComponentPattern, R, State>(
 ): Handler<P, R, State> {
   return { pattern, apply };
 }
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+
 export type Handlers<R, State> = ReadonlyArray<Handler<any, R, State>>;
 
 export function flatMap<R, State>(

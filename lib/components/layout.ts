@@ -1,30 +1,27 @@
-import { BaseComponent, ScreenComponent } from ".";
+import { BaseComponent, ScreenComponent } from '.';
 
 export interface BaseLayoutComponent<
   U extends string,
   Props,
-> extends BaseComponent<"layout", U> {
+> extends BaseComponent<'layout', U> {
   props: Props;
 }
 
-export interface ButtonComponent extends BaseLayoutComponent<
-  "button",
+export type ButtonComponent = BaseLayoutComponent<
+  'button',
   {
     text?: string;
     disabled?: boolean;
     alignBottom?: boolean;
   }
-> {}
+>;
 
-
-export interface GroupComponent extends BaseLayoutComponent<
-  "group",
+export type GroupComponent = BaseLayoutComponent<
+  'group',
   {
     name: string;
     components: ScreenComponent[];
   }
-> {}
+>;
 
-export type LayoutComponent =
-  | ButtonComponent
-  | GroupComponent;
+export type LayoutComponent = ButtonComponent | GroupComponent;

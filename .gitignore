@@ -53,3 +53,4 @@ next-env.d.ts
 .codegraph
 
 /agents.sh
+/CODE_QUALITY_REVIEW.md

@@ -1178,8 +1178,11 @@ describe('RenderComponent unknown template', () => {
   it('does not crash when content has an unknown template', () => {
     expect(() =>
       renderScreen([
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        { componentFamily: 'content', template: 'unknown-template' as any, props: {} as any },
+        {
+          componentFamily: 'content',
+          template: 'unknown-template' as any,
+          props: {} as any,
+        },
       ]),
     ).not.toThrow();
   });
@@ -1187,8 +1190,11 @@ describe('RenderComponent unknown template', () => {
   it('does not crash when response has an unknown template', () => {
     expect(() =>
       renderScreen([
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        { componentFamily: 'response', template: 'unknown-template' as any, props: { dataKey: 'x' } as any },
+        {
+          componentFamily: 'response',
+          template: 'unknown-template' as any,
+          props: { dataKey: 'x' } as any,
+        },
       ]),
     ).not.toThrow();
   });
@@ -1196,8 +1202,11 @@ describe('RenderComponent unknown template', () => {
   it('does not crash when layout has an unknown template', () => {
     expect(() =>
       renderScreen([
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        { componentFamily: 'layout', template: 'unknown-template' as any, props: {} as any },
+        {
+          componentFamily: 'layout',
+          template: 'unknown-template' as any,
+          props: {} as any,
+        },
       ]),
     ).not.toThrow();
   });
@@ -1205,8 +1214,11 @@ describe('RenderComponent unknown template', () => {
   it('does not crash when control has an unknown template', () => {
     expect(() =>
       renderScreen([
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        { componentFamily: 'control', template: 'unknown-template' as any, props: {} as any },
+        {
+          componentFamily: 'control',
+          template: 'unknown-template' as any,
+          props: {} as any,
+        },
       ]),
     ).not.toThrow();
   });

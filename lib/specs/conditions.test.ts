@@ -1,181 +1,181 @@
-import { describe, expect, it } from "vitest";
-import { evaluateCondition } from "../conditions";
-import { getValue } from "../resolve";
+import { describe, expect, it } from 'vitest';
+import { evaluateCondition } from '../conditions';
+import { getValue } from '../resolve';
 
-describe("getValue", () => {
-  it("resolves a top-level key", async () => {
+describe('getValue', () => {
+  it('resolves a top-level key', async () => {
     const ctx = { data: { profile: { age: 30 } } };
-    expect(getValue("$$profile", ctx)).toEqual({ age: 30 });
+    expect(getValue('$$profile', ctx)).toEqual({ age: 30 });
   });
 
-  it("resolves a nested key via dot notation", async () => {
+  it('resolves a nested key via dot notation', async () => {
     const ctx = { data: { profile: { age: 30 } } };
-    expect(getValue("$$profile.age", ctx)).toBe(30);
+    expect(getValue('$$profile.age', ctx)).toBe(30);
   });
 
-  it("returns undefined for a missing key", async () => {
+  it('returns undefined for a missing key', async () => {
     const ctx = { data: {} };
-    expect(getValue("$$missing.field", ctx)).toBeUndefined();
+    expect(getValue('$$missing.field', ctx)).toBeUndefined();
   });
 
-  it("returns undefined when context.data is absent", async () => {
-    expect(getValue("$$profile.age", {})).toBeUndefined();
+  it('returns undefined when context.data is absent', async () => {
+    expect(getValue('$$profile.age', {})).toBeUndefined();
   });
 
-  it("throws when the key does not start with $$ or @", async () => {
-    expect(() => getValue("profile.age" as any, {})).toThrow("Invalid key");
+  it('throws when the key does not start with $$ or @', async () => {
+    expect(() => getValue('profile.age' as any, {})).toThrow('Invalid key');
   });
 
-  it("resolves fields from currentItem using @ prefix", async () => {
+  it('resolves fields from currentItem using @ prefix', async () => {
     const ctx = {
-      loopData: { "loop-sports": { value: "football", index: 0 } },
+      loopData: { 'loop-sports': { value: 'football', index: 0 } },
     };
-    expect(getValue("@loop-sports.value", ctx)).toBe("football");
-    expect(getValue("@loop-sports.index", ctx)).toBe(0);
+    expect(getValue('@loop-sports.value', ctx)).toBe('football');
+    expect(getValue('@loop-sports.index', ctx)).toBe(0);
   });
 
-  it("returns undefined when currentItem is absent and @ prefix is used", async () => {
-    expect(getValue("@loop-sports.value", {})).toBeUndefined();
+  it('returns undefined when currentItem is absent and @ prefix is used', async () => {
+    expect(getValue('@loop-sports.value', {})).toBeUndefined();
   });
 
-  it("resolves a field from screenData using $ prefix", async () => {
-    const ctx = { screenData: { sport: "tennis" } };
-    expect(getValue("$sport", ctx)).toBe("tennis");
+  it('resolves a field from screenData using $ prefix', async () => {
+    const ctx = { screenData: { sport: 'tennis' } };
+    expect(getValue('$sport', ctx)).toBe('tennis');
   });
 
-  it("returns undefined when screenData is absent and $ prefix is used", async () => {
-    expect(getValue("$field", {})).toBeUndefined();
+  it('returns undefined when screenData is absent and $ prefix is used', async () => {
+    expect(getValue('$field', {})).toBeUndefined();
   });
 });
 
-describe("evaluateCondition — simple", () => {
+describe('evaluateCondition — simple', () => {
   const ctx = {
     data: {
-      profile: { age: 25, name: "alice" },
-      tags: { list: ["sport", "music"] },
+      profile: { age: 25, name: 'alice' },
+      tags: { list: ['sport', 'music'] },
       counts: { items: 3 },
     },
   };
 
-  it("eq — matches equal value", async () => {
+  it('eq — matches equal value', async () => {
     expect(
       evaluateCondition(
         {
-          type: "simple",
-          operator: "eq",
-          dataKey: "$$profile.name",
-          value: "alice",
+          type: 'simple',
+          operator: 'eq',
+          dataKey: '$$profile.name',
+          value: 'alice',
         },
         ctx,
       ),
     ).toBe(true);
   });
 
-  it("eq — does not match different value", async () => {
+  it('eq — does not match different value', async () => {
     expect(
       evaluateCondition(
         {
-          type: "simple",
-          operator: "eq",
-          dataKey: "$$profile.name",
-          value: "bob",
+          type: 'simple',
+          operator: 'eq',
+          dataKey: '$$profile.name',
+          value: 'bob',
         },
         ctx,
       ),
     ).toBe(false);
   });
 
-  it("neq — matches when values differ", async () => {
+  it('neq — matches when values differ', async () => {
     expect(
       evaluateCondition(
         {
-          type: "simple",
-          operator: "neq",
-          dataKey: "$$profile.name",
-          value: "bob",
+          type: 'simple',
+          operator: 'neq',
+          dataKey: '$$profile.name',
+          value: 'bob',
         },
         ctx,
       ),
     ).toBe(true);
   });
 
-  it("neq — does not match when values are equal", async () => {
+  it('neq — does not match when values are equal', async () => {
     expect(
       evaluateCondition(
         {
-          type: "simple",
-          operator: "neq",
-          dataKey: "$$profile.name",
-          value: "alice",
+          type: 'simple',
+          operator: 'neq',
+          dataKey: '$$profile.name',
+          value: 'alice',
         },
         ctx,
       ),
     ).toBe(false);
   });
 
-  it("lt / lte / gt / gte numeric comparisons", async () => {
+  it('lt / lte / gt / gte numeric comparisons', async () => {
     const num = (op: any, v: number) =>
       evaluateCondition(
-        { type: "simple", operator: op, dataKey: "$$profile.age", value: v },
+        { type: 'simple', operator: op, dataKey: '$$profile.age', value: v },
         ctx,
       );
-    expect(num("lt", 30)).toBe(true);
-    expect(num("lt", 25)).toBe(false);
-    expect(num("lte", 25)).toBe(true);
-    expect(num("gt", 20)).toBe(true);
-    expect(num("gt", 25)).toBe(false);
-    expect(num("gte", 25)).toBe(true);
+    expect(num('lt', 30)).toBe(true);
+    expect(num('lt', 25)).toBe(false);
+    expect(num('lte', 25)).toBe(true);
+    expect(num('gt', 20)).toBe(true);
+    expect(num('gt', 25)).toBe(false);
+    expect(num('gte', 25)).toBe(true);
   });
 
-  it("returns false when value is undefined for a base operator", async () => {
+  it('returns false when value is undefined for a base operator', async () => {
     expect(
       evaluateCondition(
         {
-          type: "simple",
-          operator: "eq",
-          dataKey: "$$profile.missing",
-          value: "x",
+          type: 'simple',
+          operator: 'eq',
+          dataKey: '$$profile.missing',
+          value: 'x',
         },
         ctx,
       ),
     ).toBe(false);
   });
 
-  it("contains — true when array includes the value", async () => {
+  it('contains — true when array includes the value', async () => {
     expect(
       evaluateCondition(
         {
-          type: "simple",
-          operator: "contains",
-          dataKey: "$$tags.list",
-          value: "sport",
+          type: 'simple',
+          operator: 'contains',
+          dataKey: '$$tags.list',
+          value: 'sport',
         },
         ctx,
       ),
     ).toBe(true);
   });
 
-  it("contains — false when array does not include the value", async () => {
+  it('contains — false when array does not include the value', async () => {
     expect(
       evaluateCondition(
         {
-          type: "simple",
-          operator: "contains",
-          dataKey: "$$tags.list",
-          value: "cooking",
+          type: 'simple',
+          operator: 'contains',
+          dataKey: '$$tags.list',
+          value: 'cooking',
         },
         ctx,
       ),
     ).toBe(false);
   });
 
-  it("contains — false when value is not an array", async () => {
+  it('contains — false when value is not an array', async () => {
     expect(
       evaluateCondition(
         {
-          type: "simple",
-          operator: "contains",
-          dataKey: "$$profile.age",
+          type: 'simple',
+          operator: 'contains',
+          dataKey: '$$profile.age',
           value: 25,
         },
         ctx,
@@ -183,13 +183,13 @@ describe("evaluateCondition — simple", () => {
     ).toBe(false);
   });
 
-  it("length-gt — true when array length exceeds threshold", async () => {
+  it('length-gt — true when array length exceeds threshold', async () => {
     expect(
       evaluateCondition(
         {
-          type: "simple",
-          operator: "length-gt",
-          dataKey: "$$tags.list",
+          type: 'simple',
+          operator: 'length-gt',
+          dataKey: '$$tags.list',
           value: 1,
         },
         ctx,
@@ -197,13 +197,13 @@ describe("evaluateCondition — simple", () => {
     ).toBe(true);
   });
 
-  it("length-lte — true when string length is within threshold", async () => {
+  it('length-lte — true when string length is within threshold', async () => {
     expect(
       evaluateCondition(
         {
-          type: "simple",
-          operator: "length-lte",
-          dataKey: "$$profile.name",
+          type: 'simple',
+          operator: 'length-lte',
+          dataKey: '$$profile.name',
           value: 5,
         },
         ctx,
@@ -211,13 +211,13 @@ describe("evaluateCondition — simple", () => {
     ).toBe(true); // "alice".length === 5
   });
 
-  it("length-lt — true when length is below threshold", async () => {
+  it('length-lt — true when length is below threshold', async () => {
     expect(
       evaluateCondition(
         {
-          type: "simple",
-          operator: "length-lt",
-          dataKey: "$$tags.list",
+          type: 'simple',
+          operator: 'length-lt',
+          dataKey: '$$tags.list',
           value: 3,
         },
         ctx,
@@ -225,13 +225,13 @@ describe("evaluateCondition — simple", () => {
     ).toBe(true); // list has 2 items
   });
 
-  it("length-gte — true when array length equals threshold", async () => {
+  it('length-gte — true when array length equals threshold', async () => {
     expect(
       evaluateCondition(
         {
-          type: "simple",
-          operator: "length-gte",
-          dataKey: "$$tags.list",
+          type: 'simple',
+          operator: 'length-gte',
+          dataKey: '$$tags.list',
           value: 2,
         },
         ctx,
@@ -239,13 +239,13 @@ describe("evaluateCondition — simple", () => {
     ).toBe(true);
   });
 
-  it("length-eq — true when string length exactly matches threshold", async () => {
+  it('length-eq — true when string length exactly matches threshold', async () => {
     expect(
       evaluateCondition(
         {
-          type: "simple",
-          operator: "length-eq",
-          dataKey: "$$profile.name",
+          type: 'simple',
+          operator: 'length-eq',
+          dataKey: '$$profile.name',
           value: 5,
         },
         ctx,
@@ -253,13 +253,13 @@ describe("evaluateCondition — simple", () => {
     ).toBe(true); // "alice".length === 5
   });
 
-  it("length-neq — true when string length does not match threshold", async () => {
+  it('length-neq — true when string length does not match threshold', async () => {
     expect(
       evaluateCondition(
         {
-          type: "simple",
-          operator: "length-neq",
-          dataKey: "$$profile.name",
+          type: 'simple',
+          operator: 'length-neq',
+          dataKey: '$$profile.name',
           value: 4,
         },
         ctx,
@@ -267,13 +267,13 @@ describe("evaluateCondition — simple", () => {
     ).toBe(true); // "alice".length (5) !== 4
   });
 
-  it("length-gt on undefined key treats length as 0 and returns false", async () => {
+  it('length-gt on undefined key treats length as 0 and returns false', async () => {
     expect(
       evaluateCondition(
         {
-          type: "simple",
-          operator: "length-gt",
-          dataKey: "$$profile.missing",
+          type: 'simple',
+          operator: 'length-gt',
+          dataKey: '$$profile.missing',
           value: 0,
         },
         ctx,
@@ -281,14 +281,14 @@ describe("evaluateCondition — simple", () => {
     ).toBe(false);
   });
 
-  it("contains — false when key is undefined", async () => {
+  it('contains — false when key is undefined', async () => {
     expect(
       evaluateCondition(
         {
-          type: "simple",
-          operator: "contains",
-          dataKey: "$$profile.missing",
-          value: "x",
+          type: 'simple',
+          operator: 'contains',
+          dataKey: '$$profile.missing',
+          value: 'x',
         },
         ctx,
       ),
@@ -299,10 +299,10 @@ describe("evaluateCondition — simple", () => {
     expect(
       evaluateCondition(
         {
-          type: "simple",
-          operator: "eq",
-          dataKey: "$$profile.age",
-          value: "25",
+          type: 'simple',
+          operator: 'eq',
+          dataKey: '$$profile.age',
+          value: '25',
         },
         ctx,
       ),
@@ -310,7 +310,7 @@ describe("evaluateCondition — simple", () => {
   });
 });
 
-describe("evaluateCondition — and", () => {
+describe('evaluateCondition — and', () => {
   const ctx = {
     data: {
       profile: { age: 25 },
@@ -318,22 +318,22 @@ describe("evaluateCondition — and", () => {
     },
   };
 
-  it("returns true when all conditions pass", () => {
+  it('returns true when all conditions pass', () => {
     expect(
       evaluateCondition(
         {
-          type: "and",
+          type: 'and',
           conditions: [
             {
-              type: "simple",
-              operator: "gte",
-              dataKey: "$$profile.age",
+              type: 'simple',
+              operator: 'gte',
+              dataKey: '$$profile.age',
               value: 18,
             },
             {
-              type: "simple",
-              operator: "eq",
-              dataKey: "$$consent.agreed",
+              type: 'simple',
+              operator: 'eq',
+              dataKey: '$$consent.agreed',
               value: true,
             },
           ],
@@ -343,22 +343,22 @@ describe("evaluateCondition — and", () => {
     ).toBe(true);
   });
 
-  it("returns false when any condition fails", () => {
+  it('returns false when any condition fails', () => {
     expect(
       evaluateCondition(
         {
-          type: "and",
+          type: 'and',
           conditions: [
             {
-              type: "simple",
-              operator: "gte",
-              dataKey: "$$profile.age",
+              type: 'simple',
+              operator: 'gte',
+              dataKey: '$$profile.age',
               value: 18,
             },
             {
-              type: "simple",
-              operator: "eq",
-              dataKey: "$$consent.agreed",
+              type: 'simple',
+              operator: 'eq',
+              dataKey: '$$consent.agreed',
               value: false,
             },
           ],
@@ -368,12 +368,11 @@ describe("evaluateCondition — and", () => {
     ).toBe(false);
   });
 
-  it("returns true for empty conditions (vacuous truth)", () => {
-    expect(evaluateCondition({ type: "and", conditions: [] }, ctx)).toBe(true);
+  it('returns true for empty conditions (vacuous truth)', () => {
+    expect(evaluateCondition({ type: 'and', conditions: [] }, ctx)).toBe(true);
   });
 
-  it("short-circuits on the first false", () => {
-    const evaluated = 0;
+  it('short-circuits on the first false', () => {
     const ctx2 = {
       data: { a: 1, b: 2 },
     };
@@ -381,10 +380,10 @@ describe("evaluateCondition — and", () => {
     expect(
       evaluateCondition(
         {
-          type: "and",
+          type: 'and',
           conditions: [
-            { type: "simple", operator: "eq", dataKey: "$$a", value: 999 },
-            { type: "simple", operator: "eq", dataKey: "$$b", value: 2 },
+            { type: 'simple', operator: 'eq', dataKey: '$$a', value: 999 },
+            { type: 'simple', operator: 'eq', dataKey: '$$b', value: 2 },
           ],
         },
         ctx2,
@@ -393,24 +392,24 @@ describe("evaluateCondition — and", () => {
   });
 });
 
-describe("evaluateCondition — or", () => {
+describe('evaluateCondition — or', () => {
   const ctx = {
-    data: { role: "admin", score: 5 },
+    data: { role: 'admin', score: 5 },
   };
 
-  it("returns true when at least one condition passes", () => {
+  it('returns true when at least one condition passes', () => {
     expect(
       evaluateCondition(
         {
-          type: "or",
+          type: 'or',
           conditions: [
             {
-              type: "simple",
-              operator: "eq",
-              dataKey: "$$role",
-              value: "admin",
+              type: 'simple',
+              operator: 'eq',
+              dataKey: '$$role',
+              value: 'admin',
             },
-            { type: "simple", operator: "gt", dataKey: "$$score", value: 100 },
+            { type: 'simple', operator: 'gt', dataKey: '$$score', value: 100 },
           ],
         },
         ctx,
@@ -418,19 +417,19 @@ describe("evaluateCondition — or", () => {
     ).toBe(true);
   });
 
-  it("returns false when all conditions fail", () => {
+  it('returns false when all conditions fail', () => {
     expect(
       evaluateCondition(
         {
-          type: "or",
+          type: 'or',
           conditions: [
             {
-              type: "simple",
-              operator: "eq",
-              dataKey: "$$role",
-              value: "viewer",
+              type: 'simple',
+              operator: 'eq',
+              dataKey: '$$role',
+              value: 'viewer',
             },
-            { type: "simple", operator: "gt", dataKey: "$$score", value: 100 },
+            { type: 'simple', operator: 'gt', dataKey: '$$score', value: 100 },
           ],
         },
         ctx,
@@ -438,23 +437,23 @@ describe("evaluateCondition — or", () => {
     ).toBe(false);
   });
 
-  it("returns false for empty conditions", () => {
-    expect(evaluateCondition({ type: "or", conditions: [] }, ctx)).toBe(false);
+  it('returns false for empty conditions', () => {
+    expect(evaluateCondition({ type: 'or', conditions: [] }, ctx)).toBe(false);
   });
 });
 
-describe("evaluateCondition — not", () => {
+describe('evaluateCondition — not', () => {
   const ctx = { data: { active: false } };
 
-  it("negates a true condition to false", () => {
+  it('negates a true condition to false', () => {
     expect(
       evaluateCondition(
         {
-          type: "not",
+          type: 'not',
           condition: {
-            type: "simple",
-            operator: "eq",
-            dataKey: "$$active",
+            type: 'simple',
+            operator: 'eq',
+            dataKey: '$$active',
             value: false,
           },
         },
@@ -463,15 +462,15 @@ describe("evaluateCondition — not", () => {
     ).toBe(false);
   });
 
-  it("negates a false condition to true", () => {
+  it('negates a false condition to true', () => {
     expect(
       evaluateCondition(
         {
-          type: "not",
+          type: 'not',
           condition: {
-            type: "simple",
-            operator: "eq",
-            dataKey: "$$active",
+            type: 'simple',
+            operator: 'eq',
+            dataKey: '$$active',
             value: true,
           },
         },
@@ -481,7 +480,7 @@ describe("evaluateCondition — not", () => {
   });
 });
 
-describe("evaluateCondition — nested compound", () => {
+describe('evaluateCondition — nested compound', () => {
   const ctx = {
     data: {
       profile: { age: 20 },
@@ -490,35 +489,35 @@ describe("evaluateCondition — nested compound", () => {
     },
   };
 
-  it("(age >= 18 AND consented) AND NOT banned", () => {
+  it('(age >= 18 AND consented) AND NOT banned', () => {
     expect(
       evaluateCondition(
         {
-          type: "and",
+          type: 'and',
           conditions: [
             {
-              type: "and",
+              type: 'and',
               conditions: [
                 {
-                  type: "simple",
-                  operator: "gte",
-                  dataKey: "$$profile.age",
+                  type: 'simple',
+                  operator: 'gte',
+                  dataKey: '$$profile.age',
                   value: 18,
                 },
                 {
-                  type: "simple",
-                  operator: "eq",
-                  dataKey: "$$consent.agreed",
+                  type: 'simple',
+                  operator: 'eq',
+                  dataKey: '$$consent.agreed',
                   value: true,
                 },
               ],
             },
             {
-              type: "not",
+              type: 'not',
               condition: {
-                type: "simple",
-                operator: "eq",
-                dataKey: "$$flags.banned",
+                type: 'simple',
+                operator: 'eq',
+                dataKey: '$$flags.banned',
                 value: true,
               },
             },
@@ -529,24 +528,24 @@ describe("evaluateCondition — nested compound", () => {
     ).toBe(true);
   });
 
-  it("returns false when the not branch flips a true value", () => {
+  it('returns false when the not branch flips a true value', () => {
     expect(
       evaluateCondition(
         {
-          type: "and",
+          type: 'and',
           conditions: [
             {
-              type: "simple",
-              operator: "gte",
-              dataKey: "$$profile.age",
+              type: 'simple',
+              operator: 'gte',
+              dataKey: '$$profile.age',
               value: 18,
             },
             {
-              type: "not",
+              type: 'not',
               condition: {
-                type: "simple",
-                operator: "eq",
-                dataKey: "$$consent.agreed",
+                type: 'simple',
+                operator: 'eq',
+                dataKey: '$$consent.agreed',
                 value: true,
               },
             },
@@ -557,42 +556,42 @@ describe("evaluateCondition — nested compound", () => {
     ).toBe(false);
   });
 
-  it("or of two and-blocks — first passes", () => {
+  it('or of two and-blocks — first passes', () => {
     expect(
       evaluateCondition(
         {
-          type: "or",
+          type: 'or',
           conditions: [
             {
-              type: "and",
+              type: 'and',
               conditions: [
                 {
-                  type: "simple",
-                  operator: "gte",
-                  dataKey: "$$profile.age",
+                  type: 'simple',
+                  operator: 'gte',
+                  dataKey: '$$profile.age',
                   value: 18,
                 },
                 {
-                  type: "simple",
-                  operator: "eq",
-                  dataKey: "$$consent.agreed",
+                  type: 'simple',
+                  operator: 'eq',
+                  dataKey: '$$consent.agreed',
                   value: true,
                 },
               ],
             },
             {
-              type: "and",
+              type: 'and',
               conditions: [
                 {
-                  type: "simple",
-                  operator: "lt",
-                  dataKey: "$$profile.age",
+                  type: 'simple',
+                  operator: 'lt',
+                  dataKey: '$$profile.age',
                   value: 18,
                 },
                 {
-                  type: "simple",
-                  operator: "eq",
-                  dataKey: "$$consent.agreed",
+                  type: 'simple',
+                  operator: 'eq',
+                  dataKey: '$$consent.agreed',
                   value: false,
                 },
               ],

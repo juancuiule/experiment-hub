@@ -1,4 +1,4 @@
-import { BaseComponent } from ".";
+import { BaseComponent } from '.';
 
 type ResponseComponentBaseProps = {
   dataKey: string;
@@ -19,7 +19,7 @@ type TextValidation = {
 export interface BaseResponseComponent<
   U extends string,
   Props,
-> extends BaseComponent<"response", U> {
+> extends BaseComponent<'response', U> {
   props: Props & ResponseComponentBaseProps;
 }
 
@@ -28,8 +28,8 @@ type TooltipConfig = {
   suffix?: string;
 };
 
-export interface SliderComponent extends BaseResponseComponent<
-  "slider",
+export type SliderComponent = BaseResponseComponent<
+  'slider',
   {
     label: string;
     min?: number;
@@ -43,52 +43,52 @@ export interface SliderComponent extends BaseResponseComponent<
     minValue?: ValidationRule<number>;
     maxValue?: ValidationRule<number>;
   }
-> {}
+>;
 
-export interface SingleCheckboxComponent extends BaseResponseComponent<
-  "single-checkbox",
+export type SingleCheckboxComponent = BaseResponseComponent<
+  'single-checkbox',
   {
     label: string;
     defaultValue: boolean;
     shouldBe?: boolean;
   }
-> {}
+>;
 
-export interface TextInputComponent extends BaseResponseComponent<
-  "text-input",
+export type TextInputComponent = BaseResponseComponent<
+  'text-input',
   {
     label: string;
     placeholder?: string;
   } & TextValidation
-> {}
+>;
 
-export interface TextAreaComponent extends BaseResponseComponent<
-  "text-area",
+export type TextAreaComponent = BaseResponseComponent<
+  'text-area',
   {
     label: string;
     placeholder?: string;
     lines?: number;
   } & TextValidation
-> {}
+>;
 
-export interface DateInputComponent extends BaseResponseComponent<
-  "date-input",
+export type DateInputComponent = BaseResponseComponent<
+  'date-input',
   {
     label: string;
   }
-> {}
+>;
 
-export interface TimeInputComponent extends BaseResponseComponent<
-  "time-input",
+export type TimeInputComponent = BaseResponseComponent<
+  'time-input',
   {
     label: string;
   }
-> {}
+>;
 
 export type Option = {
   label: string;
   value: string;
-  anchor?: "first" | "last";
+  anchor?: 'first' | 'last';
 };
 
 export type OptionsSource =
@@ -98,28 +98,28 @@ export type OptionsSource =
   | `$${string}`
   | `%${string}`;
 
-export interface DropdownComponent extends BaseResponseComponent<
-  "dropdown",
+export type DropdownComponent = BaseResponseComponent<
+  'dropdown',
   {
     label: string;
     options: OptionsSource;
     randomize?: boolean;
     reshuffleInLoop?: boolean;
   }
-> {}
+>;
 
-export interface RadioComponent extends BaseResponseComponent<
-  "radio",
+export type RadioComponent = BaseResponseComponent<
+  'radio',
   {
     label: string;
     options: OptionsSource;
     randomize?: boolean;
     reshuffleInLoop?: boolean;
   }
-> {}
+>;
 
-export interface CheckboxesComponent extends BaseResponseComponent<
-  "checkboxes",
+export type CheckboxesComponent = BaseResponseComponent<
+  'checkboxes',
   {
     label: string;
     options: OptionsSource;
@@ -128,10 +128,10 @@ export interface CheckboxesComponent extends BaseResponseComponent<
     randomize?: boolean;
     reshuffleInLoop?: boolean;
   }
-> {}
+>;
 
-export interface NumericInputComponent extends BaseResponseComponent<
-  "numeric-input",
+export type NumericInputComponent = BaseResponseComponent<
+  'numeric-input',
   {
     label: string;
     placeholder?: string;
@@ -140,7 +140,7 @@ export interface NumericInputComponent extends BaseResponseComponent<
     step?: number;
     defaultValue?: number;
   }
-> {}
+>;
 
 export type LikertOption = {
   value: string;
@@ -149,13 +149,13 @@ export type LikertOption = {
 
 export type LikertOptionsSource = LikertOption[] | `%${string}`;
 
-export interface LikertScaleComponent extends BaseResponseComponent<
-  "likert-scale",
+export type LikertScaleComponent = BaseResponseComponent<
+  'likert-scale',
   {
     label: string;
     options: LikertOptionsSource;
   }
-> {}
+>;
 
 export type ResponseComponent =
   | SliderComponent
@@ -179,9 +179,9 @@ export function isRandomizableResponseComponent(
   component: ResponseComponent,
 ): component is RandomizableResponseComponent {
   return (
-    component.template === "radio" ||
-    component.template === "dropdown" ||
-    component.template === "checkboxes"
+    component.template === 'radio' ||
+    component.template === 'dropdown' ||
+    component.template === 'checkboxes'
   );
 }
 
