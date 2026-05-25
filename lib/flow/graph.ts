@@ -15,6 +15,16 @@ type ExperimentIndex = {
   pathChildren: Map<string, string[]>;
 };
 
+function setFirstEdge(
+  edgeMap: Map<string, string>,
+  fromId: string,
+  toId: string,
+) {
+  if (!edgeMap.has(fromId)) {
+    edgeMap.set(fromId, toId);
+  }
+}
+
 function buildExperimentIndex(experiment: ExperimentFlow): ExperimentIndex {
   const nodes = new Map<string, FrameworkNode>();
   for (const node of experiment.nodes) {
@@ -33,19 +43,19 @@ function buildExperimentIndex(experiment: ExperimentFlow): ExperimentIndex {
   for (const edge of experiment.edges) {
     switch (edge.type) {
       case 'sequential':
-        sequential.set(edge.from, edge.to);
+        setFirstEdge(sequential, edge.from, edge.to);
         break;
       case 'loop-template':
-        loopTemplate.set(edge.from, edge.to);
+        setFirstEdge(loopTemplate, edge.from, edge.to);
         break;
       case 'branch-condition':
-        branchCondition.set(edge.from, edge.to);
+        setFirstEdge(branchCondition, edge.from, edge.to);
         break;
       case 'branch-default':
-        branchDefault.set(edge.from, edge.to);
+        setFirstEdge(branchDefault, edge.from, edge.to);
         break;
       case 'fork-edge':
-        fork.set(edge.from, edge.to);
+        setFirstEdge(fork, edge.from, edge.to);
         break;
       case 'path-contains': {
         const existing = pathChildrenRaw.get(edge.from) ?? [];
