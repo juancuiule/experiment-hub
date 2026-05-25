@@ -44,13 +44,13 @@ export default async function Home(props: Props) {
     notFound();
   }
 
-  const startingNode = determineStartingNode(searchParams, experiment);
-
   const errors = validateExperiment(experiment);
 
   if (errors.length > 0) {
     return <ValidationErrors errors={errors} />;
   }
+
+  const startingNode = determineStartingNode(searchParams, experiment);
 
   return (
     <>
