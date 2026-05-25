@@ -46,7 +46,7 @@ export type InPathState = {
   type: 'in-path';
   node: PathNode;
   children: FrameworkNode[];
-  step: number;
+  currentChildId: string;
   innerState: State;
   visibleStep: number;
   visibleTotal: number;

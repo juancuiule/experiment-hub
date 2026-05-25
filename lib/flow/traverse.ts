@@ -107,7 +107,7 @@ function initialState(
         type: 'in-path' as const,
         node,
         children: childrenInOrder,
-        step: 0,
+        currentChildId: childrenInOrder[0].id,
         innerState: initialState(experiment, context, childrenInOrder[0]),
         visibleStep: 0,
         visibleTotal,
@@ -411,41 +411,44 @@ export async function traverseInPath(
   // If the inner state returns "end" it means we completed the current
   // child node and should move to the next one in the path
   if (nInnerState.type === 'end') {
-    // A branch inside the path may have navigated us directly to a later path
-    // child (e.g. via branch-default). In that case state.step still points to
-    // the branch's index, but the node that just ended is further ahead in
-    // children. Advance from that child's position to avoid revisiting it.
-    let effectiveStep = state.step;
-    if (state.innerState.type === 'in-node') {
-      const endedNodeId = state.innerState.node.id;
-      const childIndex = state.children.findIndex((c) => c.id === endedNodeId);
-      if (childIndex > effectiveStep) {
-        effectiveStep = childIndex;
-      }
-    }
-    const nextStep = effectiveStep + 1;
-    if (nextStep < state.children.length) {
-      const nextNode = state.children[nextStep];
-      const nextInnerState = initialState(experiment, nContext, nextNode);
+    // currentChildId always names the path child we are executing (even when
+    // innerState is a non-path-child node such as a branch target or a node
+    // reached via a checkpoint's sequential edge). Derive the position from it
+    // so there is never a stale index to patch up.
+    const currentIndex = state.children.findIndex(
+      (c) => c.id === state.currentChildId,
+    );
+
+    // Advance through children, skipping any that immediately auto-traverse to
+    // end (e.g. a compute node with no outgoing sequential edge within the path).
+    let nextIndex = currentIndex + 1;
+    let currentCtx = nContext;
+
+    while (nextIndex < state.children.length) {
+      const nextNode = state.children[nextIndex];
+      const nextInnerState = initialState(experiment, currentCtx, nextNode);
       const innerStep = await enterStep({
         state: nextInnerState,
         experiment,
-        context: nContext,
+        context: currentCtx,
         dataPath: [...(step.dataPath ?? []), state.node.id],
         handlers: step.handlers,
       });
 
-      // If the entered child immediately auto-traversed to end (e.g. a compute
-      // node with no outgoing sequential edge), recurse to advance past it.
       if (innerStep.state.type === 'end') {
-        return traverseInPath(
-          {
-            ...step,
-            state: { ...state, step: nextStep, innerState: innerStep.state },
-            context: innerStep.context,
-          },
-          {},
-        );
+        currentCtx = innerStep.context;
+        nextIndex++;
+        continue;
+      }
+
+      // If the entered child is a branch that jumped to a later path child via
+      // branch-default, track that child as the new current position so that
+      // subsequent advances start from there rather than re-entering it.
+      let nextChildId = nextNode.id;
+      const is = innerStep.state;
+      if (is.type === 'in-node' || is.type === 'in-path' || is.type === 'in-loop') {
+        const laterIdx = state.children.findIndex((c) => c.id === is.node.id);
+        if (laterIdx > nextIndex) nextChildId = is.node.id;
       }
 
       // When the next path child is a branch, apply a delta between the pre-computed
@@ -469,7 +472,7 @@ export async function traverseInPath(
         experiment,
         state: {
           ...state,
-          step: nextStep,
+          currentChildId: nextChildId,
           innerState: innerStep.state,
           visibleStep: state.visibleStep + 1,
           visibleTotal: state.visibleTotal + visibleTotalDelta,
@@ -482,16 +485,30 @@ export async function traverseInPath(
 
     return exitToNextNode(
       experiment,
-      nContext,
+      currentCtx,
       state.node.id,
       step.dataPath ?? [],
       step.handlers,
     );
   }
 
+  // Keep currentChildId up-to-date: if the inner traversal has moved to a
+  // later path child (branch-default → path child at higher index), record it
+  // so subsequent end-path advances start from the correct position.
+  let nextChildId = state.currentChildId;
+  const currentIdx = state.children.findIndex((c) => c.id === state.currentChildId);
+  if (
+    nInnerState.type === 'in-node' ||
+    nInnerState.type === 'in-path' ||
+    nInnerState.type === 'in-loop'
+  ) {
+    const laterIdx = state.children.findIndex((c) => c.id === nInnerState.node.id);
+    if (laterIdx > currentIdx) nextChildId = nInnerState.node.id;
+  }
+
   return {
     experiment,
-    state: { ...state, innerState: nInnerState },
+    state: { ...state, currentChildId: nextChildId, innerState: nInnerState },
     context: nContext,
     dataPath: step.dataPath,
     handlers: step.handlers,
