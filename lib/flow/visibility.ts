@@ -2,7 +2,7 @@ import { Condition } from '../conditions';
 import { BranchNode, FrameworkNode } from '../nodes';
 import { getValue } from '../resolve';
 import { Context, ExperimentFlow } from '../types';
-import { getNextSequentialNode, getWinnerNode } from './graph';
+import { getNode, getNextSequentialNode, getWinnerNode } from './graph';
 
 // Returns false when any data key referenced by a condition is absent from context,
 // meaning evaluateCondition would silently fall to branch-default for the wrong reason.
@@ -41,7 +41,7 @@ export function countChainFromNode(
   startNodeId: string,
   pathChildren: FrameworkNode[],
 ): number {
-  const node = experiment.nodes.find((n) => n.id === startNodeId);
+  const node = getNode(experiment, startNodeId);
   if (!node || pathChildren.some((c) => c.id === startNodeId)) return 0;
   const next = getNextSequentialNode(experiment, startNodeId);
   return (
