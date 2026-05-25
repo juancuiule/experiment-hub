@@ -5,13 +5,13 @@ import {
   collectFields,
   DynamicField,
   Field,
-  ForEachMeta,
   isOrderMarker,
+  iterateLoops,
   StaticField,
 } from './fields';
 import { buildFieldSchema } from './field-schema';
 import { mergeContext } from './flow';
-import { getValue, resolveValuesInString } from './resolve';
+import { resolveValuesInString } from './resolve';
 import { Context } from './types';
 
 export function buildSchema(components: ScreenComponent[], context: Context) {
@@ -97,29 +97,3 @@ function addParseIssues(
   }
 }
 
-// Walk a chain of for-each loops, calling `cb` once per concrete iteration
-// tuple with the context that has all loop variables bound.
-function iterateLoops(
-  chain: [ForEachMeta, ...ForEachMeta[]],
-  baseCtx: Context,
-  cb: (ctx: Context) => void,
-): void {
-  function go(remaining: ForEachMeta[], ctx: Context): void {
-    if (remaining.length === 0) {
-      cb(ctx);
-      return;
-    }
-    const [head, ...rest] = remaining;
-    const values = getValue(head.dataKey, ctx);
-    if (!Array.isArray(values)) return;
-    values.forEach((value, index) => {
-      go(
-        rest,
-        mergeContext(ctx, {
-          screenData: { foreachData: { [head.id]: { index, value } } },
-        }),
-      );
-    });
-  }
-  go(chain, baseCtx);
-}
