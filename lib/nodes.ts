@@ -145,3 +145,18 @@ export type FrameworkNode =
   | ForkNode
   | LoopNode
   | ComputeNode;
+
+const AUTO_TRAVERSE_TYPES = [
+  'start',
+  'checkpoint',
+  'branch',
+  'fork',
+  'compute',
+] as const;
+type AutoTraverseNodeType = (typeof AUTO_TRAVERSE_TYPES)[number];
+
+export function isAutoTraverseNode(
+  node: FrameworkNode,
+): node is Extract<FrameworkNode, { type: AutoTraverseNodeType }> {
+  return (AUTO_TRAVERSE_TYPES as readonly string[]).includes(node.type);
+}
