@@ -91,7 +91,10 @@ export function evaluateFormula(
         const iterKey = String(idx + 1);
         const answer =
           loopIterations[iterKey]?.[formula.screenSlug]?.[formula.answerKey];
-        const correct = (item as Record<string, unknown>)[formula.correctKey];
+        const correct =
+          item !== null && typeof item === 'object'
+            ? (item as Record<string, unknown>)[formula.correctKey]
+            : undefined;
         return answer === correct ? count + 1 : count;
       }, 0);
     }

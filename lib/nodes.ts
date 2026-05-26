@@ -119,6 +119,11 @@ export type SampleFormula = {
   n: number;
 };
 
+/**
+ * Counts how many loop iterations had the correct answer.
+ * Requires the loop to iterate over object-valued items (not plain strings).
+ * Object loops use 1-based string indices as iteration keys in context.data.
+ */
 export type CountCorrectFormula = {
   type: 'count-correct';
   /** $$ reference to the ordered array of sampled item objects (e.g. '$$pick.items') */
