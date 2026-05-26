@@ -1286,6 +1286,19 @@ describe('shared option references', () => {
     const codes = validateExperiment(flow).map((e) => e.code);
     expect(codes).not.toContain('unknown-shared-options');
   });
+
+  it('reports unknown-shared-options for unsupported template placeholders in % references', () => {
+    const flow: ExperimentFlow = {
+      nodes: [start, makeScreen('s1', 'q')],
+      edges: [seq('start', 's1')],
+      screens: [makeRadioScreen('%mirada-{{loop.value}}')],
+    };
+    const errs = validateExperiment(flow);
+    expect(errs.map((e) => e.code)).toContain('unknown-shared-options');
+    expect(errs.find((e) => e.code === 'unknown-shared-options')!.message).toContain(
+      '%mirada-{{loop.value}}',
+    );
+  });
 });
 
 // ─── Compute node ────────────────────────────────────────────────────────────
