@@ -1,4 +1,4 @@
-import { FrameworkNode } from '../nodes';
+import { FrameworkNode, isAutoTraverseNode } from '../nodes';
 import { getValue } from '../resolve';
 import {
   Context,
@@ -44,14 +44,7 @@ function nestData(
 
 function shouldAutoTraverse(step: FlowStep): boolean {
   const { state } = step;
-
-  const isAutoNode =
-    state.type === 'in-node' &&
-    ['start', 'checkpoint', 'branch', 'fork', 'compute'].includes(
-      state.node.type,
-    );
-
-  return isAutoNode;
+  return state.type === 'in-node' && isAutoTraverseNode(state.node);
 }
 
 function initialState(
