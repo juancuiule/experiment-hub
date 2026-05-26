@@ -430,6 +430,56 @@ export const EXPERIMENTS: Record<string, ExperimentFlow> = {
                 correctKey: 'correctAnswer',
               },
             },
+            {
+              outputKey: 'feedback-text',
+              formula: {
+                type: 'lookup',
+                input: '$total-correct',
+                table: [
+                  {
+                    when: 0,
+                    then: 'No ganarás el mundial de póker, pero contribuiste a la ciencia sobre el reconocimiento de las emociones :)',
+                  },
+                  {
+                    when: 3,
+                    then: 'Y dado que había 4 posibilidades, medio que es indistinguible del azar. Si sos un generador de respuestas aleatorias, felicitaciones, tu desempeño fue impecable.',
+                  },
+                  {
+                    when: 6,
+                    then: 'Qué emoción. Si te miraras al espejo, probablemente la reconocerías.',
+                  },
+                  {
+                    when: 10,
+                    then: '¡Increíble! Has logrado reconocer todas las emociones correctamente.',
+                  },
+                ],
+              },
+            },
+            {
+              outputKey: 'feedback-image',
+              formula: {
+                type: 'lookup',
+                input: '$total-correct',
+                table: [
+                  {
+                    when: 0,
+                    then: 'https://investigacion.elgatoylacaja.com/emociones/images/feedback_01.png',
+                  },
+                  {
+                    when: 3,
+                    then: 'https://investigacion.elgatoylacaja.com/emociones/images/feedback_02.png',
+                  },
+                  {
+                    when: 6,
+                    then: 'https://investigacion.elgatoylacaja.com/emociones/images/feedback_03.png',
+                  },
+                  {
+                    when: 10,
+                    then: 'https://investigacion.elgatoylacaja.com/emociones/images/feedback_04.png',
+                  },
+                ],
+              },
+            },
           ],
         },
       },
@@ -542,7 +592,15 @@ export const EXPERIMENTS: Record<string, ExperimentFlow> = {
             template: 'rich-text',
             props: {
               content:
-                '## ¡Gracias por participar!\n\nRespuestas correctas: {{$$compute-correct.total-correct}} / 12',
+                '## ¡Gracias por participar!\n\nRespuestas correctas: {{$$compute-correct.total-correct}} / 12 \n\n {{$$compute-correct.feedback-text}}',
+            },
+          },
+          {
+            componentFamily: 'content',
+            template: 'image',
+            props: {
+              url: '{{$$compute-correct.feedback-image}}',
+              alt: 'Imagen de feedback',
             },
           },
         ],
