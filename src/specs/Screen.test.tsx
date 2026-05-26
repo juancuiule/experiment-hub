@@ -1224,6 +1224,76 @@ describe('RenderComponent unknown template', () => {
   });
 });
 
+describe('button payload', () => {
+  it('merges payload into submitted data when button has a payload prop', async () => {
+    const onNext = vi.fn().mockResolvedValue(undefined);
+    renderScreen(
+      [
+        {
+          componentFamily: 'layout',
+          template: 'button',
+          props: { text: 'YA LO SABÍA', payload: { 'answer-more': true } },
+        },
+      ],
+      {},
+      onNext,
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: 'YA LO SABÍA' }));
+
+    expect(onNext).toHaveBeenCalledWith({ 'answer-more': true });
+  });
+
+  it('submits the correct payload for each button in a two-button screen', async () => {
+    const onNext = vi.fn().mockResolvedValue(undefined);
+    renderScreen(
+      [
+        {
+          componentFamily: 'layout',
+          template: 'button',
+          props: { text: 'NO TENÍA IDEA', payload: { 'answer-more': false } },
+        },
+        {
+          componentFamily: 'layout',
+          template: 'button',
+          props: { text: 'YA LO SABÍA', payload: { 'answer-more': true } },
+        },
+      ],
+      {},
+      onNext,
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: 'YA LO SABÍA' }));
+
+    expect(onNext).toHaveBeenCalledWith({ 'answer-more': true });
+  });
+
+  it('merges payload with other form data on the same screen', async () => {
+    const onNext = vi.fn().mockResolvedValue(undefined);
+    renderScreen(
+      [
+        {
+          componentFamily: 'response',
+          template: 'text-input',
+          props: { dataKey: 'name', label: 'Name', required: true },
+        },
+        {
+          componentFamily: 'layout',
+          template: 'button',
+          props: { text: 'Submit', payload: { source: 'button' } },
+        },
+      ],
+      {},
+      onNext,
+    );
+
+    await userEvent.type(screen.getByLabelText('Name'), 'Juan');
+    await userEvent.click(screen.getByRole('button', { name: 'Submit' }));
+
+    expect(onNext).toHaveBeenCalledWith({ name: 'Juan', source: 'button' });
+  });
+});
+
 describe('shared options (%name)', () => {
   it('renders radio options from sharedOptions when options is %name', () => {
     const sharedOptions = {

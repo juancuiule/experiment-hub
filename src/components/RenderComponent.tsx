@@ -100,6 +100,7 @@ export function RenderComponent({
               component={component}
               isLoading={isLoading}
               context={context}
+              form={form}
             />
           );
         case 'group':
