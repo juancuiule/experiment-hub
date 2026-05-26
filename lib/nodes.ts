@@ -115,7 +115,7 @@ export type LookupFormula = {
 
 export type SampleFormula = {
   type: 'sample';
-  input: FormulaInput | string[];
+  input: FormulaInput | unknown[];
   n: number;
 };
 

@@ -416,3 +416,41 @@ describe("compute node — sample formula feeding a dynamic loop", () => {
     expect((step.state as any).node.id).toBe("screen-end");
   });
 });
+
+describe("compute node — sample formula (object pool)", () => {
+  const pool = [
+    { id: "a", label: "Alpha" },
+    { id: "b", label: "Beta" },
+    { id: "c", label: "Gamma" },
+  ];
+
+  const flow: ExperimentFlow = {
+    nodes: [
+      { id: "start", type: "start" },
+      makeCompute("pick", [
+        { outputKey: "items", formula: { type: "sample", input: pool, n: 2 } },
+      ]),
+      makeScreen("s1", "end"),
+    ],
+    edges: [seq("start", "pick"), seq("pick", "s1")],
+    screens: [{ slug: "end", components: [] }],
+  };
+
+  it("returns exactly n object items", async () => {
+    const step = await startExperiment(flow, "start");
+    expect(step.context.data?.["pick"]?.["items"]).toHaveLength(2);
+  });
+
+  it("returns only items from the pool", async () => {
+    const step = await startExperiment(flow, "start");
+    const selected: typeof pool = step.context.data?.["pick"]?.["items"];
+    expect(selected.every((v) => pool.some((p) => p.id === v.id))).toBe(true);
+  });
+
+  it("returns unique items (no duplicates)", async () => {
+    const step = await startExperiment(flow, "start");
+    const selected: typeof pool = step.context.data?.["pick"]?.["items"];
+    const ids = selected.map((v) => v.id);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+});
