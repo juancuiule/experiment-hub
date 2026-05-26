@@ -1286,6 +1286,19 @@ describe('shared option references', () => {
     const codes = validateExperiment(flow).map((e) => e.code);
     expect(codes).not.toContain('unknown-shared-options');
   });
+
+  it('reports unknown-shared-options for unsupported template placeholders in % references', () => {
+    const flow: ExperimentFlow = {
+      nodes: [start, makeScreen('s1', 'q')],
+      edges: [seq('start', 's1')],
+      screens: [makeRadioScreen('%mirada-{{loop.value}}')],
+    };
+    const errs = validateExperiment(flow);
+    expect(errs.map((e) => e.code)).toContain('unknown-shared-options');
+    expect(errs.find((e) => e.code === 'unknown-shared-options')!.message).toContain(
+      '%mirada-{{loop.value}}',
+    );
+  });
 });
 
 // ─── Compute node ────────────────────────────────────────────────────────────
@@ -1611,6 +1624,37 @@ describe('compute node — sample formula validation', () => {
       screens: [{ slug: 'end', components: [] }],
     };
     expect(codes(flow)).toContain('unavailable-reference');
+  });
+
+  it('reports invalid-sample-size when n is zero or negative', () => {
+    const flow: ExperimentFlow = {
+      nodes: [
+        start,
+        makeCompute('c1', [
+          { outputKey: 'selectedA', formula: { type: 'sample', input: ['a', 'b', 'c'], n: 0 } },
+          { outputKey: 'selectedB', formula: { type: 'sample', input: ['a', 'b', 'c'], n: -1 } },
+        ]),
+        makeScreen('s1', 'end'),
+      ],
+      edges: [seq('start', 'c1'), seq('c1', 's1')],
+      screens: [{ slug: 'end', components: [] }],
+    };
+    expect(codes(flow)).toContain('invalid-sample-size');
+  });
+
+  it('reports invalid-sample-size when n is not an integer', () => {
+    const flow: ExperimentFlow = {
+      nodes: [
+        start,
+        makeCompute('c1', [
+          { outputKey: 'selected', formula: { type: 'sample', input: ['a', 'b', 'c'], n: 1.5 } },
+        ]),
+        makeScreen('s1', 'end'),
+      ],
+      edges: [seq('start', 'c1'), seq('c1', 's1')],
+      screens: [{ slug: 'end', components: [] }],
+    };
+    expect(codes(flow)).toContain('invalid-sample-size');
   });
 });
 

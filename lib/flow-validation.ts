@@ -634,6 +634,15 @@ function checkReferences(flow: ExperimentFlow): ValidationError[] {
               seenWhen.add(key);
             }
           }
+          if (
+            formula.type === 'sample' &&
+            (!Number.isInteger(formula.n) || formula.n <= 0)
+          ) {
+            pushNodeError(
+              'invalid-sample-size',
+              `Compute "${nodeId}" output "${outputKey}" has sample size n="${formula.n}", but n must be a positive integer`,
+            );
+          }
           checkFormulaInputs(
             formula,
             nodeLabel,
@@ -795,6 +804,7 @@ function checkSharedOptionReferences(flow: ExperimentFlow): ValidationError[] {
   const pushReferenceError = (code: string, message: string) =>
     errors.push({ code, category: 'reference', message });
   const definedOptions = new Set(Object.keys(flow.options ?? {}));
+  const hasSupportedTemplatePlaceholder = /\{\{(?:\$\$|\$|@|#)[a-zA-Z0-9_.\-]+\}\}/;
 
   function checkComponent(component: ScreenComponent, screenSlug: string) {
     const props = component.props as Record<string, unknown>;
@@ -803,8 +813,8 @@ function checkSharedOptionReferences(flow: ExperimentFlow): ValidationError[] {
       // For templated option references like '%mirada-{{@loop.value}}':
       // - Static validation cannot fully validate the resolved keys (e.g., 'mirada-1', 'mirada-2', ...)
       // - The actual validation happens at runtime when resolveOptionsSource() evaluates the template
-      // - We only check non-templated references here (those without '{{')
-      if (!definedOptions.has(name) && !name.includes('{{')) {
+      // - We only skip static checks for placeholders supported by resolveValuesInString()
+      if (!definedOptions.has(name) && !hasSupportedTemplatePlaceholder.test(name)) {
         pushReferenceError(
           'unknown-shared-options',
           `Screen "${screenSlug}" references undefined shared option set "%${name}"`,
