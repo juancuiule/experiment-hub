@@ -119,6 +119,20 @@ export type SampleFormula = {
   n: number;
 };
 
+export type CountCorrectFormula = {
+  type: 'count-correct';
+  /** $$ reference to the ordered array of sampled item objects (e.g. '$$pick.items') */
+  itemsKey: `$$${string}`;
+  /** ID of the loop node whose iteration data holds the answers */
+  loopId: string;
+  /** Slug of the screen inside the loop that collected the answer field */
+  screenSlug: string;
+  /** Form field key used for the participant's answer (dataKey on the response component) */
+  answerKey: string;
+  /** Property name on each item object that holds the correct answer */
+  correctKey: string;
+};
+
 export type Formula =
   | SumFormula
   | MeanFormula
@@ -127,7 +141,8 @@ export type Formula =
   | CountFormula
   | ConditionalFormula
   | LookupFormula
-  | SampleFormula;
+  | SampleFormula
+  | CountCorrectFormula;
 
 export type Computation = {
   outputKey: string;
