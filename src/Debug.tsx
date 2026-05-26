@@ -103,7 +103,7 @@ function LoopDetail({ node, state }: { node: LoopNode; state: State }) {
                     : 'text-content-secondary'
                 }
               >
-                {v}
+                {JSON.stringify(v, null, 2)}
               </span>
             </span>
           ))}
