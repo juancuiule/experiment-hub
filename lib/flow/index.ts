@@ -2,6 +2,8 @@ export { deepMerge, mergeContext } from './context';
 export { buildTimingKey, recordEnteredAt, traverseWithTiming } from './timing';
 export {
   getActiveState,
+  getScreenView,
+  isEnded,
   next,
   startExperiment,
   traverse,
@@ -9,4 +11,4 @@ export {
   traverseInNode,
   traverseInPath,
 } from './traverse';
-export type { FlowHandlers } from './traverse';
+export type { FlowHandlers, ScreenView } from './traverse';

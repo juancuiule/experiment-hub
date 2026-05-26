@@ -1,4 +1,4 @@
-import { FrameworkNode, isAutoTraverseNode } from '../nodes';
+import { FrameworkNode, isAutoTraverseNode, StepperConfig } from '../nodes';
 import { getValue } from '../resolve';
 import {
   Context,
@@ -601,4 +601,39 @@ export function getActiveState(state: State): State {
   if (state.type === 'in-path') return getActiveState(state.innerState);
   if (state.type === 'in-loop') return getActiveState(state.innerState);
   return state;
+}
+
+export type ScreenView = {
+  slug: string;
+  screenKey: string;
+  stepper: { config: StepperConfig; step: number; total: number } | null;
+};
+
+export function isEnded(step: FlowStep): boolean {
+  return getActiveState(step.state).type === 'end';
+}
+
+export function getScreenView(step: FlowStep): ScreenView | null {
+  const active = getActiveState(step.state);
+  if (active.type !== 'in-node' || active.node.type !== 'screen') return null;
+
+  const slug = active.node.props.slug;
+  const screenKey = [
+    slug,
+    ...Object.entries(step.context.loopData ?? {}).map(
+      ([id, item]) => `${id}:${item.index}`,
+    ),
+  ].join('|');
+
+  return { slug, screenKey, stepper: stepperPropsFromState(step.state) };
+}
+
+function stepperPropsFromState(
+  state: State,
+): { config: StepperConfig; step: number; total: number } | null {
+  if (state.type === 'in-path' && state.node.props.stepper)
+    return { config: state.node.props.stepper, step: state.visibleStep, total: state.visibleTotal };
+  if (state.type === 'in-loop' && state.node.props.stepper)
+    return { config: state.node.props.stepper, step: state.index, total: state.values.length };
+  return null;
 }
