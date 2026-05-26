@@ -799,7 +799,9 @@ function checkSharedOptionReferences(flow: ExperimentFlow): ValidationError[] {
     const props = component.props as Record<string, unknown>;
     if (typeof props.options === 'string' && props.options.startsWith('%')) {
       const name = props.options.slice(1);
-      if (!definedOptions.has(name)) {
+      // TODO: improve this validation to check that the referenced
+      // TODO: key inside the options % template is available in the experiment context at this point.
+      if (!definedOptions.has(name) && !name.includes('{{')) {
         pushReferenceError(
           'unknown-shared-options',
           `Screen "${screenSlug}" references undefined shared option set "%${name}"`,

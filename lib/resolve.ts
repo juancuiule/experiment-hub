@@ -61,7 +61,8 @@ export function resolveOptionsSource(
   if (Array.isArray(options)) return options;
   if (options.startsWith('%')) {
     const name = options.slice(1);
-    return sharedOptions?.[name] ?? [];
+    const key = resolveValuesInString(name, context);
+    return sharedOptions?.[key] ?? [];
   }
   const value = getValue(options, context);
   if (!Array.isArray(value)) return [];
