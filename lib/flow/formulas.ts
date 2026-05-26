@@ -80,5 +80,20 @@ export function evaluateFormula(
       if (!Array.isArray(pool)) return [];
       return shuffle(pool).slice(0, formula.n);
     }
+    case 'count-correct': {
+      const items = getFormulaInputValue(formula.itemsKey, context, nodeOutputs);
+      if (!Array.isArray(items)) return 0;
+      const loopIterations = context.data?.[formula.loopId] as
+        | Record<string, Record<string, Record<string, unknown>>>
+        | undefined;
+      if (!loopIterations) return 0;
+      return items.reduce((count: number, item: unknown, idx: number) => {
+        const iterKey = String(idx + 1);
+        const answer =
+          loopIterations[iterKey]?.[formula.screenSlug]?.[formula.answerKey];
+        const correct = (item as Record<string, unknown>)[formula.correctKey];
+        return answer === correct ? count + 1 : count;
+      }, 0);
+    }
   }
 }
