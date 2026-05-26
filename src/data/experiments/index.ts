@@ -15,12 +15,47 @@ export const EXPERIMENTS: Record<string, ExperimentFlow> = {
           name: 'randomize-images',
           computations: [
             {
-              outputKey: 'miradas',
+              outputKey: 'selected-items',
               formula: {
                 type: 'sample',
-                input: Array.from({ length: 36 }).map((_, i) =>
-                  (i + 1).toString(),
-                ),
+                input: [
+                  { id: '1',  correctAnswer: 'playful',   options: [{ label: 'Juguetón',       value: 'playful'    }, { label: 'Reconfortante', value: 'comforting'  }, { label: 'Irritado',        value: 'irritated'  }, { label: 'Aburrido',        value: 'bored'       }] },
+                  { id: '2',  correctAnswer: 'terrified', options: [{ label: 'Aterrorizado',    value: 'terrified'  }, { label: 'Molesto',       value: 'upset'       }, { label: 'Arrogante',       value: 'arrogant'   }, { label: 'Enfadado',        value: 'angry'       }] },
+                  { id: '3',  correctAnswer: 'joking',    options: [{ label: 'Bromista',         value: 'joking'     }, { label: 'Agobiada',      value: 'overwhelmed' }, { label: 'Deseo',           value: 'desire'     }, { label: 'Convencida',      value: 'convinced'   }] },
+                  { id: '4',  correctAnswer: 'joking',    options: [{ label: 'Bromista',         value: 'joking'     }, { label: 'Insistente',    value: 'insistent'   }, { label: 'Entretenido',     value: 'entertained'}, { label: 'Relajado',        value: 'relaxed'     }] },
+                  { id: '5',  correctAnswer: 'TODO',      options: [{ label: 'Irritado',         value: 'irritated'  }, { label: 'Sarcástico',    value: 'sarcastic'   }, { label: 'Preocupado',      value: 'worried'    }, { label: 'Amistoso',        value: 'friendly'    }] },
+                  { id: '6',  correctAnswer: 'TODO',      options: [{ label: 'Asustada',         value: 'scared'     }, { label: 'Fantasiosa',    value: 'fanciful'    }, { label: 'Impaciente',      value: 'impatient'  }, { label: 'Alarmada',        value: 'alarmed'     }] },
+                  { id: '7',  correctAnswer: 'TODO',      options: [{ label: 'Arrepentido',      value: 'regretful'  }, { label: 'Amistoso',      value: 'friendly'    }, { label: 'Intranquilo',     value: 'uneasy'     }, { label: 'Decaído',         value: 'downcast'    }] },
+                  { id: '8',  correctAnswer: 'TODO',      options: [{ label: 'Abatido',          value: 'dejected'   }, { label: 'Aliviado',      value: 'relieved'    }, { label: 'Tímido',          value: 'shy'        }, { label: 'Entusiasmado',    value: 'excited'     }] },
+                  { id: '9',  correctAnswer: 'TODO',      options: [{ label: 'Enfadada',         value: 'angry'      }, { label: 'Hostil',        value: 'hostile'     }, { label: 'Horrorizada',     value: 'horrified'  }, { label: 'Angustiada',      value: 'distressed'  }] },
+                  { id: '10', correctAnswer: 'TODO',      options: [{ label: 'Prudente',         value: 'cautious'   }, { label: 'Insistente',    value: 'insistent'   }, { label: 'Aburrido',        value: 'bored'      }, { label: 'Asustado',        value: 'scared'      }] },
+                  { id: '11', correctAnswer: 'TODO',      options: [{ label: 'Aterrorizado',     value: 'terrified'  }, { label: 'Entretenido',   value: 'entertained' }, { label: 'Arrepentido',     value: 'regretful'  }, { label: 'Seductor',        value: 'seductive'   }] },
+                  { id: '12', correctAnswer: 'TODO',      options: [{ label: 'Indiferente',      value: 'indifferent'}, { label: 'Abochornado',   value: 'embarrassed' }, { label: 'Escéptico',       value: 'skeptical'  }, { label: 'Decaído',         value: 'downcast'    }] },
+                  { id: '13', correctAnswer: 'TODO',      options: [{ label: 'Decidido',         value: 'decisive'   }, { label: 'Expectante',    value: 'expectant'   }, { label: 'Amenazante',      value: 'threatening'}, { label: 'Tímido',          value: 'shy'         }] },
+                  { id: '14', correctAnswer: 'TODO',      options: [{ label: 'Irritado',         value: 'irritated'  }, { label: 'Decepcionado',  value: 'disappointed'}, { label: 'Deprimido',       value: 'depressed'  }, { label: 'Acusante',        value: 'accusing'    }] },
+                  { id: '15', correctAnswer: 'TODO',      options: [{ label: 'Abstraída',        value: 'absorbed'   }, { label: 'Agobiada',      value: 'overwhelmed' }, { label: 'Alentadora',      value: 'encouraging'}, { label: 'Entretenida',     value: 'entertained' }] },
+                  { id: '16', correctAnswer: 'TODO',      options: [{ label: 'Irritado',         value: 'irritated'  }, { label: 'Considerado',   value: 'considerate' }, { label: 'Alentador',       value: 'encouraging'}, { label: 'Compasivo',       value: 'compassionate'}] },
+                  { id: '17', correctAnswer: 'TODO',      options: [{ label: 'Insegura',         value: 'insecure'   }, { label: 'Afectuosa',     value: 'affectionate'}, { label: 'Juguetona',       value: 'playful'    }, { label: 'Asustada',        value: 'scared'      }] },
+                  { id: '18', correctAnswer: 'TODO',      options: [{ label: 'Decidida',         value: 'decisive'   }, { label: 'Entretenida',   value: 'entertained' }, { label: 'Asustada',        value: 'scared'     }, { label: 'Aburrida',        value: 'bored'       }] },
+                  { id: '19', correctAnswer: 'TODO',      options: [{ label: 'Arrogante',        value: 'arrogant'   }, { label: 'Agradecida',    value: 'grateful'    }, { label: 'Sarcástica',      value: 'sarcastic'  }, { label: 'Vacilante',       value: 'hesitant'    }] },
+                  { id: '20', correctAnswer: 'TODO',      options: [{ label: 'Imponente',        value: 'imposing'   }, { label: 'Amistoso',      value: 'friendly'    }, { label: 'Culpable',        value: 'guilty'     }, { label: 'Horrorizado',     value: 'horrified'   }] },
+                  { id: '21', correctAnswer: 'TODO',      options: [{ label: 'Abochornada',      value: 'embarrassed'}, { label: 'Fantasiosa',    value: 'fanciful'    }, { label: 'Confundida',      value: 'confused'   }, { label: 'En pánico',       value: 'panicked'    }] },
+                  { id: '22', correctAnswer: 'TODO',      options: [{ label: 'Angustiada',       value: 'distressed' }, { label: 'Agradecida',    value: 'grateful'    }, { label: 'Insistente',      value: 'insistent'  }, { label: 'Suplicante',      value: 'pleading'    }] },
+                  { id: '23', correctAnswer: 'TODO',      options: [{ label: 'Satisfecho',       value: 'satisfied'  }, { label: 'Arrepentido',   value: 'regretful'   }, { label: 'Desafiante',      value: 'defiant'    }, { label: 'Curioso',         value: 'curious'     }] },
+                  { id: '24', correctAnswer: 'TODO',      options: [{ label: 'Abstraído',        value: 'absorbed'   }, { label: 'Irritado',      value: 'irritated'   }, { label: 'Entusiasmado',    value: 'excited'    }, { label: 'Hostil',          value: 'hostile'     }] },
+                  { id: '25', correctAnswer: 'TODO',      options: [{ label: 'En pánico',        value: 'panicked'   }, { label: 'Incrédula',     value: 'incredulous' }, { label: 'Abatida',         value: 'dejected'   }, { label: 'Interesada',      value: 'interested'  }] },
+                  { id: '26', correctAnswer: 'TODO',      options: [{ label: 'Alarmado',         value: 'alarmed'    }, { label: 'Tímido',        value: 'shy'         }, { label: 'Hostil',          value: 'hostile'    }, { label: 'Ansioso',         value: 'anxious'     }] },
+                  { id: '27', correctAnswer: 'TODO',      options: [{ label: 'Bromista',         value: 'joking'     }, { label: 'Prudente',      value: 'cautious'    }, { label: 'Arrogante',       value: 'arrogant'   }, { label: 'Tranquilizadora', value: 'reassuring'  }] },
+                  { id: '28', correctAnswer: 'TODO',      options: [{ label: 'Interesada',       value: 'interested' }, { label: 'Bromista',      value: 'joking'      }, { label: 'Afectuosa',       value: 'affectionate'}, { label: 'Satisfecha',     value: 'satisfied'   }] },
+                  { id: '29', correctAnswer: 'TODO',      options: [{ label: 'Impaciente',       value: 'impatient'  }, { label: 'Asustada',      value: 'scared'      }, { label: 'Irritada',        value: 'irritated'  }, { label: 'Reflexiva',       value: 'reflective'  }] },
+                  { id: '30', correctAnswer: 'TODO',      options: [{ label: 'Agradecida',       value: 'grateful'   }, { label: 'Seductora',     value: 'seductive'   }, { label: 'Hostil',          value: 'hostile'    }, { label: 'Decepcionada',    value: 'disappointed'}] },
+                  { id: '31', correctAnswer: 'TODO',      options: [{ label: 'Avergonzada',      value: 'ashamed'    }, { label: 'Segura',        value: 'confident'   }, { label: 'Bromista',        value: 'joking'     }, { label: 'Decaída',         value: 'downcast'    }] },
+                  { id: '32', correctAnswer: 'TODO',      options: [{ label: 'Serio',            value: 'serious'    }, { label: 'Avergonzado',   value: 'ashamed'     }, { label: 'Desconcertado',   value: 'puzzled'    }, { label: 'Alarmado',        value: 'alarmed'     }] },
+                  { id: '33', correctAnswer: 'TODO',      options: [{ label: 'Abochornado',      value: 'embarrassed'}, { label: 'Culpable',      value: 'guilty'      }, { label: 'Fantasioso',      value: 'fanciful'   }, { label: 'Preocupado',      value: 'worried'    }] },
+                  { id: '34', correctAnswer: 'TODO',      options: [{ label: 'Asustada',         value: 'scared'     }, { label: 'Desconcertada', value: 'puzzled'     }, { label: 'Recelosa',        value: 'suspicious' }, { label: 'Aterrorizada',    value: 'terrified'   }] },
+                  { id: '35', correctAnswer: 'TODO',      options: [{ label: 'Perpleja',         value: 'perplexed'  }, { label: 'Nerviosa',      value: 'nervous'     }, { label: 'Insistente',      value: 'insistent'  }, { label: 'Abstraída',       value: 'absorbed'    }] },
+                  { id: '36', correctAnswer: 'TODO',      options: [{ label: 'Avergonzado',      value: 'ashamed'    }, { label: 'Nervioso',      value: 'nervous'     }, { label: 'Desconfiado',     value: 'distrustful'}, { label: 'Indeciso',        value: 'indecisive'  }] },
+                ],
                 n: 12,
               },
             },
@@ -41,7 +76,7 @@ export const EXPERIMENTS: Record<string, ExperimentFlow> = {
         id: 'loop',
         type: 'loop',
         props: {
-          dataKey: '$$compute.miradas',
+          dataKey: '$$compute.selected-items',
           type: 'dynamic',
           stepper: {
             label: 'Retrato {index}/{total}',
@@ -54,88 +89,31 @@ export const EXPERIMENTS: Record<string, ExperimentFlow> = {
         type: 'screen',
         props: { slug: 'mirada' },
       },
-      // {
-      //   id: 'compute-correct',
-      //   type: 'compute',
-      //   props: {
-      //     name: 'compute-correct',
-      //     computations: [
-      //       {
-      //         outputKey: 'correct-1',
-      //         formula: {
-      //           type: 'conditional',
-      //           condition: {
-      //             type: 'simple',
-      //             dataKey: '$$loop.1.mirada.mirada-1',
-      //             operator: 'eq',
-      //             value: 'playful',
-      //           },
-      //           then: 1,
-      //           else: 0,
-      //         },
-      //       },
-      //       {
-      //         outputKey: 'correct-2',
-      //         formula: {
-      //           type: 'conditional',
-      //           condition: {
-      //             type: 'simple',
-      //             dataKey: '$$loop.2.mirada.mirada-2',
-      //             operator: 'eq',
-      //             value: 'terrified',
-      //           },
-      //           then: 1,
-      //           else: 0,
-      //         },
-      //       },
-      //       {
-      //         outputKey: 'correct-3',
-      //         formula: {
-      //           type: 'conditional',
-      //           condition: {
-      //             type: 'simple',
-      //             dataKey: '$$loop.3.mirada.mirada-3',
-      //             operator: 'eq',
-      //             value: 'joking',
-      //           },
-      //           then: 1,
-      //           else: 0,
-      //         },
-      //       },
-      //       {
-      //         outputKey: 'correct-4',
-      //         formula: {
-      //           type: 'conditional',
-      //           condition: {
-      //             type: 'simple',
-      //             dataKey: '$$loop.4.mirada.mirada-4',
-      //             operator: 'eq',
-      //             value: 'joking',
-      //           },
-      //           then: 1,
-      //           else: 0,
-      //         },
-      //       },
-      //       {
-      //         outputKey: 'total-correct',
-      //         formula: {
-      //           type: 'sum',
-      //           inputs: [
-      //             '$correct-1',
-      //             '$correct-2',
-      //             '$correct-3',
-      //             '$correct-4',
-      //           ],
-      //         },
-      //       },
-      //     ],
-      //   },
-      // },
-      // {
-      //   id: 'end',
-      //   type: 'screen',
-      //   props: { slug: 'end' },
-      // },
+      {
+        id: 'compute-correct',
+        type: 'compute',
+        props: {
+          name: 'compute-correct',
+          computations: [
+            {
+              outputKey: 'total-correct',
+              formula: {
+                type: 'count-correct',
+                itemsKey: '$$compute.selected-items',
+                loopId: 'loop',
+                screenSlug: 'mirada',
+                answerKey: 'answer',
+                correctKey: 'correctAnswer',
+              },
+            },
+          ],
+        },
+      },
+      {
+        id: 'end',
+        type: 'screen',
+        props: { slug: 'end' },
+      },
     ],
     edges: [
       { type: 'sequential', from: 'start', to: 'compute' },
@@ -143,22 +121,10 @@ export const EXPERIMENTS: Record<string, ExperimentFlow> = {
       { type: 'sequential', from: 'terms', to: 'intro' },
       { type: 'sequential', from: 'intro', to: 'loop' },
       { type: 'loop-template', from: 'loop', to: 'screen-mirada' },
-      // { type: 'sequential', from: 'loop', to: 'compute-correct' },
-      // { type: 'sequential', from: 'compute-correct', to: 'end' },
+      { type: 'sequential', from: 'loop', to: 'compute-correct' },
+      { type: 'sequential', from: 'compute-correct', to: 'end' },
     ],
     screens: [
-      // {
-      //   slug: 'end',
-      //   components: [
-      //     {
-      //       componentFamily: 'content',
-      //       template: 'rich-text',
-      //       props: {
-      //         content: '## ¡Gracias por participar!',
-      //       },
-      //     },
-      //   ],
-      // },
       {
         slug: 'terms',
         components: [
@@ -208,7 +174,7 @@ export const EXPERIMENTS: Record<string, ExperimentFlow> = {
             componentFamily: 'content',
             template: 'image',
             props: {
-              url: 'https://investigacion.elgatoylacaja.com/emociones/images/miradas/{{@loop.value}}.png',
+              url: 'https://investigacion.elgatoylacaja.com/emociones/images/miradas/{{@loop.value.id}}.png',
               alt: 'Retrato de mirada',
             },
           },
@@ -217,8 +183,8 @@ export const EXPERIMENTS: Record<string, ExperimentFlow> = {
             template: 'radio',
             props: {
               label: '¿Qué opción describe mejor a esta persona?',
-              dataKey: 'mirada-{{@loop.value}}',
-              options: '%mirada-{{@loop.value}}',
+              dataKey: 'answer',
+              options: '@loop.value.options',
               randomize: true,
               reshuffleInLoop: true,
             },
@@ -233,224 +199,18 @@ export const EXPERIMENTS: Record<string, ExperimentFlow> = {
           },
         ],
       },
+      {
+        slug: 'end',
+        components: [
+          {
+            componentFamily: 'content',
+            template: 'rich-text',
+            props: {
+              content: '## ¡Gracias por participar!\n\nRespuestas correctas: {{$$compute-correct.total-correct}} / 12',
+            },
+          },
+        ],
+      },
     ],
-    options: {
-      'mirada-1': [
-        { label: 'Juguetón', value: 'playful' },
-        { label: 'Reconfortante', value: 'comforting' },
-        { label: 'Irritado', value: 'irritated' },
-        { label: 'Aburrido', value: 'bored' },
-      ],
-      'mirada-2': [
-        { label: 'Aterrorizado', value: 'terrified' },
-        { label: 'Molesto', value: 'upset' },
-        { label: 'Arrogante', value: 'arrogant' },
-        { label: 'Enfadado', value: 'angry' },
-      ],
-      'mirada-3': [
-        { label: 'Bromista', value: 'joking' },
-        { label: 'Agobiada', value: 'overwhelmed' },
-        { label: 'Deseo', value: 'desire' },
-        { label: 'Convencida', value: 'convinced' },
-      ],
-      'mirada-4': [
-        { label: 'Bromista', value: 'joking' },
-        { label: 'Insistente', value: 'insistent' },
-        { label: 'Entretenido', value: 'entertained' },
-        { label: 'Relajado', value: 'relaxed' },
-      ],
-      'mirada-5': [
-        { label: 'Irritado', value: 'irritated' },
-        { label: 'Sarcástico', value: 'sarcastic' },
-        { label: 'Preocupado', value: 'worried' },
-        { label: 'Amistoso', value: 'friendly' },
-      ],
-      'mirada-6': [
-        { label: 'Asustada', value: 'scared' },
-        { label: 'Fantasiosa', value: 'fanciful' },
-        { label: 'Impaciente', value: 'impatient' },
-        { label: 'Alarmada', value: 'alarmed' },
-      ],
-      'mirada-7': [
-        { label: 'Arrepentido', value: 'regretful' },
-        { label: 'Amistoso', value: 'friendly' },
-        { label: 'Intranquilo', value: 'uneasy' },
-        { label: 'Decaído', value: 'downcast' },
-      ],
-      'mirada-8': [
-        { label: 'Abatido', value: 'dejected' },
-        { label: 'Aliviado', value: 'relieved' },
-        { label: 'Tímido', value: 'shy' },
-        { label: 'Entusiasmado', value: 'excited' },
-      ],
-      'mirada-9': [
-        { label: 'Enfadada', value: 'angry' },
-        { label: 'Hostil', value: 'hostile' },
-        { label: 'Horrorizada', value: 'horrified' },
-        { label: 'Angustiada', value: 'distressed' },
-      ],
-      'mirada-10': [
-        { label: 'Prudente', value: 'cautious' },
-        { label: 'Insistente', value: 'insistent' },
-        { label: 'Aburrido', value: 'bored' },
-        { label: 'Asustado', value: 'scared' },
-      ],
-      'mirada-11': [
-        { label: 'Aterrorizado', value: 'terrified' },
-        { label: 'Entretenido', value: 'entertained' },
-        { label: 'Arrepentido', value: 'regretful' },
-        { label: 'Seductor', value: 'seductive' },
-      ],
-      'mirada-12': [
-        { label: 'Indiferente', value: 'indifferent' },
-        { label: 'Abochornado', value: 'embarrassed' },
-        { label: 'Escéptico', value: 'skeptical' },
-        { label: 'Decaído', value: 'downcast' },
-      ],
-      'mirada-13': [
-        { label: 'Decidido', value: 'decisive' },
-        { label: 'Expectante', value: 'expectant' },
-        { label: 'Amenazante', value: 'threatening' },
-        { label: 'Tímido', value: 'shy' },
-      ],
-      'mirada-14': [
-        { label: 'Irritado', value: 'irritated' },
-        { label: 'Decepcionado', value: 'disappointed' },
-        { label: 'Deprimido', value: 'depressed' },
-        { label: 'Acusante', value: 'accusing' },
-      ],
-      'mirada-15': [
-        { label: 'Abstraída', value: 'absorbed' },
-        { label: 'Agobiada', value: 'overwhelmed' },
-        { label: 'Alentadora', value: 'encouraging' },
-        { label: 'Entretenida', value: 'entertained' },
-      ],
-      'mirada-16': [
-        { label: 'Irritado', value: 'irritated' },
-        { label: 'Considerado', value: 'considerate' },
-        { label: 'Alentador', value: 'encouraging' },
-        { label: 'Compasivo', value: 'compassionate' },
-      ],
-      'mirada-17': [
-        { label: 'Insegura', value: 'insecure' },
-        { label: 'Afectuosa', value: 'affectionate' },
-        { label: 'Juguetona', value: 'playful' },
-        { label: 'Asustada', value: 'scared' },
-      ],
-      'mirada-18': [
-        { label: 'Decidida', value: 'decisive' },
-        { label: 'Entretenida', value: 'entertained' },
-        { label: 'Asustada', value: 'scared' },
-        { label: 'Aburrida', value: 'bored' },
-      ],
-      'mirada-19': [
-        { label: 'Arrogante', value: 'arrogant' },
-        { label: 'Agradecida', value: 'grateful' },
-        { label: 'Sarcástica', value: 'sarcastic' },
-        { label: 'Vacilante', value: 'hesitant' },
-      ],
-      'mirada-20': [
-        { label: 'Imponente', value: 'imposing' },
-        { label: 'Amistoso', value: 'friendly' },
-        { label: 'Culpable', value: 'guilty' },
-        { label: 'Horrorizado', value: 'horrified' },
-      ],
-      'mirada-21': [
-        { label: 'Abochornada', value: 'embarrassed' },
-        { label: 'Fantasiosa', value: 'fanciful' },
-        { label: 'Confundida', value: 'confused' },
-        { label: 'En pánico', value: 'panicked' },
-      ],
-      'mirada-22': [
-        { label: 'Angustiada', value: 'distressed' },
-        { label: 'Agradecida', value: 'grateful' },
-        { label: 'Insistente', value: 'insistent' },
-        { label: 'Suplicante', value: 'pleading' },
-      ],
-      'mirada-23': [
-        { label: 'Satisfecho', value: 'satisfied' },
-        { label: 'Arrepentido', value: 'regretful' },
-        { label: 'Desafiante', value: 'defiant' },
-        { label: 'Curioso', value: 'curious' },
-      ],
-      'mirada-24': [
-        { label: 'Abstraído', value: 'absorbed' },
-        { label: 'Irritado', value: 'irritated' },
-        { label: 'Entusiasmado', value: 'excited' },
-        { label: 'Hostil', value: 'hostile' },
-      ],
-      'mirada-25': [
-        { label: 'En pánico', value: 'panicked' },
-        { label: 'Incrédula', value: 'incredulous' },
-        { label: 'Abatida', value: 'dejected' },
-        { label: 'Interesada', value: 'interested' },
-      ],
-      'mirada-26': [
-        { label: 'Alarmado', value: 'alarmed' },
-        { label: 'Tímido', value: 'shy' },
-        { label: 'Hostil', value: 'hostile' },
-        { label: 'Ansioso', value: 'anxious' },
-      ],
-      'mirada-27': [
-        { label: 'Bromista', value: 'joking' },
-        { label: 'Prudente', value: 'cautious' },
-        { label: 'Arrogante', value: 'arrogant' },
-        { label: 'Tranquilizadora', value: 'reassuring' },
-      ],
-      'mirada-28': [
-        { label: 'Interesada', value: 'interested' },
-        { label: 'Bromista', value: 'joking' },
-        { label: 'Afectuosa', value: 'affectionate' },
-        { label: 'Satisfecha', value: 'satisfied' },
-      ],
-      'mirada-29': [
-        { label: 'Impaciente', value: 'impatient' },
-        { label: 'Asustada', value: 'scared' },
-        { label: 'Irritada', value: 'irritated' },
-        { label: 'Reflexiva', value: 'reflective' },
-      ],
-      'mirada-30': [
-        { label: 'Agradecida', value: 'grateful' },
-        { label: 'Seductora', value: 'seductive' },
-        { label: 'Hostil', value: 'hostile' },
-        { label: 'Decepcionada', value: 'disappointed' },
-      ],
-      'mirada-31': [
-        { label: 'Avergonzada', value: 'ashamed' },
-        { label: 'Segura', value: 'confident' },
-        { label: 'Bromista', value: 'joking' },
-        { label: 'Decaída', value: 'downcast' },
-      ],
-      'mirada-32': [
-        { label: 'Serio', value: 'serious' },
-        { label: 'Avergonzado', value: 'ashamed' },
-        { label: 'Desconcertado', value: 'puzzled' },
-        { label: 'Alarmado', value: 'alarmed' },
-      ],
-      'mirada-33': [
-        { label: 'Abochornado', value: 'embarrassed' },
-        { label: 'Culpable', value: 'guilty' },
-        { label: 'Fantasioso', value: 'fanciful' },
-        { label: 'Preocupado', value: 'worried' },
-      ],
-      'mirada-34': [
-        { label: 'Asustada', value: 'scared' },
-        { label: 'Desconcertada', value: 'puzzled' },
-        { label: 'Recelosa', value: 'suspicious' },
-        { label: 'Aterrorizada', value: 'terrified' },
-      ],
-      'mirada-35': [
-        { label: 'Perpleja', value: 'perplexed' },
-        { label: 'Nerviosa', value: 'nervous' },
-        { label: 'Insistente', value: 'insistent' },
-        { label: 'Abstraída', value: 'absorbed' },
-      ],
-      'mirada-36': [
-        { label: 'Avergonzado', value: 'ashamed' },
-        { label: 'Nervioso', value: 'nervous' },
-        { label: 'Desconfiado', value: 'distrustful' },
-        { label: 'Indeciso', value: 'indecisive' },
-      ],
-    },
   },
 };
