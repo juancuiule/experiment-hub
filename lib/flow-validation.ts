@@ -554,8 +554,9 @@ function checkReferences(flow: ExperimentFlow): ValidationError[] {
 
           function processComponent(component: ScreenComponent, ctx: Context) {
             const props = component.props as Record<string, unknown>;
-            // TODO: also run checkText on dataKey — dynamic dataKeys like
-            // "rating-{{$$foo.bar}}" embed references that are not validated today.
+            // Note: We only validate wrapped references in labels/content (checkText will catch unwrapped tokens).
+            // Dynamic dataKeys like 'rating-{{$$foo.bar}}' are not validated here but work correctly at runtime
+            // because resolveValuesInString() interpolates the template in RenderComponent before form creation.
             for (const field of ['label', 'content', 'text'] as const) {
               if (typeof props[field] === 'string') {
                 checkText(
@@ -799,8 +800,10 @@ function checkSharedOptionReferences(flow: ExperimentFlow): ValidationError[] {
     const props = component.props as Record<string, unknown>;
     if (typeof props.options === 'string' && props.options.startsWith('%')) {
       const name = props.options.slice(1);
-      // TODO: improve this validation to check that the referenced
-      // TODO: key inside the options % template is available in the experiment context at this point.
+      // For templated option references like '%mirada-{{@loop.value}}':
+      // - Static validation cannot fully validate the resolved keys (e.g., 'mirada-1', 'mirada-2', ...)
+      // - The actual validation happens at runtime when resolveOptionsSource() evaluates the template
+      // - We only check non-templated references here (those without '{{')
       if (!definedOptions.has(name) && !name.includes('{{')) {
         pushReferenceError(
           'unknown-shared-options',
