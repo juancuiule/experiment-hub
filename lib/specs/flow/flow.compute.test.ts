@@ -285,3 +285,134 @@ describe("compute node — end of path, no outgoing sequential edge", () => {
     expect(step.context.data?.["path-q"]?.["score"]).toEqual({ total: 5 });
   });
 });
+
+describe("compute node — sample formula (static inline pool)", () => {
+  const pool = ["img1", "img2", "img3", "img4", "img5"];
+  const flow: ExperimentFlow = {
+    nodes: [
+      { id: "start", type: "start" },
+      makeCompute("pick", [
+        { outputKey: "selected", formula: { type: "sample", input: pool, n: 3 } },
+      ]),
+      makeScreen("s1", "end"),
+    ],
+    edges: [seq("start", "pick"), seq("pick", "s1")],
+    screens: [{ slug: "end", components: [] }],
+  };
+
+  it("returns exactly n items", async () => {
+    const step = await startExperiment(flow, "start");
+    expect(step.context.data?.["pick"]?.["selected"]).toHaveLength(3);
+  });
+
+  it("returns only items from the pool", async () => {
+    const step = await startExperiment(flow, "start");
+    const selected: string[] = step.context.data?.["pick"]?.["selected"];
+    expect(selected.every((v) => pool.includes(v))).toBe(true);
+  });
+
+  it("returns unique items (no duplicates)", async () => {
+    const step = await startExperiment(flow, "start");
+    const selected: string[] = step.context.data?.["pick"]?.["selected"];
+    expect(new Set(selected).size).toBe(selected.length);
+  });
+
+  it("returns full shuffled pool when n >= pool size", async () => {
+    const bigNFlow: ExperimentFlow = {
+      nodes: [
+        { id: "start", type: "start" },
+        makeCompute("pick", [
+          { outputKey: "selected", formula: { type: "sample", input: pool, n: 10 } },
+        ]),
+        makeScreen("s1", "end"),
+      ],
+      edges: [seq("start", "pick"), seq("pick", "s1")],
+      screens: [{ slug: "end", components: [] }],
+    };
+    const step = await startExperiment(bigNFlow, "start");
+    const selected: string[] = step.context.data?.["pick"]?.["selected"];
+    expect(selected).toHaveLength(pool.length);
+    expect(selected.sort()).toEqual([...pool].sort());
+  });
+});
+
+describe("compute node — sample formula (dynamic $$ pool)", () => {
+  const flow: ExperimentFlow = {
+    nodes: [
+      { id: "start", type: "start" },
+      makeScreen("setup", "setup"),
+      makeCompute("pick", [
+        { outputKey: "selected", formula: { type: "sample", input: "$$setup.images", n: 2 } },
+      ]),
+      makeScreen("s1", "end"),
+    ],
+    edges: [seq("start", "setup"), seq("setup", "pick"), seq("pick", "s1")],
+    screens: [{ slug: "setup", components: [] }, { slug: "end", components: [] }],
+  };
+
+  it("reads pool from context via $$ reference", async () => {
+    let step = await startExperiment(flow, "start");
+    step = await traverse(step, { images: ["a", "b", "c", "d"] });
+    const selected: string[] = step.context.data?.["pick"]?.["selected"];
+    expect(selected).toHaveLength(2);
+    expect(selected.every((v) => ["a", "b", "c", "d"].includes(v))).toBe(true);
+  });
+
+  it("returns [] when $$ reference does not resolve to an array", async () => {
+    let step = await startExperiment(flow, "start");
+    step = await traverse(step, {}); // no images field
+    expect(step.context.data?.["pick"]?.["selected"]).toEqual([]);
+  });
+});
+
+describe("compute node — sample formula feeding a dynamic loop", () => {
+  const flow: ExperimentFlow = {
+    nodes: [
+      { id: "start", type: "start" },
+      makeCompute("pick", [
+        {
+          outputKey: "selected",
+          formula: {
+            type: "sample",
+            input: ["img1", "img2", "img3", "img4", "img5"],
+            n: 3,
+          },
+        },
+      ]),
+      {
+        id: "loop-images",
+        type: "loop",
+        props: { type: "dynamic", dataKey: "$$pick.selected" },
+      },
+      makeScreen("screen-image", "image-screen"),
+      makeScreen("screen-end", "end"),
+    ],
+    edges: [
+      seq("start", "pick"),
+      seq("pick", "loop-images"),
+      { type: "loop-template", from: "loop-images", to: "screen-image" },
+      seq("loop-images", "screen-end"),
+    ],
+    screens: [
+      { slug: "image-screen", components: [] },
+      { slug: "end", components: [] },
+    ],
+  };
+
+  it("loops over the sampled items", async () => {
+    const step = await startExperiment(flow, "start");
+    expect(step.state.type).toBe("in-loop");
+    expect(step.context.loops?.["loop-images"]?.order).toHaveLength(3);
+  });
+
+  it("iterates through all sampled items and exits to end", async () => {
+    let step = await startExperiment(flow, "start");
+    let iterations = 0;
+    while (step.state.type === "in-loop") {
+      iterations++;
+      step = await traverse(step, { rated: true });
+    }
+    expect(iterations).toBe(3);
+    expect((step.state as any).node.id).toBe("screen-end");
+  });
+});

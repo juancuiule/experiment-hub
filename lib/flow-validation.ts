@@ -509,6 +509,18 @@ function checkReferences(flow: ExperimentFlow): ValidationError[] {
         );
         break;
       }
+      case 'sample': {
+        if (!Array.isArray(formula.input)) {
+          checkFormulaInput(
+            formula.input,
+            context,
+            available,
+            nodeOutputs,
+            insideLoop,
+          );
+        }
+        break;
+      }
     }
   }
 

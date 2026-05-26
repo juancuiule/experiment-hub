@@ -113,6 +113,12 @@ export type LookupFormula = {
   default?: string | number;
 };
 
+export type SampleFormula = {
+  type: 'sample';
+  input: FormulaInput | string[];
+  n: number;
+};
+
 export type Formula =
   | SumFormula
   | MeanFormula
@@ -120,7 +126,8 @@ export type Formula =
   | MaxFormula
   | CountFormula
   | ConditionalFormula
-  | LookupFormula;
+  | LookupFormula
+  | SampleFormula;
 
 export type Computation = {
   outputKey: string;

@@ -2,6 +2,7 @@ import { evaluateCondition } from '../conditions';
 import { Formula } from '../nodes';
 import { getValue } from '../resolve';
 import { Context, ContextData } from '../types';
+import { shuffle } from '../utils';
 import { mergeContext } from './context';
 
 function getFormulaInputValue(
@@ -71,6 +72,13 @@ export function evaluateFormula(
       );
       const match = sorted.find((entry) => Number(val) >= Number(entry.when));
       return match ? match.then : formula.default;
+    }
+    case 'sample': {
+      const pool = Array.isArray(formula.input)
+        ? formula.input
+        : getFormulaInputValue(formula.input, context, nodeOutputs);
+      if (!Array.isArray(pool)) return [];
+      return shuffle(pool).slice(0, formula.n);
     }
   }
 }

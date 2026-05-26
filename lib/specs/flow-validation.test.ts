@@ -1558,6 +1558,62 @@ describe('compute node reference checks', () => {
   });
 });
 
+describe('compute node — sample formula validation', () => {
+  it('passes with a static inline pool', () => {
+    const flow: ExperimentFlow = {
+      nodes: [
+        start,
+        makeCompute('c1', [
+          { outputKey: 'selected', formula: { type: 'sample', input: ['a', 'b', 'c'], n: 2 } },
+        ]),
+        makeScreen('s1', 'end'),
+      ],
+      edges: [seq('start', 'c1'), seq('c1', 's1')],
+      screens: [{ slug: 'end', components: [] }],
+    };
+    expect(validateExperiment(flow)).toEqual([]);
+  });
+
+  it('passes when $$ input is available from a prior screen', () => {
+    const flow: ExperimentFlow = {
+      nodes: [
+        start,
+        makeScreen('s1', 'q'),
+        makeCompute('c1', [
+          { outputKey: 'selected', formula: { type: 'sample', input: '$$q.pool', n: 3 } },
+        ]),
+        makeScreen('s2', 'end'),
+      ],
+      edges: [seq('start', 's1'), seq('s1', 'c1'), seq('c1', 's2')],
+      screens: [
+        {
+          slug: 'q',
+          components: [
+            { componentFamily: 'response', template: 'text-input', props: { dataKey: 'pool', label: 'Pool' } },
+          ],
+        },
+        { slug: 'end', components: [] },
+      ],
+    };
+    expect(codes(flow)).toEqual([]);
+  });
+
+  it('reports unavailable-reference when $$ input is not yet written', () => {
+    const flow: ExperimentFlow = {
+      nodes: [
+        start,
+        makeCompute('c1', [
+          { outputKey: 'selected', formula: { type: 'sample', input: '$$q.pool', n: 3 } },
+        ]),
+        makeScreen('s1', 'end'),
+      ],
+      edges: [seq('start', 'c1'), seq('c1', 's1')],
+      screens: [{ slug: 'end', components: [] }],
+    };
+    expect(codes(flow)).toContain('unavailable-reference');
+  });
+});
+
 describe('unknown-template', () => {
   function flowWithComponents(
     components: ExperimentFlow['screens'][0]['components'],
