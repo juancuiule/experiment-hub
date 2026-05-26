@@ -1286,6 +1286,19 @@ describe('shared option references', () => {
     const codes = validateExperiment(flow).map((e) => e.code);
     expect(codes).not.toContain('unknown-shared-options');
   });
+
+  it('reports unknown-shared-options for unsupported template placeholders in % references', () => {
+    const flow: ExperimentFlow = {
+      nodes: [start, makeScreen('s1', 'q')],
+      edges: [seq('start', 's1')],
+      screens: [makeRadioScreen('%mirada-{{loop.value}}')],
+    };
+    const errs = validateExperiment(flow);
+    expect(errs.map((e) => e.code)).toContain('unknown-shared-options');
+    expect(errs.find((e) => e.code === 'unknown-shared-options')!.message).toContain(
+      '%mirada-{{loop.value}}',
+    );
+  });
 });
 
 // ─── Compute node ────────────────────────────────────────────────────────────
@@ -1555,6 +1568,93 @@ describe('compute node reference checks', () => {
       ],
     };
     expect(codes(flow)).toContain('duplicate-output-key');
+  });
+});
+
+describe('compute node — sample formula validation', () => {
+  it('passes with a static inline pool', () => {
+    const flow: ExperimentFlow = {
+      nodes: [
+        start,
+        makeCompute('c1', [
+          { outputKey: 'selected', formula: { type: 'sample', input: ['a', 'b', 'c'], n: 2 } },
+        ]),
+        makeScreen('s1', 'end'),
+      ],
+      edges: [seq('start', 'c1'), seq('c1', 's1')],
+      screens: [{ slug: 'end', components: [] }],
+    };
+    expect(validateExperiment(flow)).toEqual([]);
+  });
+
+  it('passes when $$ input is available from a prior screen', () => {
+    const flow: ExperimentFlow = {
+      nodes: [
+        start,
+        makeScreen('s1', 'q'),
+        makeCompute('c1', [
+          { outputKey: 'selected', formula: { type: 'sample', input: '$$q.pool', n: 3 } },
+        ]),
+        makeScreen('s2', 'end'),
+      ],
+      edges: [seq('start', 's1'), seq('s1', 'c1'), seq('c1', 's2')],
+      screens: [
+        {
+          slug: 'q',
+          components: [
+            { componentFamily: 'response', template: 'text-input', props: { dataKey: 'pool', label: 'Pool' } },
+          ],
+        },
+        { slug: 'end', components: [] },
+      ],
+    };
+    expect(codes(flow)).toEqual([]);
+  });
+
+  it('reports unavailable-reference when $$ input is not yet written', () => {
+    const flow: ExperimentFlow = {
+      nodes: [
+        start,
+        makeCompute('c1', [
+          { outputKey: 'selected', formula: { type: 'sample', input: '$$q.pool', n: 3 } },
+        ]),
+        makeScreen('s1', 'end'),
+      ],
+      edges: [seq('start', 'c1'), seq('c1', 's1')],
+      screens: [{ slug: 'end', components: [] }],
+    };
+    expect(codes(flow)).toContain('unavailable-reference');
+  });
+
+  it('reports invalid-sample-size when n is zero or negative', () => {
+    const flow: ExperimentFlow = {
+      nodes: [
+        start,
+        makeCompute('c1', [
+          { outputKey: 'selectedA', formula: { type: 'sample', input: ['a', 'b', 'c'], n: 0 } },
+          { outputKey: 'selectedB', formula: { type: 'sample', input: ['a', 'b', 'c'], n: -1 } },
+        ]),
+        makeScreen('s1', 'end'),
+      ],
+      edges: [seq('start', 'c1'), seq('c1', 's1')],
+      screens: [{ slug: 'end', components: [] }],
+    };
+    expect(codes(flow)).toContain('invalid-sample-size');
+  });
+
+  it('reports invalid-sample-size when n is not an integer', () => {
+    const flow: ExperimentFlow = {
+      nodes: [
+        start,
+        makeCompute('c1', [
+          { outputKey: 'selected', formula: { type: 'sample', input: ['a', 'b', 'c'], n: 1.5 } },
+        ]),
+        makeScreen('s1', 'end'),
+      ],
+      edges: [seq('start', 'c1'), seq('c1', 's1')],
+      screens: [{ slug: 'end', components: [] }],
+    };
+    expect(codes(flow)).toContain('invalid-sample-size');
   });
 });
 

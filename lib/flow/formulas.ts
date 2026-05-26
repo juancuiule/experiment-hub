@@ -2,6 +2,7 @@ import { evaluateCondition } from '../conditions';
 import { Formula } from '../nodes';
 import { getValue } from '../resolve';
 import { Context, ContextData } from '../types';
+import { shuffle } from '../utils';
 import { mergeContext } from './context';
 
 function getFormulaInputValue(
@@ -71,6 +72,31 @@ export function evaluateFormula(
       );
       const match = sorted.find((entry) => Number(val) >= Number(entry.when));
       return match ? match.then : formula.default;
+    }
+    case 'sample': {
+      const pool = Array.isArray(formula.input)
+        ? formula.input
+        : getFormulaInputValue(formula.input, context, nodeOutputs);
+      if (!Array.isArray(pool)) return [];
+      return shuffle(pool).slice(0, formula.n);
+    }
+    case 'count-correct': {
+      const items = getFormulaInputValue(formula.itemsKey, context, nodeOutputs);
+      if (!Array.isArray(items)) return 0;
+      const loopIterations = context.data?.[formula.loopId] as
+        | Record<string, Record<string, Record<string, unknown>>>
+        | undefined;
+      if (!loopIterations) return 0;
+      return items.reduce((count: number, item: unknown, idx: number) => {
+        const iterKey = String(idx + 1);
+        const answer =
+          loopIterations[iterKey]?.[formula.screenSlug]?.[formula.answerKey];
+        const correct =
+          item !== null && typeof item === 'object'
+            ? (item as Record<string, unknown>)[formula.correctKey]
+            : undefined;
+        return answer === correct ? count + 1 : count;
+      }, 0);
     }
   }
 }

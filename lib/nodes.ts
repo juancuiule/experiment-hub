@@ -113,6 +113,31 @@ export type LookupFormula = {
   default?: string | number;
 };
 
+export type SampleFormula = {
+  type: 'sample';
+  input: FormulaInput | (string | Record<string, unknown>)[];
+  n: number;
+};
+
+/**
+ * Counts how many loop iterations had the correct answer.
+ * Requires the loop to iterate over object-valued items (not plain strings).
+ * Object loops use 1-based string indices as iteration keys in context.data.
+ */
+export type CountCorrectFormula = {
+  type: 'count-correct';
+  /** $$ reference to the ordered array of sampled item objects (e.g. '$$pick.items') */
+  itemsKey: `$$${string}`;
+  /** ID of the loop node whose iteration data holds the answers */
+  loopId: string;
+  /** Slug of the screen inside the loop that collected the answer field */
+  screenSlug: string;
+  /** Form field key used for the participant's answer (dataKey on the response component) */
+  answerKey: string;
+  /** Property name on each item object that holds the correct answer */
+  correctKey: string;
+};
+
 export type Formula =
   | SumFormula
   | MeanFormula
@@ -120,7 +145,9 @@ export type Formula =
   | MaxFormula
   | CountFormula
   | ConditionalFormula
-  | LookupFormula;
+  | LookupFormula
+  | SampleFormula
+  | CountCorrectFormula;
 
 export type Computation = {
   outputKey: string;

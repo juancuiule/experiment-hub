@@ -1,6 +1,10 @@
 import { flatMap, Handlers, on } from '../component-walker';
 import { hasRandomizedOptions, Option } from '../components/response';
-import { getValue, resolveOptionsSource, resolveValuesInString } from '../resolve';
+import {
+  getValue,
+  resolveOptionsSource,
+  resolveValuesInString,
+} from '../resolve';
 import { Context, ExperimentFlow } from '../types';
 import { shuffleAnchored } from '../utils';
 import { mergeContext } from './context';
@@ -8,19 +12,25 @@ import { mergeContext } from './context';
 type ShuffleState = {
   inLoop: boolean;
   previous: Record<string, Option[]>;
-  ctx: Context;
+  sharedOptions: Record<string, Option[]>;
+  context: Context;
 };
 
 const handlers: Handlers<[string, Option[]], ShuffleState> = [
-  on({ componentFamily: 'response' }, (c, { inLoop, previous, ctx }) => {
-    if (!hasRandomizedOptions(c)) return [];
-    const key = resolveValuesInString(c.props.dataKey, ctx);
-    const options =
-      inLoop && !c.props.reshuffleInLoop && previous[key]
-        ? previous[key]
-        : shuffleAnchored(resolveOptionsSource(c.props.options, ctx));
-    return [[key, options]];
-  }),
+  on(
+    { componentFamily: 'response' },
+    (c, { inLoop, previous, context, sharedOptions }) => {
+      if (!hasRandomizedOptions(c)) return [];
+      const key = resolveValuesInString(c.props.dataKey, context);
+      const options =
+        inLoop && !c.props.reshuffleInLoop && previous[key]
+          ? previous[key]
+          : shuffleAnchored(
+              resolveOptionsSource(c.props.options, context, sharedOptions),
+            );
+      return [[key, options]];
+    },
+  ),
 
   on(
     { componentFamily: 'control', template: 'for-each' },
@@ -28,11 +38,12 @@ const handlers: Handlers<[string, Option[]], ShuffleState> = [
       const values =
         c.props.type === 'static'
           ? c.props.values
-          : ((getValue(c.props.dataKey, state.ctx) as string[] | null) ?? []);
+          : ((getValue(c.props.dataKey, state.context) as string[] | null) ??
+            []);
       return values.flatMap((value, index) =>
         recur([c.props.component], {
           ...state,
-          ctx: mergeContext(state.ctx, {
+          context: mergeContext(state.context, {
             screenData: {
               foreachData: { [c.props.id]: { index, value } },
             },
@@ -66,8 +77,13 @@ export function computeShuffledOptions(
 
   const inLoop = Object.keys(context.loopData ?? {}).length > 0;
   const previous = context.screenData?.shuffledOptions ?? {};
+  const sharedOptions = experiment.options ?? {};
 
   return Object.fromEntries(
-    flatMap(screen.components, { inLoop, previous, ctx: context }, handlers),
+    flatMap(
+      screen.components,
+      { inLoop, previous, sharedOptions, context },
+      handlers,
+    ),
   );
 }

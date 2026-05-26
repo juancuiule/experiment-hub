@@ -509,6 +509,18 @@ function checkReferences(flow: ExperimentFlow): ValidationError[] {
         );
         break;
       }
+      case 'sample': {
+        if (!Array.isArray(formula.input)) {
+          checkFormulaInput(
+            formula.input,
+            context,
+            available,
+            nodeOutputs,
+            insideLoop,
+          );
+        }
+        break;
+      }
     }
   }
 
@@ -542,8 +554,9 @@ function checkReferences(flow: ExperimentFlow): ValidationError[] {
 
           function processComponent(component: ScreenComponent, ctx: Context) {
             const props = component.props as Record<string, unknown>;
-            // TODO: also run checkText on dataKey — dynamic dataKeys like
-            // "rating-{{$$foo.bar}}" embed references that are not validated today.
+            // Note: We only validate wrapped references in labels/content (checkText will catch unwrapped tokens).
+            // Dynamic dataKeys like 'rating-{{$$foo.bar}}' are not validated here but work correctly at runtime
+            // because resolveValuesInString() interpolates the template in RenderComponent before form creation.
             for (const field of ['label', 'content', 'text'] as const) {
               if (typeof props[field] === 'string') {
                 checkText(
@@ -620,6 +633,15 @@ function checkReferences(flow: ExperimentFlow): ValidationError[] {
               }
               seenWhen.add(key);
             }
+          }
+          if (
+            formula.type === 'sample' &&
+            (!Number.isInteger(formula.n) || formula.n <= 0)
+          ) {
+            pushNodeError(
+              'invalid-sample-size',
+              `Compute "${nodeId}" output "${outputKey}" has sample size n="${formula.n}", but n must be a positive integer`,
+            );
           }
           checkFormulaInputs(
             formula,
@@ -782,12 +804,17 @@ function checkSharedOptionReferences(flow: ExperimentFlow): ValidationError[] {
   const pushReferenceError = (code: string, message: string) =>
     errors.push({ code, category: 'reference', message });
   const definedOptions = new Set(Object.keys(flow.options ?? {}));
+  const hasSupportedTemplatePlaceholder = /\{\{(?:\$\$|\$|@|#)[a-zA-Z0-9_.\-]+\}\}/;
 
   function checkComponent(component: ScreenComponent, screenSlug: string) {
     const props = component.props as Record<string, unknown>;
     if (typeof props.options === 'string' && props.options.startsWith('%')) {
       const name = props.options.slice(1);
-      if (!definedOptions.has(name)) {
+      // For templated option references like '%mirada-{{@loop.value}}':
+      // - Static validation cannot fully validate the resolved keys (e.g., 'mirada-1', 'mirada-2', ...)
+      // - The actual validation happens at runtime when resolveOptionsSource() evaluates the template
+      // - We only skip static checks for placeholders supported by resolveValuesInString()
+      if (!definedOptions.has(name) && !hasSupportedTemplatePlaceholder.test(name)) {
         pushReferenceError(
           'unknown-shared-options',
           `Screen "${screenSlug}" references undefined shared option set "%${name}"`,

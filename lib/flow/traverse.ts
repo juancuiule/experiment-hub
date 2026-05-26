@@ -501,6 +501,11 @@ export async function traverseInLoop(
 
   // __currentItem is already in context, injected by autoTraverse on entry
   // and updated here whenever advancing to the next iteration
+  const iterKey =
+    typeof state.values[state.index] === 'object' &&
+    state.values[state.index] !== null
+      ? String(state.index + 1)
+      : state.values[state.index];
   const { state: nInnerState, context: nContext } = await traverse(
     {
       state: state.innerState,
@@ -509,7 +514,7 @@ export async function traverseInLoop(
       dataPath: [
         ...(step.dataPath ?? []),
         state.node.id,
-        state.values[state.index],
+        iterKey,
       ],
       handlers: step.handlers,
     },
@@ -531,6 +536,11 @@ export async function traverseInLoop(
         contextWithNextItem,
         state.template,
       );
+      const nextIterKey =
+        typeof state.values[nextIteration] === 'object' &&
+        state.values[nextIteration] !== null
+          ? String(nextIteration + 1)
+          : state.values[nextIteration];
       const innerStep = await enterStep({
         state: nextInnerState,
         experiment,
@@ -538,7 +548,7 @@ export async function traverseInLoop(
         dataPath: [
           ...(step.dataPath ?? []),
           state.node.id,
-          state.values[nextIteration],
+          nextIterKey,
         ],
         handlers: step.handlers,
       });
