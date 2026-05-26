@@ -1,8 +1,11 @@
 'use client';
 
-import { DropdownComponent, Option } from '@/lib/components/response';
+import {
+  defaultPerTemplate,
+  DropdownComponent,
+  Option,
+} from '@/lib/components/response';
 import { resolveValuesInString } from '@/lib/resolve';
-import { defaultPerTemplate } from '@/lib/screen-defaults';
 import { Context, ContextData } from '@/lib/types';
 import * as SelectPrimitive from '@radix-ui/react-select';
 import { ChevronDown } from 'lucide-react';

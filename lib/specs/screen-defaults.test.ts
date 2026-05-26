@@ -1,13 +1,17 @@
-import { describe, it, expect } from 'vitest';
-import { buildDefaultValues } from '../screen-defaults';
+import { describe, expect, it } from 'vitest';
 import { ScreenComponent } from '../components';
+import { buildScreenBindings } from '../screen-bindings';
 import { Context } from '../types';
 
 function makeContext(overrides: Partial<Context> = {}): Context {
   return { data: {}, loopData: {}, ...overrides };
 }
 
-describe('buildDefaultValues — static for-each', () => {
+function defaultValues(components: ScreenComponent[], context: Context) {
+  return buildScreenBindings(components, context).defaultValues;
+}
+
+describe('buildScreenBindings — defaults, static for-each', () => {
   it('produces defaults for each value', () => {
     const components: ScreenComponent[] = [
       {
@@ -30,12 +34,14 @@ describe('buildDefaultValues — static for-each', () => {
       },
     ];
 
-    const defaults = buildDefaultValues(components, makeContext());
-    expect(defaults).toEqual({ 'pick-a': '', 'pick-b': '' });
+    expect(defaultValues(components, makeContext())).toEqual({
+      'pick-a': '',
+      'pick-b': '',
+    });
   });
 });
 
-describe('buildDefaultValues — dynamic for-each', () => {
+describe('buildScreenBindings — defaults, dynamic for-each', () => {
   it('produces defaults when context contains the dataKey values', () => {
     const components: ScreenComponent[] = [
       {
@@ -58,11 +64,16 @@ describe('buildDefaultValues — dynamic for-each', () => {
       },
     ];
 
-    const defaults = buildDefaultValues(
-      components,
-      makeContext({ data: { items: ['x', 'y', 'z'] } }),
-    );
-    expect(defaults).toEqual({ 'pick-x': '', 'pick-y': '', 'pick-z': '' });
+    expect(
+      defaultValues(
+        components,
+        makeContext({ data: { items: ['x', 'y', 'z'] } }),
+      ),
+    ).toEqual({
+      'pick-x': '',
+      'pick-y': '',
+      'pick-z': '',
+    });
   });
 
   it('produces no defaults when the context key is missing', () => {
@@ -87,8 +98,7 @@ describe('buildDefaultValues — dynamic for-each', () => {
       },
     ];
 
-    const defaults = buildDefaultValues(components, makeContext());
-    expect(defaults).toEqual({});
+    expect(defaultValues(components, makeContext())).toEqual({});
   });
 
   it('produces [] default for checkboxes inside dynamic for-each', () => {
@@ -114,11 +124,12 @@ describe('buildDefaultValues — dynamic for-each', () => {
       },
     ];
 
-    const defaults = buildDefaultValues(
-      components,
-      makeContext({ data: { items: ['a', 'b'] } }),
-    );
-    expect(defaults).toEqual({ 'tags-a': [], 'tags-b': [] });
+    expect(
+      defaultValues(components, makeContext({ data: { items: ['a', 'b'] } })),
+    ).toEqual({
+      'tags-a': [],
+      'tags-b': [],
+    });
   });
 
   it('produces null default for slider inside dynamic for-each', () => {
@@ -145,11 +156,12 @@ describe('buildDefaultValues — dynamic for-each', () => {
       },
     ];
 
-    const defaults = buildDefaultValues(
-      components,
-      makeContext({ data: { items: ['p', 'q'] } }),
-    );
-    expect(defaults).toEqual({ 'rating-p': null, 'rating-q': null });
+    expect(
+      defaultValues(components, makeContext({ data: { items: ['p', 'q'] } })),
+    ).toEqual({
+      'rating-p': null,
+      'rating-q': null,
+    });
   });
 
   it('resolves dataKey from screenData ($) prefix', () => {
@@ -174,10 +186,14 @@ describe('buildDefaultValues — dynamic for-each', () => {
       },
     ];
 
-    const defaults = buildDefaultValues(
-      components,
-      makeContext({ screenData: { selected: ['m', 'n'] } }),
-    );
-    expect(defaults).toEqual({ 'opt-m': '', 'opt-n': '' });
+    expect(
+      defaultValues(
+        components,
+        makeContext({ screenData: { selected: ['m', 'n'] } }),
+      ),
+    ).toEqual({
+      'opt-m': '',
+      'opt-n': '',
+    });
   });
 });

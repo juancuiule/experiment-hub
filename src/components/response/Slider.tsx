@@ -1,8 +1,7 @@
 'use client';
 
-import { SliderComponent } from '@/lib/components/response';
+import { defaultPerTemplate, SliderComponent } from '@/lib/components/response';
 import { resolveValuesInString } from '@/lib/resolve';
-import { defaultPerTemplate } from '@/lib/screen-defaults';
 import { Context, ContextData } from '@/lib/types';
 import * as SliderPrimitive from '@radix-ui/react-slider';
 import { Controller, UseFormReturn } from 'react-hook-form';

@@ -1,22 +1,16 @@
 import { z } from 'zod';
-import { ScreenComponent } from './components';
 import { Condition, evaluateCondition, resolveCondition } from './conditions';
+import { buildFieldSchema } from './field-schema';
 import {
-  collectFields,
   DynamicField,
   Field,
   isOrderMarker,
   iterateLoops,
   StaticField,
 } from './fields';
-import { buildFieldSchema } from './field-schema';
 import { mergeContext } from './flow';
 import { resolveValuesInString } from './resolve';
 import { Context } from './types';
-
-export function buildSchema(components: ScreenComponent[], context: Context) {
-  return buildSchemaFromFields(collectFields(components, context), context);
-}
 
 // Zod schema for the synthetic :order field.
 const orderSchema = z.array(z.string()).optional();
@@ -96,4 +90,3 @@ function addParseIssues(
     });
   }
 }
-

@@ -3,10 +3,9 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 
-import { buildSchema } from '@/lib/screen-schema';
 import { Option } from '@/lib/components/response';
 import { FrameworkScreen } from '@/lib/screen';
-import { buildDefaultValues } from '@/lib/screen-defaults';
+import { buildScreenBindings } from '@/lib/screen-bindings';
 import { Context, ContextData } from '@/lib/types';
 import { DataSection } from './components/DataTree';
 import { RenderComponent } from './components/RenderComponent';
@@ -26,9 +25,13 @@ export function Screen({
   context,
   sharedOptions,
 }: ScreenProps) {
+  const { schema, defaultValues } = buildScreenBindings(
+    screen.components,
+    context,
+  );
   const form = useForm<ContextData>({
-    resolver: zodResolver(buildSchema(screen.components, context)),
-    defaultValues: buildDefaultValues(screen.components, context),
+    resolver: zodResolver(schema),
+    defaultValues,
     shouldUnregister: true,
   });
 

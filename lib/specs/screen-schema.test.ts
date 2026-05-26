@@ -1,4 +1,3 @@
-import { buildSchema as _buildSchema, buildSchemaFromFields } from '@/lib/screen-schema';
 import { ScreenComponent } from '@/lib/components';
 import { Condition } from '@/lib/conditions';
 import {
@@ -7,6 +6,8 @@ import {
   StaticField,
 } from '@/lib/fields';
 import { FrameworkScreen } from '@/lib/screen';
+import { buildScreenBindings } from '@/lib/screen-bindings';
+import { buildSchemaFromFields } from '@/lib/screen-schema';
 import { describe, expect, it } from 'vitest';
 
 function collectFields(
@@ -21,7 +22,7 @@ function screen(components: FrameworkScreen['components']): FrameworkScreen {
 }
 
 function buildSchema(s: FrameworkScreen) {
-  return _buildSchema(s.components, { data: {} });
+  return buildScreenBindings(s.components, { data: {} }).schema;
 }
 
 describe('collectFields — response', () => {
@@ -2279,7 +2280,7 @@ describe('static for-each — generates N schema entries', () => {
 
 describe('dynamic for-each with randomized component — :order key validated', () => {
   it('accepts a string array for the :order key', () => {
-    const schema = _buildSchema(
+    const { schema } = buildScreenBindings(
       [
         {
           componentFamily: 'control',
@@ -2312,7 +2313,7 @@ describe('dynamic for-each with randomized component — :order key validated', 
   });
 
   it('accepts a missing :order key (appended by onSubmit, not a form field)', () => {
-    const schema = _buildSchema(
+    const { schema } = buildScreenBindings(
       [
         {
           componentFamily: 'control',
@@ -2340,7 +2341,7 @@ describe('dynamic for-each with randomized component — :order key validated', 
   });
 
   it('rejects a non-array :order value', () => {
-    const schema = _buildSchema(
+    const { schema } = buildScreenBindings(
       [
         {
           componentFamily: 'control',
@@ -2401,7 +2402,7 @@ describe('dynamic for-each — gracefully skipped', () => {
 
 describe('dynamic for-each nested inside static for-each', () => {
   it('validates dynamic fields with outer static key resolved and inner dynamic key resolved at runtime', () => {
-    const schema = _buildSchema(
+    const { schema } = buildScreenBindings(
       [
         {
           componentFamily: 'control',
@@ -2463,7 +2464,7 @@ describe('randomize :order key', () => {
         },
       ],
     };
-    const schema = _buildSchema(s.components, { data: {} });
+    const { schema } = buildScreenBindings(s.components, { data: {} });
     const result = schema.safeParse({
       choice: 'a',
       'choice:order': ['b', 'a'],
@@ -2491,7 +2492,7 @@ describe('randomize :order key', () => {
         },
       ],
     };
-    const schema = _buildSchema(s.components, { data: {} });
+    const { schema } = buildScreenBindings(s.components, { data: {} });
     const result = schema.safeParse({
       picks: ['a'],
       'picks:order': ['b', 'a'],
@@ -2519,7 +2520,7 @@ describe('randomize :order key', () => {
         },
       ],
     };
-    const schema = _buildSchema(s.components, { data: {} });
+    const { schema } = buildScreenBindings(s.components, { data: {} });
     const result = schema.safeParse({
       selected: 'a',
       'selected:order': ['b', 'a'],

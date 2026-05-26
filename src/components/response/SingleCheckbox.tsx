@@ -1,7 +1,9 @@
 'use client';
 
-import { SingleCheckboxComponent } from '@/lib/components/response';
-import { defaultPerTemplate } from '@/lib/screen-defaults';
+import {
+  defaultPerTemplate,
+  SingleCheckboxComponent,
+} from '@/lib/components/response';
 import { Context, ContextData } from '@/lib/types';
 import * as CheckboxPrimitive from '@radix-ui/react-checkbox';
 import { Check } from 'lucide-react';

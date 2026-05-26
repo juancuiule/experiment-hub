@@ -1,8 +1,11 @@
 'use client';
 
-import { LikertScaleComponent, Option } from '@/lib/components/response';
+import {
+  defaultPerTemplate,
+  LikertScaleComponent,
+  Option,
+} from '@/lib/components/response';
 import { resolveLikertOptionsSource } from '@/lib/resolve';
-import { defaultPerTemplate } from '@/lib/screen-defaults';
 import { Context, ContextData } from '@/lib/types';
 import * as RadioGroupPrimitive from '@radix-ui/react-radio-group';
 import { Controller, UseFormReturn } from 'react-hook-form';

@@ -194,3 +194,23 @@ export function hasRandomizedOptions(
     Boolean(component.props.randomize)
   );
 }
+
+export function defaultPerTemplate(
+  component: ResponseComponent,
+): string | boolean | string[] | number | null {
+  switch (component.template) {
+    case 'radio':
+    case 'dropdown':
+      return '';
+    case 'checkboxes':
+      return [];
+    case 'single-checkbox':
+      return component.props.defaultValue ?? false;
+    case 'slider':
+      return null;
+    case 'numeric-input':
+      return component.props.defaultValue ?? null;
+    default:
+      return '';
+  }
+}
