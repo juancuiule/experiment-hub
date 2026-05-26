@@ -634,6 +634,15 @@ function checkReferences(flow: ExperimentFlow): ValidationError[] {
               seenWhen.add(key);
             }
           }
+          if (
+            formula.type === 'sample' &&
+            (!Number.isInteger(formula.n) || formula.n <= 0)
+          ) {
+            pushNodeError(
+              'invalid-sample-size',
+              `Compute "${nodeId}" output "${outputKey}" has sample size n="${formula.n}", but n must be a positive integer`,
+            );
+          }
           checkFormulaInputs(
             formula,
             nodeLabel,

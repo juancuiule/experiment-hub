@@ -1625,6 +1625,37 @@ describe('compute node — sample formula validation', () => {
     };
     expect(codes(flow)).toContain('unavailable-reference');
   });
+
+  it('reports invalid-sample-size when n is zero or negative', () => {
+    const flow: ExperimentFlow = {
+      nodes: [
+        start,
+        makeCompute('c1', [
+          { outputKey: 'selectedA', formula: { type: 'sample', input: ['a', 'b', 'c'], n: 0 } },
+          { outputKey: 'selectedB', formula: { type: 'sample', input: ['a', 'b', 'c'], n: -1 } },
+        ]),
+        makeScreen('s1', 'end'),
+      ],
+      edges: [seq('start', 'c1'), seq('c1', 's1')],
+      screens: [{ slug: 'end', components: [] }],
+    };
+    expect(codes(flow)).toContain('invalid-sample-size');
+  });
+
+  it('reports invalid-sample-size when n is not an integer', () => {
+    const flow: ExperimentFlow = {
+      nodes: [
+        start,
+        makeCompute('c1', [
+          { outputKey: 'selected', formula: { type: 'sample', input: ['a', 'b', 'c'], n: 1.5 } },
+        ]),
+        makeScreen('s1', 'end'),
+      ],
+      edges: [seq('start', 'c1'), seq('c1', 's1')],
+      screens: [{ slug: 'end', components: [] }],
+    };
+    expect(codes(flow)).toContain('invalid-sample-size');
+  });
 });
 
 describe('unknown-template', () => {
