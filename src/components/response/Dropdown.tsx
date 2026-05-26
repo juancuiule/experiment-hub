@@ -7,7 +7,7 @@ import * as SelectPrimitive from '@radix-ui/react-select';
 import { ChevronDown } from 'lucide-react';
 import { Controller, UseFormReturn } from 'react-hook-form';
 import { Label } from '../Label';
-import { FieldError, resolveOptions } from '../primitives';
+import { FieldError, OptionTooltip, resolveOptions } from '../primitives';
 import { defaultPerTemplate } from '@/lib/screen-defaults';
 
 type Props = {
@@ -64,11 +64,12 @@ export function Dropdown({ component, form, context, sharedOptions }: Props) {
                     <SelectPrimitive.Item
                       key={opt.value}
                       value={opt.value}
-                      className="data-highlighted:bg-content-active data-highlighted:text-content-inverted flex cursor-pointer items-center rounded-sm px-3 py-2 text-sm outline-none"
+                      className="data-highlighted:bg-content-active data-highlighted:text-content-inverted flex cursor-pointer items-center gap-2 rounded-sm px-3 py-2 text-sm outline-none"
                     >
                       <SelectPrimitive.ItemText>
                         {resolveValuesInString(opt.label, context)}
                       </SelectPrimitive.ItemText>
+                      {opt.tooltip && <OptionTooltip text={opt.tooltip} />}
                     </SelectPrimitive.Item>
                   ))}
                 </SelectPrimitive.Viewport>

@@ -100,6 +100,42 @@ describe('rendering', () => {
     ]);
     expect(screen.getByRole('button', { name: 'Submit' })).toBeInTheDocument();
   });
+
+  it('renders tooltip text for radio options that have a tooltip', () => {
+    renderScreen([
+      {
+        componentFamily: 'response',
+        template: 'radio',
+        props: {
+          dataKey: 'choice',
+          label: 'Pick one',
+          options: [
+            { label: 'Option A', value: 'a', tooltip: 'Extra info for A' },
+            { label: 'Option B', value: 'b' },
+          ],
+        },
+      },
+    ]);
+    expect(screen.getByText('Extra info for A')).toBeInTheDocument();
+  });
+
+  it('renders tooltip text for checkbox options that have a tooltip', () => {
+    renderScreen([
+      {
+        componentFamily: 'response',
+        template: 'checkboxes',
+        props: {
+          dataKey: 'picks',
+          label: 'Pick any',
+          options: [
+            { label: 'Alpha', value: 'alpha', tooltip: 'Tooltip for alpha' },
+            { label: 'Beta', value: 'beta' },
+          ],
+        },
+      },
+    ]);
+    expect(screen.getByText('Tooltip for alpha')).toBeInTheDocument();
+  });
 });
 
 describe('label interpolation', () => {

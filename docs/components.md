@@ -132,7 +132,7 @@ Collects a single selection from a dropdown list.
 
 - `label: string`
 - `options: OptionsSource` — the option list. Accepts:
-  - `Option[]` — explicit array of `{ label: string; value: string; anchor?: "first" | "last" }` objects
+  - `Option[]` — explicit array of `{ label: string; value: string; anchor?: "first" | "last"; tooltip?: string }` objects. When `tooltip` is set on an individual option, an info icon is shown next to the option label; hovering it reveals the tooltip text.
   - `` `$$screen.dataKey` `` — reference to experiment-wide collected data (must be an array of options)
   - `` `@field` `` — field from the current loop iteration value
   - `` `$field` `` — current screen's live form value
@@ -152,7 +152,7 @@ Collected value: `string` — the `value` of the selected option, stored directl
 Collects a single selection displayed as a radio button list.
 
 - `label: string`
-- `options: OptionsSource` — the option list. Accepts the same variants as `dropdown` above, including `anchor` on individual `Option` objects.
+- `options: OptionsSource` — the option list. Accepts the same variants as `dropdown` above, including `anchor` and `tooltip` on individual `Option` objects.
 - `randomize?: boolean` — if true, the order of options is shuffled for each participant.
 - `reshuffleInLoop?: boolean` — when used inside a loop and `randomize: true`, controls whether the options are reshuffled on each loop iteration (`true`, default) or keep the first shuffled order (`false`).
 
@@ -163,7 +163,7 @@ Collected value: `string` — the `value` of the selected option. Reference as `
 Collects one or more selections from a list of checkboxes.
 
 - `label: string`
-- `options: OptionsSource` — the option list. Accepts the same variants as `dropdown` above, including `anchor` on individual `Option` objects.
+- `options: OptionsSource` — the option list. Accepts the same variants as `dropdown` above, including `anchor` and `tooltip` on individual `Option` objects.
 - `min?: number` — minimum number of options that must be selected
 - `max?: number` — maximum number of options that can be selected
 - `randomize?: boolean` — if true, the order of options is shuffled for each participant.

@@ -89,6 +89,7 @@ export type Option = {
   label: string;
   value: string;
   anchor?: 'first' | 'last';
+  tooltip?: string;
 };
 
 export type OptionsSource =
