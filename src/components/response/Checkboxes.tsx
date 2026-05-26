@@ -8,7 +8,7 @@ import { Check } from 'lucide-react';
 import { Controller, UseFormReturn } from 'react-hook-form';
 import { twMerge } from 'tailwind-merge';
 import { Label } from '../Label';
-import { FieldError, resolveOptions } from '../primitives';
+import { FieldError, OptionTooltip, resolveOptions } from '../primitives';
 
 type Props = {
   component: CheckboxesComponent;
@@ -74,6 +74,7 @@ export function Checkboxes({ component, form, context, sharedOptions }: Props) {
                   >
                     {opt.label}
                   </Label>
+                  {opt.tooltip && <OptionTooltip text={opt.tooltip} />}
                 </div>
               );
             })}

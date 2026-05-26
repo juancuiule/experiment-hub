@@ -5,7 +5,7 @@ import { Context, ContextData } from "@/lib/types";
 import * as RadioGroupPrimitive from "@radix-ui/react-radio-group";
 import { Controller, UseFormReturn } from "react-hook-form";
 import { Label } from "../Label";
-import { FieldError, resolveOptions } from "../primitives";
+import { FieldError, OptionTooltip, resolveOptions } from "../primitives";
 
 type Props = {
   component: RadioComponent;
@@ -50,6 +50,7 @@ export function Radio({ component, form, context, sharedOptions }: Props) {
                 >
                   {opt.label}
                 </Label>
+                {opt.tooltip && <OptionTooltip text={opt.tooltip} />}
               </div>
             ))}
           </RadioGroupPrimitive.Root>
