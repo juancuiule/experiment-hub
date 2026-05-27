@@ -3,7 +3,6 @@
 import { ErrorCategory, ValidationError } from '@/lib/flow-validation';
 import { FrameworkNode } from '@/lib/nodes';
 import {
-  AlertTriangle,
   ArrowRightLeft,
   Box,
   ClipboardX,
@@ -51,7 +50,6 @@ function ErrorCard({ error }: { error: ValidationError }) {
   return (
     <div className="text-xxs flex flex-col gap-1 rounded border p-2 font-mono">
       <div className="flex items-center gap-2">
-        <AlertTriangle size={10} className="text-error shrink-0" />
         <span
           className={`text-xxs flex items-center gap-1 rounded border px-1.5 py-0.5 font-semibold ${colorClass}`}
         >
@@ -61,7 +59,7 @@ function ErrorCard({ error }: { error: ValidationError }) {
         {nodeType && nodeType !== category && <NodeTypeBadge type={nodeType} />}
         <span className="text-content-primary truncate">{error.code}</span>
       </div>
-      <div className="text-content-secondary pl-4">{error.message}</div>
+      <div className="text-content-secondary">{error.message}</div>
     </div>
   );
 }

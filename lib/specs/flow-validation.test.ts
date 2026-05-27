@@ -1810,3 +1810,188 @@ describe('unknown-template', () => {
     expect(messages(flow).some((m) => m.includes('"my-screen"'))).toBe(true);
   });
 });
+
+describe('reachability checks', () => {
+  it('reports unreachable-node for a node not connected from start', () => {
+    const flow: ExperimentFlow = {
+      nodes: [start, makeScreen('s1', 'welcome'), makeScreen('island', 'orphan')],
+      edges: [seq('start', 's1')],
+      screens: [
+        { slug: 'welcome', components: [{ componentFamily: 'layout', template: 'button', props: { text: 'Go' } }] },
+        { slug: 'orphan', components: [{ componentFamily: 'layout', template: 'button', props: { text: 'Go' } }] },
+      ],
+    };
+    expect(codes(flow)).toContain('unreachable-node');
+  });
+
+  it('does not report unreachable-node when all nodes are reachable', () => {
+    const flow: ExperimentFlow = {
+      nodes: [start, makeScreen('s1', 'welcome'), makeScreen('s2', 'done')],
+      edges: [seq('start', 's1'), seq('s1', 's2')],
+      screens: [
+        { slug: 'welcome', components: [{ componentFamily: 'layout', template: 'button', props: { text: 'Go' } }] },
+        { slug: 'done', components: [{ componentFamily: 'layout', template: 'button', props: { text: 'Finish' } }] },
+      ],
+    };
+    expect(codes(flow)).not.toContain('unreachable-node');
+  });
+});
+
+describe('cycle detection in walk()', () => {
+  it('does not crash or loop infinitely when a sequential back-edge creates a cycle', () => {
+    // A → s1 → s2 → s1 (back-edge); walk() must not recurse infinitely
+    const flow: ExperimentFlow = {
+      nodes: [start, makeScreen('s1', 'a'), makeScreen('s2', 'b')],
+      edges: [seq('start', 's1'), seq('s1', 's2'), seq('s2', 's1')],
+      screens: [
+        { slug: 'a', components: [{ componentFamily: 'layout', template: 'button', props: { text: 'Go' } }] },
+        { slug: 'b', components: [{ componentFamily: 'layout', template: 'button', props: { text: 'Go' } }] },
+      ],
+    };
+    // Should return without throwing; exact errors are not asserted here
+    expect(() => validateExperiment(flow)).not.toThrow();
+  });
+});
+
+describe('count-correct formula validation', () => {
+  it('reports unavailable-reference when count-correct loopId does not exist', () => {
+    const flow: ExperimentFlow = {
+      nodes: [
+        start,
+        {
+          id: 'c1',
+          type: 'compute',
+          props: {
+            name: 'score',
+            computations: [
+              {
+                outputKey: 'result',
+                formula: {
+                  type: 'count-correct',
+                  itemsKey: '$$items',
+                  loopId: 'nonexistent-loop',
+                  screenSlug: 'question',
+                  answerKey: 'answer',
+                  correctKey: 'correct',
+                },
+              },
+            ],
+          },
+        },
+      ],
+      edges: [seq('start', 'c1')],
+    };
+    expect(codes(flow)).toContain('unavailable-reference');
+  });
+
+  it('reports invalid-reference when count-correct loopId points to a non-loop node', () => {
+    const flow: ExperimentFlow = {
+      nodes: [
+        start,
+        makeScreen('s1', 'q'),
+        {
+          id: 'c1',
+          type: 'compute',
+          props: {
+            name: 'score',
+            computations: [
+              {
+                outputKey: 'result',
+                formula: {
+                  type: 'count-correct',
+                  itemsKey: '$$items',
+                  loopId: 's1',
+                  screenSlug: 'q',
+                  answerKey: 'answer',
+                  correctKey: 'correct',
+                },
+              },
+            ],
+          },
+        },
+      ],
+      edges: [seq('start', 's1'), seq('s1', 'c1')],
+      screens: [
+        { slug: 'q', components: [{ componentFamily: 'layout', template: 'button', props: { text: 'Go' } }] },
+      ],
+    };
+    expect(codes(flow)).toContain('invalid-reference');
+  });
+});
+
+describe('mixed wrapped+bare reference in checkText', () => {
+  it('reports unwrapped-token for a bare $$ref alongside a wrapped {{$$ref}}', () => {
+    const flow: ExperimentFlow = {
+      nodes: [start, makeScreen('s1', 'q')],
+      edges: [seq('start', 's1')],
+      screens: [
+        {
+          slug: 'q',
+          components: [
+            {
+              componentFamily: 'response',
+              template: 'text-input',
+              props: {
+                dataKey: 'answer',
+                label: '{{$$some.ref}} and $$bare.ref',
+              },
+            },
+          ],
+        },
+      ],
+    };
+    expect(codes(flow)).toContain('unwrapped-token');
+  });
+
+  it('does not report unwrapped-token for a string with only wrapped refs', () => {
+    const flow: ExperimentFlow = {
+      nodes: [start, makeScreen('s1', 'q')],
+      edges: [seq('start', 's1')],
+      screens: [
+        {
+          slug: 'q',
+          components: [
+            {
+              componentFamily: 'response',
+              template: 'text-input',
+              props: {
+                dataKey: 'answer',
+                label: '{{$$some.ref}} and {{$$other.ref}}',
+              },
+            },
+          ],
+        },
+      ],
+    };
+    expect(codes(flow)).not.toContain('unwrapped-token');
+  });
+});
+
+describe('loop dynamic dataKey validation', () => {
+  it('reports unavailable-reference when a dynamic loop dataKey references data not yet available', () => {
+    const flow: ExperimentFlow = {
+      nodes: [
+        start,
+        {
+          id: 'loop',
+          type: 'loop',
+          props: { type: 'dynamic', dataKey: '$$nonexistent.items' },
+        },
+        makeScreen('s-item', 'item'),
+      ],
+      edges: [
+        seq('start', 'loop'),
+        { type: 'loop-template', from: 'loop', to: 's-item' },
+      ],
+      screens: [
+        {
+          slug: 'item',
+          components: [
+            { componentFamily: 'layout', template: 'button', props: { text: 'Next' } },
+          ],
+        },
+      ],
+    };
+    expect(codes(flow)).toContain('unavailable-reference');
+  });
+});

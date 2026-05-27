@@ -1,6 +1,8 @@
+import { Handlers, on, flatMap as walkComponentTree } from './component-walker';
 import { ScreenComponent } from './components';
 import { Condition } from './conditions';
-import { Formula } from './nodes';
+import { FrameworkEdge } from './edges';
+import { Formula, FrameworkNode } from './nodes';
 import { resolveValuesInString } from './resolve';
 import { Context, ExperimentFlow } from './types';
 
@@ -52,48 +54,65 @@ function collectConditionDataKeys(cond: Condition): string[] {
   return [];
 }
 
-function checkNodeIdentity(flow: ExperimentFlow): ValidationError[] {
+function checkNodes(flow: ExperimentFlow): ValidationError[] {
   const errors: ValidationError[] = [];
-  const pushNodeError = (code: string, message: string) =>
-    errors.push({ code, category: 'node', message });
 
-  const seen = new Set<string>();
-  for (const node of flow.nodes) {
-    if (seen.has(node.id)) {
-      pushNodeError('duplicate-node-id', `Duplicate node id "${node.id}"`);
+  const startNodes = flow.nodes.filter((node) => node.type === 'start');
+  if (startNodes.length === 0) {
+    errors.push({
+      code: 'missing-start',
+      category: 'node',
+      message: 'Flow has no start node',
+    });
+  }
+
+  const ids = new Map<string, FrameworkNode>();
+  const duplicateIds = new Set<string>();
+
+  flow.nodes.forEach((node) => {
+    if (ids.has(node.id)) {
+      duplicateIds.add(node.id);
+    } else {
+      ids.set(node.id, node);
     }
-    seen.add(node.id);
-  }
+  });
 
-  const starts = flow.nodes.filter((n) => n.type === 'start');
-  if (starts.length === 0) {
-    pushNodeError('missing-start', 'Flow has no start node');
-  }
+  duplicateIds.forEach((id) => {
+    const nodes = flow.nodes.filter((node) => node.id === id);
+    errors.push({
+      code: 'duplicate-node-id',
+      category: 'node',
+      message: `Duplicate node id "${id}" found in nodes: ${nodes.map((_) => JSON.stringify(_, null, 2)).join('\n\n')}`,
+    });
+  });
 
   return errors;
 }
 
 function checkEdgeEndpoints(flow: ExperimentFlow): ValidationError[] {
   const errors: ValidationError[] = [];
-  const pushEdgeError = (code: string, message: string) =>
-    errors.push({ code, category: 'edge', message });
-  const nodeIds = new Set(flow.nodes.map((n) => n.id));
 
-  for (const edge of flow.edges) {
-    const fromNodeId = edge.from.split('.')[0];
-    if (!nodeIds.has(fromNodeId)) {
-      pushEdgeError(
-        'unknown-node',
-        `Edge references unknown source node "${fromNodeId}" as source`,
-      );
+  const ids = new Set(flow.nodes.map((node) => node.id));
+
+  flow.edges.forEach((edge) => {
+    const from = edge.from.split('.')[0];
+    if (!ids.has(from)) {
+      errors.push({
+        code: 'unknown-node',
+        category: 'edge',
+        message: `Edge "from" references non-existent node id "${from}". ${JSON.stringify(edge, null, 2)}`,
+      });
     }
-    if (!nodeIds.has(edge.to)) {
-      pushEdgeError(
-        'unknown-node',
-        `Edge references unknown target node "${edge.to}" as target`,
-      );
+
+    const to = edge.to.split('.')[0];
+    if (!ids.has(to)) {
+      errors.push({
+        code: 'unknown-node',
+        category: 'edge',
+        message: `Edge "to" references non-existent node id "${to}".`,
+      });
     }
-  }
+  });
 
   return errors;
 }
@@ -104,15 +123,27 @@ function checkEdgeWiring(flow: ExperimentFlow): ValidationError[] {
     errors.push({ code, category: 'edge', message });
   const pushBranchError = (code: string, message: string) =>
     errors.push({ code, category: 'branch', message });
+
   const nodeMap = new Map(flow.nodes.map((n) => [n.id, n]));
 
-  // Per-node checks
+  // Pre-index edges by `from` to avoid O(n×m) scanning inside the per-node loop.
+  // checkReferences already uses this pattern for its traversal maps; we mirror it here.
+  const edgesByFrom = new Map<string, FrameworkEdge[]>();
+  for (const edge of flow.edges) {
+    const list = edgesByFrom.get(edge.from);
+    if (list) list.push(edge);
+    else edgesByFrom.set(edge.from, [edge]);
+  }
+  const fromEdges = (id: string): FrameworkEdge[] => edgesByFrom.get(id) ?? [];
+  const countEdgeType = (id: string, type: string) =>
+    fromEdges(id).filter((e) => e.type === type).length;
+  const hasEdgeType = (id: string, type: string) =>
+    fromEdges(id).some((e) => e.type === type);
+
   for (const node of flow.nodes) {
     switch (node.type) {
       case 'start': {
-        const count = flow.edges.filter(
-          (e) => e.type === 'sequential' && e.from === node.id,
-        ).length;
+        const count = countEdgeType(node.id, 'sequential');
         if (count === 0) {
           pushEdgeError(
             'missing-edge',
@@ -123,9 +154,7 @@ function checkEdgeWiring(flow: ExperimentFlow): ValidationError[] {
       }
 
       case 'checkpoint': {
-        const count = flow.edges.filter(
-          (e) => e.type === 'sequential' && e.from === node.id,
-        ).length;
+        const count = countEdgeType(node.id, 'sequential');
         if (count > 1) {
           pushEdgeError(
             'ambiguous-edge',
@@ -136,22 +165,14 @@ function checkEdgeWiring(flow: ExperimentFlow): ValidationError[] {
       }
 
       case 'branch': {
-        const hasDefault = flow.edges.some(
-          (e) => e.type === 'branch-default' && e.from === node.id,
-        );
-        if (!hasDefault) {
+        if (!hasEdgeType(node.id, 'branch-default')) {
           pushEdgeError(
             'missing-edge',
             `Branch "${node.id}" has no branch-default edge`,
           );
         }
         for (const branch of node.props.branches) {
-          const hasConditionEdge = flow.edges.some(
-            (e) =>
-              e.type === 'branch-condition' &&
-              e.from === `${node.id}.${branch.id}`,
-          );
-          if (!hasConditionEdge) {
+          if (!hasEdgeType(`${node.id}.${branch.id}`, 'branch-condition')) {
             pushBranchError(
               'unrouted-branch',
               `Branch "${node.id}" has condition "${branch.id}" with no corresponding branch-condition edge`,
@@ -175,10 +196,7 @@ function checkEdgeWiring(flow: ExperimentFlow): ValidationError[] {
           );
         }
         for (const fork of node.props.forks) {
-          const hasForkEdge = flow.edges.some(
-            (e) => e.type === 'fork-edge' && e.from === `${node.id}.${fork.id}`,
-          );
-          if (!hasForkEdge) {
+          if (!hasEdgeType(`${node.id}.${fork.id}`, 'fork-edge')) {
             pushEdgeError(
               'missing-edge',
               `Fork "${node.id}" has fork "${fork.id}" with no corresponding fork-edge`,
@@ -189,45 +207,38 @@ function checkEdgeWiring(flow: ExperimentFlow): ValidationError[] {
       }
 
       case 'path': {
-        const hasChildren = flow.edges.some(
-          (e) => e.type === 'path-contains' && e.from === node.id,
-        );
-        if (!hasChildren) {
+        if (!hasEdgeType(node.id, 'path-contains')) {
           pushEdgeError(
             'missing-edge',
             `Path "${node.id}" has no path-contains edges`,
           );
         }
-        const seqCount = flow.edges.filter(
-          (e) => e.type === 'sequential' && e.from === node.id,
-        ).length;
-        if (seqCount === 0) {
+        const count = countEdgeType(node.id, 'sequential');
+        if (count === 0) {
           pushEdgeError(
             'missing-edge',
             `Path "${node.id}" has no sequential exit edge`,
           );
-        } else if (seqCount > 1) {
+        } else if (count > 1) {
           pushEdgeError(
             'ambiguous-edge',
-            `Path "${node.id}" has ${seqCount} sequential exit edges; exactly one is required`,
+            `Path "${node.id}" has ${count} sequential exit edges; exactly one is required`,
           );
         }
         break;
       }
 
       case 'loop': {
-        const count = flow.edges.filter(
-          (e) => e.type === 'loop-template' && e.from === node.id,
-        ).length;
-        if (count === 0) {
+        const templateCount = countEdgeType(node.id, 'loop-template');
+        if (templateCount === 0) {
           pushEdgeError(
             'missing-edge',
             `Loop "${node.id}" has no loop-template edge`,
           );
-        } else if (count > 1) {
+        } else if (templateCount > 1) {
           pushEdgeError(
             'duplicate-edge',
-            `Loop "${node.id}" has ${count} loop-template edges; exactly one is required`,
+            `Loop "${node.id}" has ${templateCount} loop-template edges; exactly one is required`,
           );
         }
         break;
@@ -235,7 +246,6 @@ function checkEdgeWiring(flow: ExperimentFlow): ValidationError[] {
     }
   }
 
-  // Per-edge checks
   for (const edge of flow.edges) {
     switch (edge.type) {
       case 'branch-condition': {
@@ -301,18 +311,22 @@ function checkScreenDefinitions(flow: ExperimentFlow): ValidationError[] {
     errors.push({ code, category: 'screen', message });
   const screens = flow.screens ?? [];
 
-  // Screen nodes must have a matching definition
   const slugSet = new Set(screens.map((s) => s.slug));
+  // Collect referencedSlugs in the same pass that checks for missing-screen,
+  // eliminating a separate O(n) scan over nodes.
+  const referencedSlugs = new Set<string>();
   for (const node of flow.nodes) {
-    if (node.type === 'screen' && !slugSet.has(node.props.slug)) {
-      pushScreenError(
-        'missing-screen',
-        `Screen node "${node.id}" references slug "${node.props.slug}" with no screen definition`,
-      );
+    if (node.type === 'screen') {
+      referencedSlugs.add(node.props.slug);
+      if (!slugSet.has(node.props.slug)) {
+        pushScreenError(
+          'missing-screen',
+          `Screen node "${node.id}" references slug "${node.props.slug}" with no screen definition`,
+        );
+      }
     }
   }
 
-  // Screen slugs must be unique
   const seenSlugs = new Set<string>();
   for (const screen of screens) {
     if (seenSlugs.has(screen.slug)) {
@@ -322,23 +336,50 @@ function checkScreenDefinitions(flow: ExperimentFlow): ValidationError[] {
       );
     }
     seenSlugs.add(screen.slug);
-  }
-
-  // Screen definitions must be referenced by at least one screen node
-  const referencedSlugs = new Set(
-    flow.nodes
-      .filter(
-        (n): n is Extract<(typeof flow.nodes)[number], { type: 'screen' }> =>
-          n.type === 'screen',
-      )
-      .map((n) => n.props.slug),
-  );
-  for (const screen of screens) {
     if (!referencedSlugs.has(screen.slug)) {
       pushScreenError(
         'unreferenced-screen',
         `Screen definition "${screen.slug}" is not referenced by any screen node`,
       );
+    }
+  }
+
+  return errors;
+}
+
+function checkReachability(flow: ExperimentFlow): ValidationError[] {
+  const errors: ValidationError[] = [];
+  const startNodes = flow.nodes.filter((n) => n.type === 'start');
+  if (startNodes.length === 0) return errors;
+
+  // Build full adjacency from all edges (strip compound ids like "branch.arm" to base node id)
+  const adjacency = new Map<string, string[]>();
+  for (const edge of flow.edges) {
+    const from = edge.from.split('.')[0];
+    const to = edge.to.split('.')[0];
+    const list = adjacency.get(from);
+    if (list) list.push(to);
+    else adjacency.set(from, [to]);
+  }
+
+  const reachable = new Set<string>();
+  const queue = startNodes.map((n) => n.id);
+  while (queue.length > 0) {
+    const nodeId = queue.shift()!;
+    if (reachable.has(nodeId)) continue;
+    reachable.add(nodeId);
+    for (const target of adjacency.get(nodeId) ?? []) {
+      if (!reachable.has(target)) queue.push(target);
+    }
+  }
+
+  for (const node of flow.nodes) {
+    if (!reachable.has(node.id)) {
+      errors.push({
+        code: 'unreachable-node',
+        category: 'node',
+        message: `Node "${node.id}" (${node.type}) is unreachable from any start node`,
+      });
     }
   }
 
@@ -413,9 +454,13 @@ function checkReferences(flow: ExperimentFlow): ValidationError[] {
         }
       } else {
         const path = token.slice(2);
-        const ok = [...available].some(
-          (a) => path === a || path.startsWith(a + '.'),
-        );
+        let ok = false;
+        for (const a of available) {
+          if (path === a || path.startsWith(a + '.')) {
+            ok = true;
+            break;
+          }
+        }
         if (!ok) {
           pushReferenceError(
             'unavailable-reference',
@@ -424,11 +469,12 @@ function checkReferences(flow: ExperimentFlow): ValidationError[] {
         }
       }
     }
-    // Detect bare $$... embedded in longer text (missing {{}} — won't be interpolated)
-    const hasWrapped = /\{\{(?:\$\$|@)[\w.\-]+\}\}/.test(text);
+    // Detect bare $$... not inside {{…}} wrappers — they won't be interpolated at runtime.
+    // Strip {{…}} sections first so their contents don't trigger false positives.
     const isWholeBare = /^(?:\$\$|@)[\w.\-]+$/.test(text);
-    if (!hasWrapped && !isWholeBare) {
-      for (const m of text.matchAll(/\$\$([\w.\-]+)/g)) {
+    if (!isWholeBare) {
+      const stripped = text.replace(/\{\{[^}]*\}\}/g, '');
+      for (const m of stripped.matchAll(/\$\$([\w.\-]+)/g)) {
         pushReferenceError(
           'unwrapped-token',
           `${context} contains "$$${m[1]}" without {{…}} — it will not be interpolated at runtime`,
@@ -521,18 +567,44 @@ function checkReferences(flow: ExperimentFlow): ValidationError[] {
         }
         break;
       }
+      case 'count-correct': {
+        // Validate the $$-prefixed items array reference
+        checkText(formula.itemsKey, context, available, insideLoop);
+        // Validate that loopId points to a real loop node
+        const loopNode = nodeMap.get(formula.loopId);
+        if (!loopNode) {
+          pushReferenceError(
+            'unavailable-reference',
+            `${context} count-correct formula references non-existent loop node "${formula.loopId}"`,
+          );
+        } else if (loopNode.type !== 'loop') {
+          pushReferenceError(
+            'invalid-reference',
+            `${context} count-correct formula "loopId" "${formula.loopId}" must reference a loop node, but it is a ${loopNode.type} node`,
+          );
+        }
+        break;
+      }
     }
   }
 
   // available: dot-joined data paths guaranteed to be written up to this point
   // dataPath: nesting context for how screen data is stored (e.g. ["path-profile"])
   // insideLoop: whether we are walking a loop template subgraph
+  // pathVisited: nodes visited on the current traversal path — guards against sequential cycles
   function walk(
     nodeId: string,
     available: Set<string>,
     dataPath: string[],
     insideLoop: boolean,
+    pathVisited: Set<string> = new Set(),
   ): Set<string> {
+    // Guard: a cycle in the sequential/path graph would cause infinite recursion.
+    // Each branch/fork arm receives a copy of pathVisited so sibling arms are independent.
+    if (pathVisited.has(nodeId)) return available;
+    const visited = new Set(pathVisited);
+    visited.add(nodeId);
+
     const node = nodeMap.get(nodeId);
     if (!node) return available;
 
@@ -542,7 +614,7 @@ function checkReferences(flow: ExperimentFlow): ValidationError[] {
       case 'start':
       case 'checkpoint': {
         const next = seqNext.get(nodeId);
-        if (next) return walk(next, current, dataPath, insideLoop);
+        if (next) return walk(next, current, dataPath, insideLoop, visited);
         break;
       }
 
@@ -554,9 +626,6 @@ function checkReferences(flow: ExperimentFlow): ValidationError[] {
 
           function processComponent(component: ScreenComponent, ctx: Context) {
             const props = component.props as Record<string, unknown>;
-            // Note: We only validate wrapped references in labels/content (checkText will catch unwrapped tokens).
-            // Dynamic dataKeys like 'rating-{{$$foo.bar}}' are not validated here but work correctly at runtime
-            // because resolveValuesInString() interpolates the template in RenderComponent before form creation.
             for (const field of ['label', 'content', 'text'] as const) {
               if (typeof props[field] === 'string') {
                 checkText(
@@ -604,7 +673,7 @@ function checkReferences(flow: ExperimentFlow): ValidationError[] {
           }
         }
         const next = seqNext.get(nodeId);
-        if (next) return walk(next, current, dataPath, insideLoop);
+        if (next) return walk(next, current, dataPath, insideLoop, visited);
         break;
       }
 
@@ -654,7 +723,7 @@ function checkReferences(flow: ExperimentFlow): ValidationError[] {
           nodeOutputs.add(outputKey);
         }
         const next = seqNext.get(nodeId);
-        if (next) return walk(next, current, dataPath, insideLoop);
+        if (next) return walk(next, current, dataPath, insideLoop, visited);
         break;
       }
 
@@ -669,23 +738,39 @@ function checkReferences(flow: ExperimentFlow): ValidationError[] {
             childAvailable,
             [...dataPath, nodeId],
             insideLoop,
+            visited,
           );
         }
         childAvailable.forEach((k) => current.add(k));
         const next = seqNext.get(nodeId);
-        if (next) return walk(next, current, dataPath, insideLoop);
+        if (next) return walk(next, current, dataPath, insideLoop, visited);
         break;
       }
 
       case 'loop': {
+        // Validate dynamic dataKey against the data available at this point in the graph
+        if (node.props.type === 'dynamic') {
+          checkText(
+            node.props.dataKey,
+            `Loop "${nodeId}"`,
+            current,
+            insideLoop,
+          );
+        }
         // Walk template for @-ref validation only; loop data is dynamically keyed
         // so it is not added to the available set for nodes after the loop.
         const templateId = loopTemplateOf.get(nodeId);
         if (templateId) {
-          walk(templateId, new Set(current), [...dataPath, nodeId], true);
+          walk(
+            templateId,
+            new Set(current),
+            [...dataPath, nodeId],
+            true,
+            visited,
+          );
         }
         const next = seqNext.get(nodeId);
-        if (next) return walk(next, current, dataPath, insideLoop);
+        if (next) return walk(next, current, dataPath, insideLoop, visited);
         break;
       }
 
@@ -700,11 +785,17 @@ function checkReferences(flow: ExperimentFlow): ValidationError[] {
             );
           }
         }
-        // Walk each target in isolation — data written in one branch is not
-        // guaranteed to be available in another.
+        // Each branch arm is an independent sub-walk: data written in one arm is
+        // not guaranteed available in another, and cycle detection is per-arm.
         const targets = branchForkTargets.get(nodeId) ?? [];
         for (const target of targets) {
-          walk(target, new Set(current), dataPath, insideLoop);
+          walk(
+            target,
+            new Set(current),
+            dataPath,
+            insideLoop,
+            new Set(visited),
+          );
         }
         break;
       }
@@ -712,7 +803,13 @@ function checkReferences(flow: ExperimentFlow): ValidationError[] {
       case 'fork': {
         const targets = branchForkTargets.get(nodeId) ?? [];
         for (const target of targets) {
-          walk(target, new Set(current), dataPath, insideLoop);
+          walk(
+            target,
+            new Set(current),
+            dataPath,
+            insideLoop,
+            new Set(visited),
+          );
         }
         break;
       }
@@ -724,7 +821,8 @@ function checkReferences(flow: ExperimentFlow): ValidationError[] {
   const startNode = flow.nodes.find((n) => n.type === 'start');
   if (startNode) walk(startNode.id, new Set(), [], false);
 
-  // Deduplicate: the same screen may be reached via multiple branch paths
+  // Deduplicate: the same node may be reached via multiple branch/fork arms,
+  // each producing an identical error. Keep the first occurrence of each.
   const seen = new Set<string>();
   return rawErrors.filter((e) => {
     const key = `${e.code}:${e.message}`;
@@ -753,109 +851,101 @@ const VALID_TEMPLATES: Record<string, Set<string>> = {
   control: new Set(['conditional', 'for-each']),
 };
 
-function checkComponentTemplates(flow: ExperimentFlow): ValidationError[] {
-  const errors: ValidationError[] = [];
-  const pushComponentError = (code: string, message: string) =>
-    errors.push({ code, category: 'component', message });
+// Shared traversal over every component in every screen, applying `onLeaf` to each.
+// Container components (group, conditional, for-each) are both passed to `onLeaf`
+// and recursed into so their children are also visited.
+function forEachComponent(
+  flow: ExperimentFlow,
+  onLeaf: (component: ScreenComponent, screenSlug: string) => ValidationError[],
+): ValidationError[] {
+  const handlers: Handlers<ValidationError, string> = [
+    on({ componentFamily: 'layout', template: 'group' }, (c, slug, recur) => [
+      ...onLeaf(c, slug),
+      ...recur(c.props.components, slug),
+    ]),
+    on(
+      { componentFamily: 'control', template: 'conditional' },
+      (c, slug, recur) => [
+        ...onLeaf(c, slug),
+        ...recur([c.props.component], slug),
+        ...(c.props.else ? recur([c.props.else], slug) : []),
+      ],
+    ),
+    on(
+      { componentFamily: 'control', template: 'for-each' },
+      (c, slug, recur) => [
+        ...onLeaf(c, slug),
+        ...recur([c.props.component], slug),
+      ],
+    ),
+    on({}, (c, slug) => onLeaf(c, slug)),
+  ];
+  return (flow.screens ?? []).flatMap((screen) =>
+    walkComponentTree(screen.components, screen.slug, handlers),
+  );
+}
 
-  function checkComponent(component: ScreenComponent, screenSlug: string) {
+function checkComponentTemplates(flow: ExperimentFlow): ValidationError[] {
+  return forEachComponent(flow, (component, slug) => {
     const { componentFamily, template } = component;
     const validTemplates = VALID_TEMPLATES[componentFamily];
     if (!validTemplates) {
-      pushComponentError(
-        'unknown-template',
-        `Screen "${screenSlug}" uses unknown componentFamily "${componentFamily}"`,
-      );
-    } else if (!validTemplates.has(template)) {
-      pushComponentError(
-        'unknown-template',
-        `Screen "${screenSlug}" uses unknown template "${template}" for componentFamily "${componentFamily}"`,
-      );
+      return [
+        {
+          code: 'unknown-template',
+          category: 'component',
+          message: `Screen "${slug}" uses unknown componentFamily "${componentFamily}"`,
+        },
+      ];
     }
-
-    if (
-      component.componentFamily === 'layout' &&
-      component.template === 'group'
-    ) {
-      for (const child of component.props.components)
-        checkComponent(child, screenSlug);
-    } else if (component.componentFamily === 'control') {
-      if (component.template === 'conditional') {
-        checkComponent(component.props.component, screenSlug);
-        if (component.props.else)
-          checkComponent(component.props.else, screenSlug);
-      } else if (component.template === 'for-each') {
-        checkComponent(component.props.component, screenSlug);
-      }
+    if (!validTemplates.has(template)) {
+      return [
+        {
+          code: 'unknown-template',
+          category: 'component',
+          message: `Screen "${slug}" uses unknown template "${template}" for componentFamily "${componentFamily}"`,
+        },
+      ];
     }
-  }
-
-  for (const screen of flow.screens ?? []) {
-    for (const component of screen.components) {
-      checkComponent(component, screen.slug);
-    }
-  }
-
-  return errors;
+    return [];
+  });
 }
 
 function checkSharedOptionReferences(flow: ExperimentFlow): ValidationError[] {
-  const errors: ValidationError[] = [];
-  const pushReferenceError = (code: string, message: string) =>
-    errors.push({ code, category: 'reference', message });
   const definedOptions = new Set(Object.keys(flow.options ?? {}));
   const hasSupportedTemplatePlaceholder =
     /\{\{(?:\$\$|\$|@|#)[a-zA-Z0-9_.\-]+\}\}/;
 
-  function checkComponent(component: ScreenComponent, screenSlug: string) {
+  return forEachComponent(flow, (component, slug) => {
     const props = component.props as Record<string, unknown>;
     if (typeof props.options === 'string' && props.options.startsWith('%')) {
       const name = props.options.slice(1);
       // For templated option references like '%mirada-{{@loop.value}}':
-      // - Static validation cannot fully validate the resolved keys (e.g., 'mirada-1', 'mirada-2', ...)
-      // - The actual validation happens at runtime when resolveOptionsSource() evaluates the template
-      // - We only skip static checks for placeholders supported by resolveValuesInString()
+      // static validation cannot resolve the template; the actual check happens
+      // at runtime in resolveOptionsSource(). Skip only for known placeholder syntax.
       if (
         !definedOptions.has(name) &&
         !hasSupportedTemplatePlaceholder.test(name)
       ) {
-        pushReferenceError(
-          'unknown-shared-options',
-          `Screen "${screenSlug}" references undefined shared option set "%${name}"`,
-        );
+        return [
+          {
+            code: 'unknown-shared-options',
+            category: 'reference',
+            message: `Screen "${slug}" references undefined shared option set "%${name}"`,
+          },
+        ];
       }
     }
-    if (
-      component.componentFamily === 'layout' &&
-      component.template === 'group'
-    ) {
-      for (const child of component.props.components)
-        checkComponent(child, screenSlug);
-    } else if (component.componentFamily === 'control') {
-      if (component.template === 'conditional') {
-        checkComponent(component.props.component, screenSlug);
-        if (component.props.else)
-          checkComponent(component.props.else, screenSlug);
-      } else if (component.template === 'for-each') {
-        checkComponent(component.props.component, screenSlug);
-      }
-    }
-  }
-
-  for (const screen of flow.screens ?? []) {
-    for (const component of screen.components) {
-      checkComponent(component, screen.slug);
-    }
-  }
-
-  return errors;
+    return [];
+  });
 }
 
 export function validateExperiment(flow: ExperimentFlow): ValidationError[] {
   return [
-    ...checkNodeIdentity(flow),
+    ...checkNodes(flow),
     ...checkEdgeEndpoints(flow),
     ...checkEdgeWiring(flow),
+    ...checkReachability(flow),
     ...checkScreenDefinitions(flow),
     ...checkReferences(flow),
     ...checkSharedOptionReferences(flow),
