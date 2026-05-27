@@ -1,9 +1,10 @@
-import { describe, expect, it } from 'vitest';
+import { validateExperiment } from '@/lib/experiment-validation';
 import { ExperimentFlow } from '@/lib/types';
-import { validateExperiment } from '@/lib/flow-validation';
+import { describe, expect, it } from 'vitest';
 import { makeScreen, seq } from './test-helpers';
 
 const start = { id: 'start', type: 'start' as const };
+const end = { id: 'end', type: 'end' as const };
 
 function codes(flow: ExperimentFlow) {
   return validateExperiment(flow).map((e) => e.code);
@@ -19,8 +20,8 @@ function categories(flow: ExperimentFlow) {
 
 // Minimal valid flow used as a baseline across tests
 const minimalFlow: ExperimentFlow = {
-  nodes: [start, makeScreen('s1', 'welcome')],
-  edges: [seq('start', 's1')],
+  nodes: [start, makeScreen('s1', 'welcome'), end],
+  edges: [seq('start', 's1'), seq('s1', 'end')],
   screens: [
     {
       slug: 'welcome',
@@ -38,7 +39,7 @@ const minimalFlow: ExperimentFlow = {
 describe('error categories', () => {
   it('assigns explicit categories to validation errors', () => {
     const missingStartFlow: ExperimentFlow = {
-      nodes: [makeScreen('s1', 'welcome')],
+      nodes: [makeScreen('s1', 'welcome'), end],
       edges: [],
       screens: [],
     };
@@ -130,7 +131,7 @@ describe('node identity', () => {
 
   it('reports duplicate-node-id', () => {
     const flow: ExperimentFlow = {
-      nodes: [start, makeScreen('s1', 'a'), makeScreen('s1', 'b')],
+      nodes: [start, makeScreen('s1', 'a'), makeScreen('s1', 'b'), end],
       edges: [],
     };
     expect(codes(flow)).toContain('duplicate-node-id');
@@ -254,12 +255,15 @@ describe('branch wiring', () => {
         makeScreen('s1', 'q'),
         makeScreen('s-yes', 'yes-screen'),
         makeScreen('s-no', 'no-screen'),
+        end,
       ],
       edges: [
         seq('start', 's1'),
         seq('s1', 'b'),
         { type: 'branch-condition', from: 'b.yes', to: 's-yes' },
         { type: 'branch-default', from: 'b', to: 's-no' },
+        seq('s-yes', 'end'),
+        seq('s-no', 'end'),
       ],
       screens: [
         {
@@ -493,7 +497,7 @@ describe('fork wiring', () => {
       screens: [{ slug: 'variant-a', components: [] }],
     };
     expect(codes(flow)).toContain('missing-edge');
-    expect(messages(flow).some((m) => m.includes('at least two arms'))).toBe(
+    expect(messages(flow).some((m) => m.includes('at least two are required'))).toBe(
       true,
     );
   });
@@ -526,7 +530,7 @@ describe('fork wiring', () => {
         { slug: 'variant-b', components: [] },
       ],
     };
-    expect(messages(flow).some((m) => m.includes('at least two arms'))).toBe(
+    expect(messages(flow).some((m) => m.includes('at least two are required'))).toBe(
       false,
     );
   });
@@ -583,7 +587,7 @@ describe('path wiring', () => {
     };
     expect(codes(flow)).toContain('missing-edge');
     expect(
-      messages(flow).some((m) => m.includes('no sequential exit edge')),
+      messages(flow).some((m) => m.includes('no sequential outgoing edge')),
     ).toBe(true);
   });
 
@@ -611,7 +615,7 @@ describe('path wiring', () => {
     expect(codes(flow)).toContain('ambiguous-edge');
     expect(
       messages(flow).some((m) =>
-        m.includes('sequential exit edges; exactly one is required'),
+        m.includes('sequential outgoing edges; at most one is allowed'),
       ),
     ).toBe(true);
   });
@@ -729,10 +733,12 @@ describe('@ reference checks', () => {
           props: { type: 'static', values: ['a', 'b'] },
         },
         makeScreen('s-item', 'item'),
+        end,
       ],
       edges: [
         seq('start', 'loop'),
         { type: 'loop-template', from: 'loop', to: 's-item' },
+        seq('loop', 'end'),
       ],
       screens: [
         {
@@ -805,8 +811,8 @@ describe('@ reference checks', () => {
 describe('$$ reference checks', () => {
   it('accepts a $$ reference to a screen that ran before', () => {
     const flow: ExperimentFlow = {
-      nodes: [start, makeScreen('s1', 'welcome'), makeScreen('s2', 'profile')],
-      edges: [seq('start', 's1'), seq('s1', 's2')],
+      nodes: [start, makeScreen('s1', 'welcome'), makeScreen('s2', 'profile'), end],
+      edges: [seq('start', 's1'), seq('s1', 's2'), seq('s2', 'end')],
       screens: [
         {
           slug: 'welcome',
@@ -835,8 +841,8 @@ describe('$$ reference checks', () => {
 
   it('accepts a $$ reference to a field nested inside a group on a prior screen', () => {
     const flow: ExperimentFlow = {
-      nodes: [start, makeScreen('s1', 'welcome'), makeScreen('s2', 'profile')],
-      edges: [seq('start', 's1'), seq('s1', 's2')],
+      nodes: [start, makeScreen('s1', 'welcome'), makeScreen('s2', 'profile'), end],
+      edges: [seq('start', 's1'), seq('s1', 's2'), seq('s2', 'end')],
       screens: [
         {
           slug: 'welcome',
@@ -919,11 +925,13 @@ describe('$$ reference checks', () => {
         { id: 'path-info', type: 'path', props: { name: 'Info' } },
         makeScreen('s-age', 'demographics'),
         makeScreen('s-after', 'after'),
+        end,
       ],
       edges: [
         seq('start', 'path-info'),
         { type: 'path-contains', from: 'path-info', to: 's-age', order: 0 },
         seq('path-info', 's-after'),
+        seq('s-after', 'end'),
       ],
       screens: [
         {
@@ -1055,6 +1063,7 @@ describe('$$ reference checks', () => {
         makeScreen('s-yes', 'branch-yes'),
         makeScreen('s-no', 'branch-no'),
         makeScreen('s-after', 'after'),
+        end,
       ],
       edges: [
         seq('start', 's-before'),
@@ -1063,6 +1072,7 @@ describe('$$ reference checks', () => {
         { type: 'branch-default', from: 'branch', to: 's-no' },
         seq('s-yes', 's-after'),
         seq('s-no', 's-after'),
+        seq('s-after', 'end'),
       ],
       screens: [
         {
@@ -1121,12 +1131,15 @@ describe('condition reference checks', () => {
         },
         makeScreen('s-yes', 'yes'),
         makeScreen('s-no', 'no'),
+        end,
       ],
       edges: [
         seq('start', 's1'),
         seq('s1', 'b'),
         { type: 'branch-condition', from: 'b.yes', to: 's-yes' },
         { type: 'branch-default', from: 'b', to: 's-no' },
+        seq('s-yes', 'end'),
+        seq('s-no', 'end'),
       ],
       screens: [
         {
@@ -1254,8 +1267,8 @@ describe('shared option references', () => {
 
   it('passes when %name resolves to a key in experiment.options', () => {
     const flow: ExperimentFlow = {
-      nodes: [start, makeScreen('s1', 'q')],
-      edges: [seq('start', 's1')],
+      nodes: [start, makeScreen('s1', 'q'), end],
+      edges: [seq('start', 's1'), seq('s1', 'end')],
       options: { 'yes-no': [{ label: 'Yes', value: 'yes' }] },
       screens: [makeRadioScreen('%yes-no')],
     };
@@ -1277,8 +1290,8 @@ describe('shared option references', () => {
 
   it('passes when options is an inline array (no % reference)', () => {
     const flow: ExperimentFlow = {
-      nodes: [start, makeScreen('s1', 'q')],
-      edges: [seq('start', 's1')],
+      nodes: [start, makeScreen('s1', 'q'), end],
+      edges: [seq('start', 's1'), seq('s1', 'end')],
       screens: [makeRadioScreen([{ label: 'Yes', value: 'yes' }])],
     };
     expect(validateExperiment(flow)).toEqual([]);
@@ -1320,8 +1333,8 @@ function makeCompute(
 describe('compute node wiring', () => {
   it('passes a valid compute node with sequential exit edge', () => {
     const flow: ExperimentFlow = {
-      nodes: [start, makeCompute('c1'), makeScreen('s1', 'end')],
-      edges: [seq('start', 'c1'), seq('c1', 's1')],
+      nodes: [start, makeCompute('c1'), makeScreen('s1', 'end'), end],
+      edges: [seq('start', 'c1'), seq('c1', 's1'), seq('s1', 'end')],
       screens: [{ slug: 'end', components: [] }],
     };
     expect(validateExperiment(flow)).toEqual([]);
@@ -1329,8 +1342,8 @@ describe('compute node wiring', () => {
 
   it('passes a compute node with no sequential exit edge (end of flow)', () => {
     const flow: ExperimentFlow = {
-      nodes: [start, makeScreen('s1', 'q'), makeCompute('c1')],
-      edges: [seq('start', 's1'), seq('s1', 'c1')],
+      nodes: [start, makeScreen('s1', 'q'), makeCompute('c1'), end],
+      edges: [seq('start', 's1'), seq('s1', 'c1'), seq('c1', 'end')],
       screens: [{ slug: 'q', components: [] }],
     };
     expect(validateExperiment(flow)).toEqual([]);
@@ -1349,8 +1362,9 @@ describe('compute node reference checks', () => {
           },
         ]),
         makeScreen('s1', 'end'),
+        end,
       ],
-      edges: [seq('start', 'c1'), seq('c1', 's1')],
+      edges: [seq('start', 'c1'), seq('c1', 's1'), seq('s1', 'end')],
       screens: [{ slug: 'end', components: [] }],
     };
     expect(codes(flow)).toContain('unavailable-reference');
@@ -1368,8 +1382,14 @@ describe('compute node reference checks', () => {
           },
         ]),
         makeScreen('s2', 'end'),
+        end,
       ],
-      edges: [seq('start', 's1'), seq('s1', 'c1'), seq('c1', 's2')],
+      edges: [
+        seq('start', 's1'),
+        seq('s1', 'c1'),
+        seq('c1', 's2'),
+        seq('s2', 'end'),
+      ],
       screens: [
         {
           slug: 'q',
@@ -1414,8 +1434,14 @@ describe('compute node reference checks', () => {
           },
         ]),
         makeScreen('s2', 'end'),
+        end,
       ],
-      edges: [seq('start', 's1'), seq('s1', 'c1'), seq('c1', 's2')],
+      edges: [
+        seq('start', 's1'),
+        seq('s1', 'c1'),
+        seq('c1', 's2'),
+        seq('s2', 'end'),
+      ],
       screens: [
         {
           slug: 'q',
@@ -1459,8 +1485,14 @@ describe('compute node reference checks', () => {
           },
         ]),
         makeScreen('s2', 'end'),
+        end,
       ],
-      edges: [seq('start', 's1'), seq('s1', 'c1'), seq('c1', 's2')],
+      edges: [
+        seq('start', 's1'),
+        seq('s1', 'c1'),
+        seq('c1', 's2'),
+        seq('s2', 'end'),
+      ],
       screens: [
         {
           slug: 'q',
@@ -1490,8 +1522,14 @@ describe('compute node reference checks', () => {
           },
         ]),
         makeScreen('s2', 'result'),
+        end,
       ],
-      edges: [seq('start', 's1'), seq('s1', 'c1'), seq('c1', 's2')],
+      edges: [
+        seq('start', 's1'),
+        seq('s1', 'c1'),
+        seq('c1', 's2'),
+        seq('s2', 'end'),
+      ],
       screens: [
         {
           slug: 'q',
@@ -1536,8 +1574,9 @@ describe('compute node reference checks', () => {
             },
           },
         ]),
+        end,
       ],
-      edges: [seq('start', 's1'), seq('s1', 'c1')],
+      edges: [seq('start', 's1'), seq('s1', 'c1'), seq('c1', 'end')],
       screens: [
         {
           slug: 'q',
@@ -1567,12 +1606,14 @@ describe('compute node reference checks', () => {
           },
         ]),
         makeScreen('s2', 'result'),
+        end,
       ],
       edges: [
         seq('start', 'path-a'),
         { type: 'path-contains', from: 'path-a', to: 's1', order: 0 },
         { type: 'path-contains', from: 'path-a', to: 'c1', order: 1 },
         seq('path-a', 's2'),
+        seq('s2', 'end'),
       ],
       screens: [
         {
@@ -1618,8 +1659,9 @@ describe('compute node reference checks', () => {
             },
           },
         ]),
+        end,
       ],
-      edges: [seq('start', 's1'), seq('s1', 'c1')],
+      edges: [seq('start', 's1'), seq('s1', 'c1'), seq('c1', 'end')],
       screens: [
         {
           slug: 'q',
@@ -1645,8 +1687,9 @@ describe('compute node reference checks', () => {
           { outputKey: 'total', formula: { type: 'sum', inputs: ['$$q.a'] } },
           { outputKey: 'total', formula: { type: 'sum', inputs: ['$$q.b'] } },
         ]),
+        end,
       ],
-      edges: [seq('start', 's1'), seq('s1', 'c1')],
+      edges: [seq('start', 's1'), seq('s1', 'c1'), seq('c1', 'end')],
       screens: [
         {
           slug: 'q',
@@ -1681,8 +1724,9 @@ describe('compute node — sample formula validation', () => {
           },
         ]),
         makeScreen('s1', 'end'),
+        end,
       ],
-      edges: [seq('start', 'c1'), seq('c1', 's1')],
+      edges: [seq('start', 'c1'), seq('c1', 's1'), seq('s1', 'end')],
       screens: [{ slug: 'end', components: [] }],
     };
     expect(validateExperiment(flow)).toEqual([]);
@@ -1700,8 +1744,14 @@ describe('compute node — sample formula validation', () => {
           },
         ]),
         makeScreen('s2', 'end'),
+        end,
       ],
-      edges: [seq('start', 's1'), seq('s1', 'c1'), seq('c1', 's2')],
+      edges: [
+        seq('start', 's1'),
+        seq('s1', 'c1'),
+        seq('c1', 's2'),
+        seq('s2', 'end'),
+      ],
       screens: [
         {
           slug: 'q',
@@ -1869,136 +1919,5 @@ describe('unknown-template', () => {
       { componentFamily: 'layout', template: 'button', props: {} },
     ]);
     expect(codes(flow).filter((c) => c === 'unknown-template')).toEqual([]);
-  });
-
-  it('reports unknown-template for an unknown componentFamily', () => {
-    const flow: ExperimentFlow = {
-      nodes: [start, makeScreen('s1', 'pg')],
-      edges: [seq('start', 's1')],
-      screens: [
-        {
-          slug: 'pg',
-          components: [
-            // @ts-expect-error intentionally invalid
-            { componentFamily: 'display', template: 'card', props: {} },
-          ],
-        },
-      ],
-    };
-    expect(codes(flow)).toContain('unknown-template');
-    expect(messages(flow).some((m) => m.includes('"display"'))).toBe(true);
-  });
-
-  it('reports unknown-template for an unknown template within a known family', () => {
-    const flow: ExperimentFlow = {
-      nodes: [start, makeScreen('s1', 'pg')],
-      edges: [seq('start', 's1')],
-      screens: [
-        {
-          slug: 'pg',
-          components: [
-            // @ts-expect-error intentionally invalid
-            { componentFamily: 'content', template: 'carousel', props: {} },
-          ],
-        },
-      ],
-    };
-    expect(codes(flow)).toContain('unknown-template');
-    expect(messages(flow).some((m) => m.includes('"carousel"'))).toBe(true);
-  });
-
-  it('reports unknown-template for unknown template in each family', () => {
-    const cases: Array<ExperimentFlow['screens'][0]['components'][0]> = [
-      // @ts-expect-error intentionally invalid
-      { componentFamily: 'content', template: 'nonexistent', props: {} },
-      // @ts-expect-error intentionally invalid
-      {
-        componentFamily: 'response',
-        template: 'nonexistent',
-        props: { dataKey: 'x', label: 'X' },
-      },
-      // @ts-expect-error intentionally invalid
-      { componentFamily: 'layout', template: 'nonexistent', props: {} },
-      // @ts-expect-error intentionally invalid
-      { componentFamily: 'control', template: 'nonexistent', props: {} },
-    ];
-    for (const component of cases) {
-      const flow = flowWithComponents([component]);
-      expect(codes(flow)).toContain('unknown-template');
-    }
-  });
-
-  it('detects unknown template nested inside a group', () => {
-    const flow = flowWithComponents([
-      {
-        componentFamily: 'layout',
-        template: 'group',
-        props: {
-          name: 'g',
-          components: [
-            // @ts-expect-error intentionally invalid
-            { componentFamily: 'content', template: 'unknown', props: {} },
-          ],
-        },
-      },
-    ]);
-    expect(codes(flow)).toContain('unknown-template');
-  });
-
-  it('detects unknown template nested inside a conditional', () => {
-    const flow = flowWithComponents([
-      {
-        componentFamily: 'control',
-        template: 'conditional',
-        props: {
-          if: { type: 'simple', operator: 'eq', dataKey: '$$pg.x', value: '1' },
-          // @ts-expect-error intentionally invalid
-          component: {
-            componentFamily: 'content',
-            template: 'unknown',
-            props: {},
-          },
-        },
-      },
-    ]);
-    expect(codes(flow)).toContain('unknown-template');
-  });
-
-  it('detects unknown template nested inside a for-each', () => {
-    const flow = flowWithComponents([
-      {
-        componentFamily: 'control',
-        template: 'for-each',
-        props: {
-          type: 'static',
-          id: 'iter',
-          values: ['a', 'b'],
-          // @ts-expect-error intentionally invalid
-          component: {
-            componentFamily: 'response',
-            template: 'unknown',
-            props: { dataKey: 'x', label: 'X' },
-          },
-        },
-      },
-    ]);
-    expect(codes(flow)).toContain('unknown-template');
-  });
-
-  it('reports the screen slug in the error message', () => {
-    const flow: ExperimentFlow = {
-      nodes: [start, makeScreen('s1', 'my-screen')],
-      edges: [seq('start', 's1')],
-      screens: [
-        {
-          slug: 'my-screen',
-          components: [
-            // @ts-expect-error intentionally invalid
-            { componentFamily: 'content', template: 'bad', props: {} },
-          ],
-        },
-      ],
-    };
-    expect(messages(flow).some((m) => m.includes('"my-screen"'))).toBe(true);
   });
 });

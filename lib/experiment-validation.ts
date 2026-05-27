@@ -1,6 +1,21 @@
 import { ScreenComponent } from './components';
 import { Condition } from './conditions';
-import { Formula, FrameworkNode, ScreenNode } from './nodes';
+import {
+  FrameworkEdge,
+  isBranchConditionEdge,
+  isBranchDefaultEdge,
+  isForkEdge,
+  isLoopEdge,
+  isPathEdge,
+  isSequentialEdge,
+} from './edges';
+import {
+  BranchNode,
+  ForkNode,
+  Formula,
+  FrameworkNode,
+  ScreenNode,
+} from './nodes';
 import { resolveValuesInString } from './resolve';
 import { FrameworkScreen } from './screen';
 import { Context, ExperimentFlow } from './types';
@@ -11,7 +26,8 @@ export type ErrorCategory =
   | 'branch'
   | 'edge'
   | 'reference'
-  | 'component';
+  | 'component'
+  | 'fork';
 
 export type ValidationError = {
   code: string;
@@ -20,28 +36,89 @@ export type ValidationError = {
   message: string;
 };
 
+function isNested(node: FrameworkNode, edges: FrameworkEdge[]): boolean {
+  // A node is considered to be inside a path or loop (nested)
+  // if there is a path-contains or loop-template edge from
+  // any ancestor path or loop node to it, even if the node is not
+  // a direct child of the template (i.e. nested multiple levels
+  // deep inside the template).
+  // COMPLETE THIS...
+  return edges.some((edge) => {
+    return (
+      edge.to === node.id &&
+      (edge.type === 'path-contains' || edge.type === 'loop-template')
+    );
+  });
+}
+
 function validateConditionStructure(
-  cond: Condition,
-  context: string,
+  condition: Condition,
+  category: ErrorCategory,
 ): ValidationError[] {
   const errors: ValidationError[] = [];
-  const pushBranchError = (code: string, message: string) =>
-    errors.push({ code, category: 'branch', message });
 
-  if (cond.type === 'and' || cond.type === 'or') {
-    if (cond.conditions.length === 0) {
-      pushBranchError(
-        `condition-empty-${cond.type}`,
-        `${context} has an "${cond.type}" condition with no children`,
+  switch (condition.type) {
+    case 'and':
+    case 'or': {
+      if (condition.conditions.length === 0) {
+        errors.push({
+          code: 'condition-empty',
+          category,
+          message: `A "${condition.type}" condition has no children, but at least one condition is required`,
+        });
+      }
+
+      errors.push(
+        ...condition.conditions.flatMap((child) =>
+          validateConditionStructure(child, category),
+        ),
       );
+      break;
     }
-    for (const child of cond.conditions) {
-      errors.push(...validateConditionStructure(child, context));
+    case 'not': {
+      errors.push(...validateConditionStructure(condition.condition, category));
     }
-  } else if (cond.type === 'not') {
-    errors.push(...validateConditionStructure(cond.condition, context));
   }
 
+  return errors;
+}
+
+// Helper: valida que una colección de hijos no esté vacía y que sus ids sean únicos
+function validateChildContainer<N extends BranchNode | ForkNode>(
+  nodes: FrameworkNode[],
+  nodeType: N['type'],
+  getChildren: (node: N) => Array<{ id: string }>,
+  childLabel: 'branch' | 'fork',
+  childCollectionKey: 'branches' | 'forks',
+) {
+  const errors: ValidationError[] = [];
+  nodes
+    .filter((n): n is N => n.type === nodeType)
+    .forEach((node) => {
+      const children = getChildren(node);
+
+      if (children.length === 0) {
+        errors.push({
+          code: `empty-${childLabel}`,
+          category: childLabel,
+          nodeType,
+          message: `${nodeType} node "${node.id}" has no ${childCollectionKey} defined`,
+        });
+      }
+
+      const seenIds = new Set<string>();
+      children.forEach((child) => {
+        if (seenIds.has(child.id)) {
+          errors.push({
+            code: `duplicate-${childLabel}-id`,
+            category: childLabel,
+            nodeType,
+            message: `${nodeType} node "${node.id}" has duplicate ${childLabel} id "${child.id}" in ${childCollectionKey}: ${JSON.stringify(children)}`,
+          });
+        }
+        seenIds.add(child.id);
+      });
+    });
   return errors;
 }
 
@@ -58,32 +135,23 @@ function checkNodes({ nodes }: ExperimentFlow): ValidationError[] {
   const errors: ValidationError[] = [];
 
   // 1. Check duplicated node ids
-  const nodesMap = new Map<string, FrameworkNode[]>();
-  const duplicatedIds = new Set<string>();
+  const nodesById = new Map<string, FrameworkNode[]>();
   nodes.forEach((node) => {
-    const nodes = nodesMap.get(node.id);
-    if (nodes) {
-      duplicatedIds.add(node.id);
-      nodesMap.set(node.id, [...nodes, node]);
-    } else {
-      nodesMap.set(node.id, [node]);
+    const existing = nodesById.get(node.id) ?? [];
+    nodesById.set(node.id, [...existing, node]);
+  });
+  nodesById.forEach((group, id) => {
+    if (group.length > 1) {
+      errors.push({
+        code: 'duplicate-node-id',
+        category: 'node',
+        message: `Duplicate node id "${id}" found in nodes: ${group.map((n) => JSON.stringify(n)).join(', ')}`,
+      });
     }
   });
 
-  duplicatedIds.forEach((id) => {
-    errors.push({
-      code: 'duplicate-node-id',
-      category: 'node',
-      message: `Duplicate node id "${id}" found in nodes: ${nodesMap
-        .get(id)
-        ?.map((n) => JSON.stringify(n))
-        .join(', ')}`,
-    });
-  });
-
   // 2. Check that there is at least one start node
-  const startNodes = nodes.filter((node) => node.type === 'start');
-  if (startNodes.length === 0) {
+  if (!nodes.some((node) => node.type === 'start')) {
     errors.push({
       code: 'missing-start',
       category: 'node',
@@ -91,6 +159,36 @@ function checkNodes({ nodes }: ExperimentFlow): ValidationError[] {
       nodeType: 'start',
     });
   }
+
+  // 3. Check that there is at least one start node
+  if (!nodes.some((node) => node.type === 'end')) {
+    errors.push({
+      code: 'missing-end',
+      category: 'node',
+      message: 'Flow has no end node',
+      nodeType: 'end',
+    });
+  }
+
+  // 4. Check branch nodes structure
+  const branchErrors = validateChildContainer<BranchNode>(
+    nodes,
+    'branch',
+    (n) => n.props.branches,
+    'branch',
+    'branches',
+  );
+
+  // 5. Check fork nodes structure
+  const forkErrors = validateChildContainer<ForkNode>(
+    nodes,
+    'fork',
+    (n) => n.props.forks,
+    'fork',
+    'forks',
+  );
+
+  errors.push(...branchErrors, ...forkErrors);
 
   return errors;
 }
@@ -106,6 +204,18 @@ function checkEdgeEndpoints(flow: ExperimentFlow): ValidationError[] {
     // node id against the node list to ensure all edge types reference
     // valid nodes.
     const [fromNodeId] = edge.from.split('.');
+
+    if (
+      edge.from.split('.').length > 1 &&
+      edge.type !== 'fork-edge' &&
+      edge.type !== 'branch-condition'
+    ) {
+      errors.push({
+        code: 'invalid-edge',
+        category: 'edge',
+        message: `${edge.type} edge has invalid "from" reference "${edge.from}" with too many dot segments; only fork-edge and branch-condition edges can reference sub-elements of a node. ${JSON.stringify(edge)}`,
+      });
+    }
 
     if (!nodeIds.has(fromNodeId)) {
       errors.push({
@@ -183,6 +293,249 @@ function checkScreenDefinitions(flow: ExperimentFlow): ValidationError[] {
         code: 'unreferenced-screen',
         category: 'screen',
         message: `Screen definition "${slug}" is not referenced by any screen node`,
+      });
+    }
+  });
+
+  return errors;
+}
+
+function checkEdgeWiring(flow: ExperimentFlow): ValidationError[] {
+  // Check that edges are wired correctly according to node types and edge types:
+  const errors: ValidationError[] = [];
+
+  const { nodes, edges } = flow;
+
+  const nodesMap = new Map(nodes.map((n) => [n.id, n]));
+
+  const noSequential: FrameworkNode['type'][] = ['branch', 'fork', 'end'];
+  const optionalSequential: FrameworkNode['type'][] = [
+    'checkpoint',
+    'screen',
+    'compute',
+    'path',
+    'loop',
+  ];
+
+  const isFrom = (node: FrameworkNode) => (edge: FrameworkEdge) =>
+    edge.from.split('.')[0] === node.id;
+
+  // Check sequential edges from nodes
+  nodes.forEach((node) => {
+    const outgoingSequential = edges
+      .filter(isSequentialEdge)
+      .filter(isFrom(node));
+
+    // - Start nodes:
+    // -> exactly one sequential edge required;
+    // - Checkpoint, Screen, Compute, Path, Loop nodes:
+    // -> exactly one sequential edge required, unless the node is
+    // inside a path or loop template, in which case sequential edges
+    // are optional and sequencing is handled by the template node;
+    const requiresSequential =
+      node.type === 'start' ||
+      (optionalSequential.includes(node.type) && !isNested(node, edges));
+
+    if (requiresSequential && outgoingSequential.length === 0) {
+      errors.push({
+        code: 'missing-edge',
+        category: 'edge',
+        nodeType: node.type,
+        message: `${node.type} node "${node.id}" has no sequential outgoing edge`,
+      });
+    }
+
+    // - Branch, Fork nodes:
+    // -> cant have sequential edges (sequencing is handled by them internally);
+    // - End nodes:
+    // -> cant have sequential edges (no next node after end);
+    if (noSequential.includes(node.type) && outgoingSequential.length > 0) {
+      errors.push({
+        code: 'invalid-edge',
+        category: 'edge',
+        nodeType: node.type,
+        message: `${node.type} node "${node.id}" has ${outgoingSequential.length} sequential outgoing edge(s), but nodes of type "${node.type}" cannot have sequential edges`,
+      });
+    }
+
+    // Every node that requires a sequential edge must not have more
+    // than one sequential edge (to avoid ambiguity about the next
+    // node after the current node).
+    if (!noSequential.includes(node.type) && outgoingSequential.length > 1) {
+      errors.push({
+        code: 'ambiguous-edge',
+        category: 'edge',
+        nodeType: node.type,
+        message: `${node.type} node "${node.id}" has ${outgoingSequential.length} sequential outgoing edges; at most one is allowed`,
+      });
+    }
+  });
+
+  // Check non-sequential edges from nodes according to node type
+  nodes.forEach((node) => {
+    switch (node.type) {
+      // - Path nodes:
+      // => at least one path-contains edge required;
+      case 'path': {
+        const contains = edges.filter(isFrom(node)).filter(isPathEdge);
+        if (contains.length === 0) {
+          errors.push({
+            code: 'missing-edge',
+            category: 'edge',
+            nodeType: 'path',
+            message: `Path node "${node.id}" has no path-contains outgoing edges`,
+          });
+        }
+        break;
+      }
+
+      // - Loop nodes:
+      // => exactly one loop-template edge required;
+      case 'loop': {
+        const templates = edges.filter(isFrom(node)).filter(isLoopEdge);
+        if (templates.length !== 1) {
+          const missing = templates.length == 0;
+          errors.push({
+            code: missing ? 'missing-edge' : 'duplicate-edge',
+            category: 'edge',
+            nodeType: 'loop',
+            message: `Loop node "${node.id}" has ${missing ? 'no' : 'more than one'} loop-template outgoing edge`,
+          });
+        }
+        break;
+      }
+
+      // - Fork nodes:
+      // => at least two fork-edge edges required;
+      // => each fork-edge must correspond to a fork in the node;
+      case 'fork': {
+        const forkEdges = edges.filter(isForkEdge).filter(isFrom(node));
+        if (forkEdges.length < 2) {
+          errors.push({
+            code: 'missing-edge',
+            category: 'edge',
+            nodeType: 'fork',
+            message: `Fork node "${node.id}" has ${forkEdges.length} fork-edge outgoing edges; at least two are required`,
+          });
+        }
+
+        const forks = node.props.forks.map((f) => f.id);
+
+        forkEdges.forEach((edge) => {
+          const forkId = edge.from.split('.')[1];
+          if (!forks.includes(forkId)) {
+            errors.push({
+              code: 'invalid-edge',
+              category: 'edge',
+              nodeType: 'fork',
+              message: `Fork-edge "${edge.from}" references fork id "${forkId}" which does not exist in fork node "${node.id}"`,
+            });
+          }
+        });
+
+        forks.forEach((forkId) => {
+          const hasForkEdge = forkEdges.some(
+            (e) => e.from === `${node.id}.${forkId}`,
+          );
+          if (!hasForkEdge) {
+            errors.push({
+              code: 'unrouted-fork',
+              category: 'fork',
+              nodeType: 'fork',
+              message: `Fork "${node.id}" has fork "${forkId}" with no corresponding fork-edge`,
+            });
+          }
+        });
+        break;
+      }
+
+      // - Branch nodes:
+      // => at least one branch-condition and branch-default edge required;
+      // => each branch-condition edge must correspond to a branch in the node;
+      // => only one branch-default edge allowed;
+      case 'branch': {
+        const defaultEdges = edges
+          .filter(isBranchDefaultEdge)
+          .filter(isFrom(node));
+
+        if (defaultEdges.length !== 1) {
+          const missing = defaultEdges.length == 0;
+          errors.push({
+            code: missing ? 'missing-edge' : 'ambiguous-edge',
+            category: 'edge',
+            nodeType: 'branch',
+            message: `Branch node "${node.id}" has ${missing ? 'no' : 'more than one'} branch-default outgoing edge`,
+          });
+        }
+
+        const conditionEdges = edges
+          .filter(isBranchConditionEdge)
+          .filter(isFrom(node));
+
+        const branches = node.props.branches.map((b) => b.id);
+
+        if (conditionEdges.length === 0) {
+          errors.push({
+            code: 'missing-edge',
+            category: 'edge',
+            nodeType: 'branch',
+            message: `Branch node "${node.id}" has no branch-condition outgoing edges`,
+          });
+        }
+
+        conditionEdges.forEach((edge) => {
+          const branchId = edge.from.split('.')[1];
+          if (!branches.includes(branchId)) {
+            errors.push({
+              code: 'invalid-edge',
+              category: 'edge',
+              nodeType: 'branch',
+              message: `Branch-condition edge "${edge.from}" references branch id "${branchId}" which does not exist in branch node "${node.id}"`,
+            });
+          }
+        });
+
+        branches.forEach((branchId) => {
+          const hasConditionEdge = conditionEdges.some(
+            (e) => e.from === `${node.id}.${branchId}`,
+          );
+          if (!hasConditionEdge) {
+            errors.push({
+              code: 'unrouted-branch',
+              category: 'branch',
+              nodeType: 'branch',
+              message: `Branch "${node.id}" has branch "${branchId}" with no corresponding branch-condition edge`,
+            });
+          }
+        });
+
+        break;
+      }
+    }
+  });
+
+  const requiresSource: Partial<
+    Record<FrameworkEdge['type'], FrameworkNode['type']>
+  > = {
+    'branch-condition': 'branch',
+    'branch-default': 'branch',
+    'path-contains': 'path',
+    'loop-template': 'loop',
+    'fork-edge': 'fork',
+  };
+
+  // Check that edges of certain types are sourced from nodes of the correct type
+  // according to the requiresSource mapping above
+  edges.forEach((edge) => {
+    const [nodeId] = edge.from.split('.');
+    const node = nodesMap.get(nodeId);
+    const requiredType = requiresSource[edge.type];
+    if (node && requiredType && node.type !== requiredType) {
+      errors.push({
+        code: 'invalid-edge',
+        category: 'edge',
+        nodeType: node.type,
+        message: `Edge of type "${edge.type}" has source "${edge.from}" which is a node of type "${node.type}", but it must source from a node of type "${requiredType}"`,
       });
     }
   });
@@ -579,203 +932,6 @@ function checkReferences(flow: ExperimentFlow): ValidationError[] {
   });
 }
 
-function checkEdgeWiring(flow: ExperimentFlow): ValidationError[] {
-  const errors: ValidationError[] = [];
-  const pushEdgeError = (code: string, message: string) =>
-    errors.push({ code, category: 'edge', message });
-  const pushBranchError = (code: string, message: string) =>
-    errors.push({ code, category: 'branch', message });
-  const nodeMap = new Map(flow.nodes.map((n) => [n.id, n]));
-
-  // Per-node checks
-  for (const node of flow.nodes) {
-    switch (node.type) {
-      case 'start': {
-        const count = flow.edges.filter(
-          (e) => e.type === 'sequential' && e.from === node.id,
-        ).length;
-        if (count === 0) {
-          pushEdgeError(
-            'missing-edge',
-            `Start node "${node.id}" has no sequential outgoing edge`,
-          );
-        }
-        break;
-      }
-
-      case 'checkpoint': {
-        const count = flow.edges.filter(
-          (e) => e.type === 'sequential' && e.from === node.id,
-        ).length;
-        if (count > 1) {
-          pushEdgeError(
-            'ambiguous-edge',
-            `Checkpoint "${node.id}" has ${count} sequential outgoing edges; at most one is allowed`,
-          );
-        }
-        break;
-      }
-
-      case 'branch': {
-        const hasDefault = flow.edges.some(
-          (e) => e.type === 'branch-default' && e.from === node.id,
-        );
-        if (!hasDefault) {
-          pushEdgeError(
-            'missing-edge',
-            `Branch "${node.id}" has no branch-default edge`,
-          );
-        }
-        for (const branch of node.props.branches) {
-          const hasConditionEdge = flow.edges.some(
-            (e) =>
-              e.type === 'branch-condition' &&
-              e.from === `${node.id}.${branch.id}`,
-          );
-          if (!hasConditionEdge) {
-            pushBranchError(
-              'unrouted-branch',
-              `Branch "${node.id}" has condition "${branch.id}" with no corresponding branch-condition edge`,
-            );
-          }
-          errors.push(
-            ...validateConditionStructure(
-              branch.config,
-              `Branch "${node.id}" condition "${branch.id}"`,
-            ),
-          );
-        }
-        break;
-      }
-
-      case 'fork': {
-        if (node.props.forks.length < 2) {
-          pushEdgeError(
-            'missing-edge',
-            `Fork "${node.id}" must have at least two arms; found ${node.props.forks.length}`,
-          );
-        }
-        for (const fork of node.props.forks) {
-          const hasForkEdge = flow.edges.some(
-            (e) => e.type === 'fork-edge' && e.from === `${node.id}.${fork.id}`,
-          );
-          if (!hasForkEdge) {
-            pushEdgeError(
-              'missing-edge',
-              `Fork "${node.id}" has fork "${fork.id}" with no corresponding fork-edge`,
-            );
-          }
-        }
-        break;
-      }
-
-      case 'path': {
-        const hasChildren = flow.edges.some(
-          (e) => e.type === 'path-contains' && e.from === node.id,
-        );
-        if (!hasChildren) {
-          pushEdgeError(
-            'missing-edge',
-            `Path "${node.id}" has no path-contains edges`,
-          );
-        }
-        const seqCount = flow.edges.filter(
-          (e) => e.type === 'sequential' && e.from === node.id,
-        ).length;
-        if (seqCount === 0) {
-          pushEdgeError(
-            'missing-edge',
-            `Path "${node.id}" has no sequential exit edge`,
-          );
-        } else if (seqCount > 1) {
-          pushEdgeError(
-            'ambiguous-edge',
-            `Path "${node.id}" has ${seqCount} sequential exit edges; exactly one is required`,
-          );
-        }
-        break;
-      }
-
-      case 'loop': {
-        const count = flow.edges.filter(
-          (e) => e.type === 'loop-template' && e.from === node.id,
-        ).length;
-        if (count === 0) {
-          pushEdgeError(
-            'missing-edge',
-            `Loop "${node.id}" has no loop-template edge`,
-          );
-        } else if (count > 1) {
-          pushEdgeError(
-            'duplicate-edge',
-            `Loop "${node.id}" has ${count} loop-template edges; exactly one is required`,
-          );
-        }
-        break;
-      }
-    }
-  }
-
-  // Per-edge checks
-  for (const edge of flow.edges) {
-    switch (edge.type) {
-      case 'branch-condition': {
-        const [nodeId, branchId] = edge.from.split('.');
-        const node = nodeMap.get(nodeId);
-        if (
-          node?.type === 'branch' &&
-          !node.props.branches.some((b) => b.id === branchId)
-        ) {
-          pushEdgeError(
-            'invalid-edge',
-            `Branch-condition edge "${edge.from}" references non-existent branch id "${branchId}"`,
-          );
-        }
-        break;
-      }
-
-      case 'fork-edge': {
-        const [nodeId, forkId] = edge.from.split('.');
-        const node = nodeMap.get(nodeId);
-        if (
-          node?.type === 'fork' &&
-          !node.props.forks.some((f) => f.id === forkId)
-        ) {
-          pushEdgeError(
-            'invalid-edge',
-            `Fork-edge "${edge.from}" references non-existent fork id "${forkId}"`,
-          );
-        }
-        break;
-      }
-
-      case 'path-contains': {
-        const node = nodeMap.get(edge.from);
-        if (node && node.type !== 'path') {
-          pushEdgeError(
-            'invalid-edge',
-            `Path-contains edge from "${edge.from}" does not source from a path node`,
-          );
-        }
-        break;
-      }
-
-      case 'loop-template': {
-        const node = nodeMap.get(edge.from);
-        if (node && node.type !== 'loop') {
-          pushEdgeError(
-            'invalid-edge',
-            `Loop-template edge from "${edge.from}" does not source from a loop node`,
-          );
-        }
-        break;
-      }
-    }
-  }
-
-  return errors;
-}
-
 function checkSharedOptionReferences(flow: ExperimentFlow): ValidationError[] {
   const errors: ValidationError[] = [];
   const pushReferenceError = (code: string, message: string) =>
@@ -833,8 +989,8 @@ export function validateExperiment(flow: ExperimentFlow): ValidationError[] {
     ...checkNodes(flow),
     ...checkEdgeEndpoints(flow),
     ...checkScreenDefinitions(flow),
-
     ...checkEdgeWiring(flow),
+
     ...checkReferences(flow),
     ...checkSharedOptionReferences(flow),
   ];

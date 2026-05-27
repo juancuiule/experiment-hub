@@ -2,7 +2,7 @@ import { ExperimentFlow } from '@/lib/types';
 
 const emociones: ExperimentFlow = {
   nodes: [
-    // { id: 'start', type: 'start' },
+    { id: 'start', type: 'start' },
     {
       id: 'compute-sample-items',
       type: 'compute',
@@ -393,11 +393,6 @@ const emociones: ExperimentFlow = {
       props: { slug: 'terms' },
     },
     {
-      id: 'screen-terms',
-      type: 'screen',
-      props: { slug: 'terms' },
-    },
-    {
       id: 'screen-intro',
       type: 'screen',
       props: { slug: 'intro' },
@@ -506,24 +501,21 @@ const emociones: ExperimentFlow = {
       type: 'screen',
       props: { slug: 'end' },
     },
+    { id: 'end', type: 'end' },
   ],
   edges: [
     { type: 'sequential', from: 'start', to: 'compute-sample-items' },
-    {
-      type: 'sequential',
-      from: 'compute-sample-items',
-      to: 'screen-terms.algo',
-    },
+    { type: 'sequential', from: 'compute-sample-items', to: 'screen-terms' },
     { type: 'sequential', from: 'screen-terms', to: 'screen-intro' },
     { type: 'sequential', from: 'screen-intro', to: 'loop-miradas' },
     { type: 'loop-template', from: 'loop-miradas', to: 'screen-mirada' },
     { type: 'sequential', from: 'loop-miradas', to: 'compute-correct' },
     { type: 'sequential', from: 'compute-correct', to: 'checkpoint-answers' },
     { type: 'sequential', from: 'checkpoint-answers', to: 'screen-regressors' },
+    { type: 'sequential', from: 'screen-regressors', to: 'screen-end' },
+    { type: 'sequential', from: 'screen-end', to: 'end' },
   ],
   screens: [
-    { slug: 'algo', components: [] },
-    { slug: 'algo', components: [] },
     {
       slug: 'terms',
       components: [

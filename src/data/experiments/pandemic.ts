@@ -142,6 +142,7 @@ const pandemic: ExperimentFlow = {
       type: 'screen',
       props: { slug: 'thanks' },
     },
+    { id: 'end', type: 'end' },
   ],
   edges: [
     { type: 'sequential', from: 'start', to: 'screen-terms' },
@@ -193,6 +194,11 @@ const pandemic: ExperimentFlow = {
       to: 'screen-psychedelics-last-time',
     },
     {
+      type: 'sequential',
+      from: 'screen-psychedelics-most-impactful',
+      to: 'screen-psychedelics-last-time',
+    },
+    {
       type: 'path-contains',
       from: 'path-psychedelics',
       to: 'screen-psychedelics-last-time',
@@ -234,6 +240,7 @@ const pandemic: ExperimentFlow = {
       from: 'screen-psychoactive-quarantine-change',
       to: 'screen-thanks',
     },
+    { type: 'sequential', from: 'screen-thanks', to: 'end' },
   ],
   screens: [
     {

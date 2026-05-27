@@ -8,7 +8,8 @@ export type NodeType =
   | 'fork'
   | 'loop'
   | 'checkpoint'
-  | 'compute';
+  | 'compute'
+  | 'end';
 
 interface BaseNode {
   id: string;
@@ -163,6 +164,10 @@ export interface ComputeNode extends BaseNode {
   };
 }
 
+export interface EndNode extends BaseNode {
+  type: 'end';
+}
+
 export type FrameworkNode =
   | StartNode
   | CheckpointNode
@@ -171,7 +176,8 @@ export type FrameworkNode =
   | PathNode
   | ForkNode
   | LoopNode
-  | ComputeNode;
+  | ComputeNode
+  | EndNode;
 
 const AUTO_TRAVERSE_TYPES = [
   'start',
