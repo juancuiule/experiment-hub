@@ -21,7 +21,10 @@ export type ForEachComponent = BaseControlComponent<
   'for-each',
   (
     | { type: 'static'; values: string[] }
-    | { type: 'dynamic'; dataKey: `$$${string}` | `$${string}` }
+    | {
+        type: 'dynamic';
+        dataKey: `$$${string}` | `$${string}` | `@${string}` | `#${string}`;
+      }
   ) & { id: string; component: ScreenComponent }
 >;
 

@@ -4,10 +4,12 @@ const emociones: ExperimentFlow = {
   nodes: [
     { id: 'start', type: 'start' },
     {
-      id: 'compute',
+      id: 'compute-sample-items',
       type: 'compute',
       props: {
         name: 'randomize-images',
+        description:
+          'Randomiza las imágenes que se le muestran a cada participante, eligiendo 12 de un total de 36',
         computations: [
           {
             outputKey: 'selected-items',
@@ -18,7 +20,11 @@ const emociones: ExperimentFlow = {
                   id: '1',
                   correctAnswer: 'playful',
                   options: [
-                    { label: 'Juguetón', value: 'playful' },
+                    {
+                      label: 'Juguetón',
+                      value: 'playful',
+                      tooltip: 'Un ejemplo de tooltip',
+                    },
                     { label: 'Reconfortante', value: 'comforting' },
                     { label: 'Irritado', value: 'irritated' },
                     { label: 'Aburrido', value: 'bored' },
@@ -375,31 +381,31 @@ const emociones: ExperimentFlow = {
                   ],
                 },
               ],
-              n: 12,
+              n: 2,
             },
           },
         ],
       },
     },
     {
-      id: 'terms',
+      id: 'screen-terms',
       type: 'screen',
       props: { slug: 'terms' },
     },
     {
-      id: 'intro',
+      id: 'screen-intro',
       type: 'screen',
       props: { slug: 'intro' },
     },
     {
-      id: 'loop',
+      id: 'loop-miradas',
       type: 'loop',
       props: {
-        dataKey: '$$compute.selected-items',
+        dataKey: '$$compute-sample-items.selected-items',
         type: 'dynamic',
         stepper: {
           label: 'Retrato {index}/{total}',
-          style: 'dashed',
+          style: 'continuous',
         },
       },
     },
@@ -418,8 +424,8 @@ const emociones: ExperimentFlow = {
             outputKey: 'total-correct',
             formula: {
               type: 'count-correct',
-              itemsKey: '$$compute.selected-items',
-              loopId: 'loop',
+              itemsKey: '$$compute-sample-items.selected-items',
+              loopId: 'loop-miradas',
               screenSlug: 'mirada',
               answerKey: 'answer',
               correctKey: 'correctAnswer',
@@ -479,19 +485,32 @@ const emociones: ExperimentFlow = {
       },
     },
     {
-      id: 'end',
+      id: 'checkpoint-answers',
+      type: 'checkpoint',
+      props: {
+        name: 'checkpoint-answers',
+      },
+    },
+    {
+      id: 'screen-regressors',
+      type: 'screen',
+      props: { slug: 'regressors' },
+    },
+    {
+      id: 'screen-end',
       type: 'screen',
       props: { slug: 'end' },
     },
   ],
   edges: [
-    { type: 'sequential', from: 'start', to: 'compute' },
-    { type: 'sequential', from: 'compute', to: 'terms' },
-    { type: 'sequential', from: 'terms', to: 'intro' },
-    { type: 'sequential', from: 'intro', to: 'loop' },
-    { type: 'loop-template', from: 'loop', to: 'screen-mirada' },
-    { type: 'sequential', from: 'loop', to: 'compute-correct' },
-    { type: 'sequential', from: 'compute-correct', to: 'end' },
+    { type: 'sequential', from: 'start', to: 'compute-sample-items' },
+    { type: 'sequential', from: 'compute-sample-items', to: 'screen-terms' },
+    { type: 'sequential', from: 'screen-terms', to: 'screen-intro' },
+    { type: 'sequential', from: 'screen-intro', to: 'loop-miradas' },
+    { type: 'loop-template', from: 'loop-miradas', to: 'screen-mirada' },
+    { type: 'sequential', from: 'loop-miradas', to: 'compute-correct' },
+    { type: 'sequential', from: 'compute-correct', to: 'checkpoint-answers' },
+    { type: 'sequential', from: 'checkpoint-answers', to: 'screen-regressors' },
   ],
   screens: [
     {
@@ -502,7 +521,7 @@ const emociones: ExperimentFlow = {
           template: 'rich-text',
           props: {
             content:
-              '# Antes de empezar \n\n El objetivo de este experimento es aprender más sobre los factores que afectan la forma en la que reconocemos emociones en los rostros de las personas. \n\n Vas a ver 12 fotos de pares de ojos. Para cada uno, elegí y hace click sobre la palabra que mejor describa lo que la persona en la fotografía está pensando o sintiendo. Las definiciones de estas palabras están estandarizadas y se pueden ver durante el experimento. \n\n El experimento completo dura unos 5 minutos. Tu participación es absolutamente voluntaria y te podés bajar en cualquier momento. No esperamos ningún tipo de inconveniente o riesgo por participar. Los datos son confidenciales y anónimos. \n\nSi tenés cualquier tipo de duda, nos mandás un mail a labs@elgatoylacaja.com. Si la pregunta se nos escapa, o querés hacer otro tipo de comentario, tené en mente que podés contactarte con el Comité de Ética en Investigación, Centro de Educación Médica e Investigaciones Clínicas “Norberto Quirno”. Hospital Universitario sede Saavedra, Av. Galván 4102. Ciudad de Buenos Aires, (C1425DQK) - República Argentina. Tel: 5299-0100, interno 2879. \n\n Apenas esté el análisis de estos datos vamos (como siempre) a publicar los resultados en www.elgatoylacaja.com para conversar sobre lo que aprendimos gracias a tu participación.',
+              '# Antes de empezar \n\n El objetivo de este experimento es aprender más sobre los factores que afectan la forma en la que reconocemos emociones en los rostros de las personas. \n\n Vas a ver 12 fotos de pares de ojos. Para cada uno, elegí y hace click sobre la palabra que mejor describa lo que la persona en la fotografía está pensando o sintiendo. Las definiciones de estas palabras están estandarizadas y se pueden ver durante el experimento. \n\n El experimento completo dura unos 5 minutos. Tu participación es absolutamente voluntaria y te podés bajar en cualquier momento. No esperamos ningún tipo de inconveniente o riesgo por participar. Los datos son confidenciales y anónimos. \n\nSi tenés cualquier tipo de duda, nos mandás un mail a [labs@elgatoylacaja.com](mailto:labs@elgatoylacaja.com). Si la pregunta se nos escapa, o querés hacer otro tipo de comentario, tené en mente que podés contactarte con el Comité de Ética en Investigación, Centro de Educación Médica e Investigaciones Clínicas “Norberto Quirno”. Hospital Universitario sede Saavedra, Av. Galván 4102. Ciudad de Buenos Aires, (C1425DQK) - República Argentina. Tel: 5299-0100, interno 2879. \n\n Apenas esté el análisis de estos datos vamos (como siempre) a publicar los resultados en [www.elgatoylacaja.com](https://elgatoylacaja.com) para conversar sobre lo que aprendimos gracias a tu participación.',
           },
         },
         {
@@ -523,7 +542,7 @@ const emociones: ExperimentFlow = {
           template: 'rich-text',
           props: {
             content:
-              '## Importante \n\n Leé las 4 palabras antes de contestar. \n\n Si no entendés alguna palabra, al lado tenés un botón con la explicación. \n Indicá con precisión tu nivel de confianza, usando toda la escala. \n Al finalizar, recibirás una devolución en base a tus respuestas.',
+              '## Importante \n\n Leé las 4 palabras antes de contestar. \n\n Si no entendés alguna palabra, al lado tenés un botón con la explicación. \n\n Indicá con precisión tu nivel de confianza, usando toda la escala. \n\n Al finalizar, recibirás una devolución en base a tus respuestas.',
           },
         },
         {
@@ -543,7 +562,7 @@ const emociones: ExperimentFlow = {
           componentFamily: 'content',
           template: 'image',
           props: {
-            url: 'https://investigacion.elgatoylacaja.com/emociones/images/miradas/{{@loop.value.id}}.png',
+            url: 'https://investigacion.elgatoylacaja.com/emociones/images/miradas/{{@loop-miradas.value.id}}.png',
             alt: 'Retrato de mirada',
           },
         },
@@ -551,10 +570,9 @@ const emociones: ExperimentFlow = {
           componentFamily: 'response',
           template: 'radio',
           props: {
-            label:
-              '¿Qué opción describe mejor a esta persona? (id: {{@loop.value.id}})',
+            label: '¿Qué opción describe mejor a esta persona?',
             dataKey: 'answer',
-            options: '@loop.value.options',
+            options: '@loop-miradas.value.options',
             randomize: true,
             reshuffleInLoop: true,
           },
@@ -574,6 +592,254 @@ const emociones: ExperimentFlow = {
           template: 'button',
           props: {
             text: 'Siguiente',
+            alignBottom: true,
+          },
+        },
+      ],
+    },
+    {
+      slug: 'regressors',
+      components: [
+        // {
+        //   componentFamily: 'control',
+        //   template: 'for-each',
+        //   props: {
+        //     type: 'dynamic',
+        //     id: 'for-each-mirada',
+        //     dataKey: '$$compute-sample-items.selected-items',
+        //     component: {
+        //       componentFamily: 'layout',
+        //       template: 'group',
+        //       props: {
+        //         // Show each result and if it was correct or not, to encourage participants to answer the next questions carefully
+        //         name: 'Answer result',
+        //         components: [
+        //           {
+        //             componentFamily: 'content',
+        //             template: 'image',
+        //             props: {
+        //               url: 'https://investigacion.elgatoylacaja.com/emociones/images/miradas/{{#for-each-mirada.value.id}}.png',
+        //               alt: '',
+        //             },
+        //           },
+        //           {
+        //             componentFamily: 'content',
+        //             template: 'rich-text',
+        //             props: {
+        //               content:
+        //                 'Tu respuesta:{{$$loop-miradas.{{#for-each-mirada.index}}.mirada.answer}}',
+        //             },
+        //           },
+        //           {
+        //             componentFamily: 'control',
+        //             template: 'for-each',
+        //             props: {
+        //               id: 'for-each-option',
+        //               type: 'dynamic',
+        //               dataKey: '#for-each-mirada.value.options',
+        //               component: {
+        //                 componentFamily: 'control',
+        //                 template: 'conditional',
+        //                 props: {
+        //                   if: {
+        //                     type: 'simple',
+        //                     dataKey: '#for-each-option.value.value',
+        //                     operator: 'eq',
+        //                     value: '#for-each-mirada.value.correctAnswer',
+        //                   },
+        //                   component: {
+        //                     componentFamily: 'content',
+        //                     template: 'rich-text',
+        //                     props: {
+        //                       content:
+        //                         '{{#for-each-option.value.label}} (correcta) \n\n',
+        //                     },
+        //                   },
+        //                   else: {
+        //                     componentFamily: 'content',
+        //                     template: 'rich-text',
+        //                     props: {
+        //                       content: '{{#for-each-option.value.label}} \n\n',
+        //                     },
+        //                   },
+        //                 },
+        //               },
+        //             },
+        //           },
+        //         ],
+        //       },
+        //     },
+        //   },
+        // },
+        {
+          componentFamily: 'content',
+          template: 'rich-text',
+          props: {
+            content:
+              '## Casi terminamos \n\n Para terminar, nos ayudaría mucho si respondés estas preguntas sobre vos. Nos van a ayudar a entender mejor los resultados del experimento, y como siempre, los datos son confidenciales y anónimos.',
+          },
+        },
+        {
+          componentFamily: 'response',
+          template: 'numeric-input',
+          props: {
+            label: 'Edad',
+            dataKey: 'edad',
+            min: 18,
+            max: 120,
+          },
+        },
+        {
+          componentFamily: 'response',
+          template: 'dropdown',
+          props: {
+            label: 'Nivel educativo',
+            dataKey: 'nivel-educativo',
+            options: '%niveles-educativos',
+          },
+        },
+        {
+          componentFamily: 'response',
+          template: 'dropdown',
+          props: {
+            label: 'Género',
+            dataKey: 'genero',
+            options: '%generos',
+          },
+        },
+        {
+          componentFamily: 'response',
+          template: 'radio',
+          props: {
+            label: '¿Tenés hijos?',
+            dataKey: 'tiene-hijos',
+            options: [
+              { label: 'Sí', value: 'si' },
+              { label: 'No', value: 'no' },
+            ],
+          },
+        },
+        {
+          componentFamily: 'control',
+          template: 'conditional',
+          props: {
+            if: {
+              type: 'simple',
+              dataKey: '$tiene-hijos',
+              operator: 'eq',
+              value: 'si',
+            },
+            component: {
+              componentFamily: 'response',
+              template: 'numeric-input',
+              props: {
+                label: '¿Cuántos hijos tenés?',
+                dataKey: 'cantidad-hijos',
+                min: 1,
+              },
+            },
+          },
+        },
+        //
+        {
+          componentFamily: 'response',
+          template: 'radio',
+          props: {
+            label: '¿Consumiste alguna vez MDMA (éxtasis)?',
+            dataKey: 'consumio-mdma',
+            options: [
+              { label: 'Sí', value: 'si' },
+              { label: 'No', value: 'no' },
+            ],
+          },
+        },
+        {
+          componentFamily: 'control',
+          template: 'conditional',
+          props: {
+            if: {
+              type: 'simple',
+              dataKey: '$consumio-mdma',
+              operator: 'eq',
+              value: 'si',
+            },
+            component: {
+              componentFamily: 'layout',
+              template: 'group',
+              props: {
+                name: 'Preguntas consumo MDMA',
+                components: [
+                  {
+                    componentFamily: 'response',
+                    template: 'radio',
+                    props: {
+                      label: '¿Cuándo fue la última vez que consumiste?',
+                      dataKey: 'ultima-vez-consumo',
+                      options: '%ultima-vez-consumo',
+                    },
+                  },
+                  {
+                    componentFamily: 'response',
+                    template: 'numeric-input',
+                    props: {
+                      label:
+                        '¿Cuántas veces consumiste en los últimos 12 meses?',
+                      dataKey: 'veces-consumo-ultimos-12-meses',
+                      min: 1,
+                    },
+                  },
+                  {
+                    componentFamily: 'response',
+                    template: 'numeric-input',
+                    props: {
+                      label:
+                        '¿Cuántas veces estimás que consumiste MDMA en toda tu vida?',
+                      dataKey: 'veces-consumo-toda-vida',
+                      min: 1,
+                    },
+                  },
+                ],
+              },
+            },
+          },
+        },
+        {
+          componentFamily: 'response',
+          template: 'slider',
+          props: {
+            label: 'Más allá de las instituciones, te considerás una persona:',
+            dataKey: 'religiosidad',
+            minLabel: 'Nada religiosa',
+            maxLabel: 'Muy religiosa',
+          },
+        },
+        {
+          componentFamily: 'response',
+          template: 'slider',
+          props: {
+            label:
+              'Creés que la economía de una sociedad debería estar principalmente manejada por:',
+            dataKey: 'mercado-estado',
+            minLabel: 'El mercado',
+            maxLabel: 'El estado',
+          },
+        },
+        {
+          componentFamily: 'response',
+          template: 'slider',
+          props: {
+            label:
+              'Si tuvieras que definir tu posición política, ¿dónde te ubicarías?',
+            dataKey: 'conservador-progresista',
+            minLabel: 'Absolutamente conservador',
+            maxLabel: 'Absolutamente progresista',
+          },
+        },
+        {
+          componentFamily: 'layout',
+          template: 'button',
+          props: {
+            text: 'Finalizar',
             alignBottom: true,
           },
         },
@@ -601,6 +867,34 @@ const emociones: ExperimentFlow = {
       ],
     },
   ],
+  options: {
+    'niveles-educativos': [
+      { label: 'Primaria incompleta', value: 'primaria-incompleta' },
+      { label: 'Primaria completa', value: 'primaria-completa' },
+      { label: 'Secundaria incompleta', value: 'secundaria-incompleta' },
+      { label: 'Secundaria completa', value: 'secundaria-completa' },
+      {
+        label: 'Terciario/Universitario incompleto',
+        value: 'terciario-universitario-incompleto',
+      },
+      {
+        label: 'Terciario/Universitario completo',
+        value: 'terciario-universitario-completo',
+      },
+    ],
+    generos: [
+      { label: 'Mujer', value: 'mujer' },
+      { label: 'Varón', value: 'varon' },
+      { label: 'Otro', value: 'otro' },
+    ],
+    'ultima-vez-consumo': [
+      { label: 'En los últimos 3 días', value: 'ultimos-tres-dias' },
+      { label: 'En los últimos 7 días', value: 'ultimos-siete-dias' },
+      { label: 'En los últimos 30 días', value: 'ultimos-treinta-dias' },
+      { label: 'En los últimos 12 meses', value: 'ultimos-doce-meses' },
+      { label: 'Hace más de 12 meses', value: 'mas-de-doce-meses' },
+    ],
+  },
 };
 
 export default emociones;

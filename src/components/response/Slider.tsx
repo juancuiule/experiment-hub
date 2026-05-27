@@ -108,12 +108,12 @@ export function Slider({ component, form, context }: Props) {
             </div>
             {(component.props.minLabel || component.props.maxLabel) && (
               <div className="mt-0 flex justify-between">
-                <span className="text-content-secondary text-xs tracking-wide uppercase">
+                <span className="text-content-secondary w-full max-w-2/5 text-left text-xs tracking-wide uppercase">
                   {component.props.minLabel
                     ? resolveValuesInString(component.props.minLabel, context)
                     : undefined}
                 </span>
-                <span className="text-content-secondary text-xs tracking-wide uppercase">
+                <span className="text-content-secondary w-full max-w-2/5 text-right text-xs tracking-wide uppercase">
                   {component.props.maxLabel
                     ? resolveValuesInString(component.props.maxLabel, context)
                     : undefined}

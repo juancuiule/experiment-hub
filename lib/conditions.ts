@@ -43,6 +43,9 @@ export function isBaseOperator(operator: Operator): operator is BaseOperator {
   return ['lt', 'lte', 'gt', 'gte', 'eq', 'neq'].includes(operator);
 }
 
+// regex to check if string starts with # $ @ or $$
+const dataKeyRegex = /^(\$\$|@|\$|#)/;
+
 // Resolves {{...}} interpolations in dataKeys within a condition tree before evaluation
 export function resolveCondition(
   condition: Condition,
@@ -55,6 +58,14 @@ export function resolveCondition(
         condition.dataKey,
         context,
       ) as SimpleCondition['dataKey'],
+      value:
+        typeof condition.value === 'string' &&
+        dataKeyRegex.test(condition.value)
+          ? getValue(
+              resolveValuesInString(condition.value, context) as string,
+              context,
+            )
+          : condition.value,
     };
   }
   if (condition.type === 'and' || condition.type === 'or') {

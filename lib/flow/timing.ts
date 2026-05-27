@@ -15,7 +15,12 @@ export function buildTimingKey(step: FlowStep): string | null {
       return walkState(state.innerState);
     }
     if (state.type === 'in-loop') {
-      segments.push(state.node.id, state.values[state.index]);
+      const iterKey =
+        typeof state.values[state.index] === 'object' &&
+        state.values[state.index] !== null
+          ? String(state.index + 1)
+          : state.values[state.index];
+      segments.push(state.node.id, iterKey);
       return walkState(state.innerState);
     }
     return state;

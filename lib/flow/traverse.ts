@@ -347,7 +347,12 @@ export async function traverseInNode(
       });
     }
     case 'screen': {
-      const nContext = nestData(context, step.dataPath, state.node.props.slug, data ?? {});
+      const nContext = nestData(
+        context,
+        step.dataPath,
+        state.node.props.slug,
+        data ?? {},
+      );
       const nNode = getNextSequentialNode(experiment, state.node.id);
       if (!nNode) return { ...step, context: nContext, state: { type: 'end' } };
 
@@ -369,7 +374,12 @@ export async function traverseInNode(
           nodeOutputs,
         );
       }
-      const nContext = nestData(context, step.dataPath, state.node.id, nodeOutputs);
+      const nContext = nestData(
+        context,
+        step.dataPath,
+        state.node.id,
+        nodeOutputs,
+      );
       const nNode = getNextSequentialNode(experiment, state.node.id);
       if (!nNode) return { ...step, context: nContext, state: { type: 'end' } };
       const nState = initialState(experiment, nContext, nNode);
@@ -511,11 +521,7 @@ export async function traverseInLoop(
       state: state.innerState,
       experiment,
       context,
-      dataPath: [
-        ...(step.dataPath ?? []),
-        state.node.id,
-        iterKey,
-      ],
+      dataPath: [...(step.dataPath ?? []), state.node.id, iterKey],
       handlers: step.handlers,
     },
     data,
@@ -545,11 +551,7 @@ export async function traverseInLoop(
         state: nextInnerState,
         experiment,
         context: contextWithNextItem,
-        dataPath: [
-          ...(step.dataPath ?? []),
-          state.node.id,
-          nextIterKey,
-        ],
+        dataPath: [...(step.dataPath ?? []), state.node.id, nextIterKey],
         handlers: step.handlers,
       });
       return {
@@ -632,8 +634,16 @@ function stepperPropsFromState(
   state: State,
 ): { config: StepperConfig; step: number; total: number } | null {
   if (state.type === 'in-path' && state.node.props.stepper)
-    return { config: state.node.props.stepper, step: state.visibleStep, total: state.visibleTotal };
+    return {
+      config: state.node.props.stepper,
+      step: state.visibleStep,
+      total: state.visibleTotal,
+    };
   if (state.type === 'in-loop' && state.node.props.stepper)
-    return { config: state.node.props.stepper, step: state.index, total: state.values.length };
+    return {
+      config: state.node.props.stepper,
+      step: state.index,
+      total: state.values.length,
+    };
   return null;
 }

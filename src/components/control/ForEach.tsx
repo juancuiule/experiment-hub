@@ -43,7 +43,7 @@ export function ForEach({
         });
 
         return (
-          <Fragment key={`${component.props.id}-${itemValue}`}>
+          <Fragment key={`${component.props.id}-${JSON.stringify(itemValue)}`}>
             {renderChild({
               component: template,
               form,
