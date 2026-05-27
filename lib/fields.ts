@@ -8,7 +8,7 @@ import { Context } from './types';
 
 export type ForEachMeta = {
   id: string;
-  dataKey: `$$${string}` | `$${string}`;
+  dataKey: `$$${string}` | `$${string}` | `@${string}` | `#${string}`;
 };
 
 /**
