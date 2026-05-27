@@ -82,7 +82,11 @@ describe('error categories', () => {
         },
         makeScreen('s2', 'fallback'),
       ],
-      edges: [seq('start', 's1'), seq('s1', 'b'), { type: 'branch-default', from: 'b', to: 's2' }],
+      edges: [
+        seq('start', 's1'),
+        seq('s1', 'b'),
+        { type: 'branch-default', from: 'b', to: 's2' },
+      ],
       screens: [
         {
           slug: 'q',
@@ -1224,7 +1228,8 @@ describe('condition reference checks', () => {
 
 describe('actual experiment', () => {
   it('has no validation errors', async () => {
-    const { default: experiment } = await import('@/src/data/experiments/pandemic');
+    const { default: experiment } =
+      await import('@/src/data/experiments/pandemic');
     expect(validateExperiment(experiment)).toEqual([]);
   });
 });
@@ -1265,7 +1270,9 @@ describe('shared option references', () => {
     };
     const errs = validateExperiment(flow);
     expect(errs.map((e) => e.code)).toContain('unknown-shared-options');
-    expect(errs.find((e) => e.code === 'unknown-shared-options')!.message).toContain('%missing');
+    expect(
+      errs.find((e) => e.code === 'unknown-shared-options')!.message,
+    ).toContain('%missing');
   });
 
   it('passes when options is an inline array (no % reference)', () => {
@@ -1295,15 +1302,18 @@ describe('shared option references', () => {
     };
     const errs = validateExperiment(flow);
     expect(errs.map((e) => e.code)).toContain('unknown-shared-options');
-    expect(errs.find((e) => e.code === 'unknown-shared-options')!.message).toContain(
-      '%mirada-{{loop.value}}',
-    );
+    expect(
+      errs.find((e) => e.code === 'unknown-shared-options')!.message,
+    ).toContain('%mirada-{{loop.value}}');
   });
 });
 
 // ─── Compute node ────────────────────────────────────────────────────────────
 
-function makeCompute(id: string, computations: any[] = []): ExperimentFlow['nodes'][0] {
+function makeCompute(
+  id: string,
+  computations: any[] = [],
+): ExperimentFlow['nodes'][0] {
   return { id, type: 'compute' as const, props: { name: id, computations } };
 }
 
@@ -1333,7 +1343,10 @@ describe('compute node reference checks', () => {
       nodes: [
         start,
         makeCompute('c1', [
-          { outputKey: 'total', formula: { type: 'sum', inputs: ['$$q.score'] } },
+          {
+            outputKey: 'total',
+            formula: { type: 'sum', inputs: ['$$q.score'] },
+          },
         ]),
         makeScreen('s1', 'end'),
       ],
@@ -1349,7 +1362,10 @@ describe('compute node reference checks', () => {
         start,
         makeScreen('s1', 'q'),
         makeCompute('c1', [
-          { outputKey: 'total', formula: { type: 'sum', inputs: ['$$q.score'] } },
+          {
+            outputKey: 'total',
+            formula: { type: 'sum', inputs: ['$$q.score'] },
+          },
         ]),
         makeScreen('s2', 'end'),
       ],
@@ -1358,7 +1374,11 @@ describe('compute node reference checks', () => {
         {
           slug: 'q',
           components: [
-            { componentFamily: 'response', template: 'numeric-input', props: { dataKey: 'score', label: 'Score' } },
+            {
+              componentFamily: 'response',
+              template: 'numeric-input',
+              props: { dataKey: 'score', label: 'Score' },
+            },
           ],
         },
         { slug: 'end', components: [] },
@@ -1374,8 +1394,24 @@ describe('compute node reference checks', () => {
         makeScreen('s1', 'q'),
         makeCompute('c1', [
           // level references $total but total is defined AFTER level — wrong order
-          { outputKey: 'level', formula: { type: 'conditional', condition: { type: 'simple', operator: 'gte', dataKey: '$total', value: 10 }, then: 'high', else: 'low' } },
-          { outputKey: 'total', formula: { type: 'sum', inputs: ['$$q.score'] } },
+          {
+            outputKey: 'level',
+            formula: {
+              type: 'conditional',
+              condition: {
+                type: 'simple',
+                operator: 'gte',
+                dataKey: '$total',
+                value: 10,
+              },
+              then: 'high',
+              else: 'low',
+            },
+          },
+          {
+            outputKey: 'total',
+            formula: { type: 'sum', inputs: ['$$q.score'] },
+          },
         ]),
         makeScreen('s2', 'end'),
       ],
@@ -1384,7 +1420,11 @@ describe('compute node reference checks', () => {
         {
           slug: 'q',
           components: [
-            { componentFamily: 'response', template: 'numeric-input', props: { dataKey: 'score', label: 'Score' } },
+            {
+              componentFamily: 'response',
+              template: 'numeric-input',
+              props: { dataKey: 'score', label: 'Score' },
+            },
           ],
         },
         { slug: 'end', components: [] },
@@ -1399,8 +1439,24 @@ describe('compute node reference checks', () => {
         start,
         makeScreen('s1', 'q'),
         makeCompute('c1', [
-          { outputKey: 'total', formula: { type: 'sum', inputs: ['$$q.score'] } },
-          { outputKey: 'level', formula: { type: 'conditional', condition: { type: 'simple', operator: 'gte', dataKey: '$total', value: 10 }, then: 'high', else: 'low' } },
+          {
+            outputKey: 'total',
+            formula: { type: 'sum', inputs: ['$$q.score'] },
+          },
+          {
+            outputKey: 'level',
+            formula: {
+              type: 'conditional',
+              condition: {
+                type: 'simple',
+                operator: 'gte',
+                dataKey: '$total',
+                value: 10,
+              },
+              then: 'high',
+              else: 'low',
+            },
+          },
         ]),
         makeScreen('s2', 'end'),
       ],
@@ -1409,7 +1465,11 @@ describe('compute node reference checks', () => {
         {
           slug: 'q',
           components: [
-            { componentFamily: 'response', template: 'numeric-input', props: { dataKey: 'score', label: 'Score' } },
+            {
+              componentFamily: 'response',
+              template: 'numeric-input',
+              props: { dataKey: 'score', label: 'Score' },
+            },
           ],
         },
         { slug: 'end', components: [] },
@@ -1424,7 +1484,10 @@ describe('compute node reference checks', () => {
         start,
         makeScreen('s1', 'q'),
         makeCompute('c1', [
-          { outputKey: 'total', formula: { type: 'sum', inputs: ['$$q.score'] } },
+          {
+            outputKey: 'total',
+            formula: { type: 'sum', inputs: ['$$q.score'] },
+          },
         ]),
         makeScreen('s2', 'result'),
       ],
@@ -1433,13 +1496,21 @@ describe('compute node reference checks', () => {
         {
           slug: 'q',
           components: [
-            { componentFamily: 'response', template: 'numeric-input', props: { dataKey: 'score', label: 'Score' } },
+            {
+              componentFamily: 'response',
+              template: 'numeric-input',
+              props: { dataKey: 'score', label: 'Score' },
+            },
           ],
         },
         {
           slug: 'result',
           components: [
-            { componentFamily: 'content', template: 'rich-text', props: { content: 'Your score: {{$$c1.total}}' } },
+            {
+              componentFamily: 'content',
+              template: 'rich-text',
+              props: { content: 'Your score: {{$$c1.total}}' },
+            },
           ],
         },
       ],
@@ -1471,7 +1542,11 @@ describe('compute node reference checks', () => {
         {
           slug: 'q',
           components: [
-            { componentFamily: 'response', template: 'numeric-input', props: { dataKey: 'score', label: 'Score' } },
+            {
+              componentFamily: 'response',
+              template: 'numeric-input',
+              props: { dataKey: 'score', label: 'Score' },
+            },
           ],
         },
       ],
@@ -1486,7 +1561,10 @@ describe('compute node reference checks', () => {
         { id: 'path-a', type: 'path' as const, props: { name: 'A' } },
         makeScreen('s1', 'q'),
         makeCompute('c1', [
-          { outputKey: 'total', formula: { type: 'sum', inputs: ['$$path-a.q.score'] } },
+          {
+            outputKey: 'total',
+            formula: { type: 'sum', inputs: ['$$path-a.q.score'] },
+          },
         ]),
         makeScreen('s2', 'result'),
       ],
@@ -1500,13 +1578,21 @@ describe('compute node reference checks', () => {
         {
           slug: 'q',
           components: [
-            { componentFamily: 'response', template: 'numeric-input', props: { dataKey: 'score', label: 'Score' } },
+            {
+              componentFamily: 'response',
+              template: 'numeric-input',
+              props: { dataKey: 'score', label: 'Score' },
+            },
           ],
         },
         {
           slug: 'result',
           components: [
-            { componentFamily: 'content', template: 'rich-text', props: { content: '{{$$path-a.c1.total}}' } },
+            {
+              componentFamily: 'content',
+              template: 'rich-text',
+              props: { content: '{{$$path-a.c1.total}}' },
+            },
           ],
         },
       ],
@@ -1538,7 +1624,11 @@ describe('compute node reference checks', () => {
         {
           slug: 'q',
           components: [
-            { componentFamily: 'response', template: 'numeric-input', props: { dataKey: 'score', label: 'Score' } },
+            {
+              componentFamily: 'response',
+              template: 'numeric-input',
+              props: { dataKey: 'score', label: 'Score' },
+            },
           ],
         },
       ],
@@ -1561,8 +1651,16 @@ describe('compute node reference checks', () => {
         {
           slug: 'q',
           components: [
-            { componentFamily: 'response', template: 'numeric-input', props: { dataKey: 'a', label: 'A' } },
-            { componentFamily: 'response', template: 'numeric-input', props: { dataKey: 'b', label: 'B' } },
+            {
+              componentFamily: 'response',
+              template: 'numeric-input',
+              props: { dataKey: 'a', label: 'A' },
+            },
+            {
+              componentFamily: 'response',
+              template: 'numeric-input',
+              props: { dataKey: 'b', label: 'B' },
+            },
           ],
         },
       ],
@@ -1577,7 +1675,10 @@ describe('compute node — sample formula validation', () => {
       nodes: [
         start,
         makeCompute('c1', [
-          { outputKey: 'selected', formula: { type: 'sample', input: ['a', 'b', 'c'], n: 2 } },
+          {
+            outputKey: 'selected',
+            formula: { type: 'sample', input: ['a', 'b', 'c'], n: 2 },
+          },
         ]),
         makeScreen('s1', 'end'),
       ],
@@ -1593,7 +1694,10 @@ describe('compute node — sample formula validation', () => {
         start,
         makeScreen('s1', 'q'),
         makeCompute('c1', [
-          { outputKey: 'selected', formula: { type: 'sample', input: '$$q.pool', n: 3 } },
+          {
+            outputKey: 'selected',
+            formula: { type: 'sample', input: '$$q.pool', n: 3 },
+          },
         ]),
         makeScreen('s2', 'end'),
       ],
@@ -1602,7 +1706,11 @@ describe('compute node — sample formula validation', () => {
         {
           slug: 'q',
           components: [
-            { componentFamily: 'response', template: 'text-input', props: { dataKey: 'pool', label: 'Pool' } },
+            {
+              componentFamily: 'response',
+              template: 'text-input',
+              props: { dataKey: 'pool', label: 'Pool' },
+            },
           ],
         },
         { slug: 'end', components: [] },
@@ -1616,7 +1724,10 @@ describe('compute node — sample formula validation', () => {
       nodes: [
         start,
         makeCompute('c1', [
-          { outputKey: 'selected', formula: { type: 'sample', input: '$$q.pool', n: 3 } },
+          {
+            outputKey: 'selected',
+            formula: { type: 'sample', input: '$$q.pool', n: 3 },
+          },
         ]),
         makeScreen('s1', 'end'),
       ],
@@ -1631,8 +1742,14 @@ describe('compute node — sample formula validation', () => {
       nodes: [
         start,
         makeCompute('c1', [
-          { outputKey: 'selectedA', formula: { type: 'sample', input: ['a', 'b', 'c'], n: 0 } },
-          { outputKey: 'selectedB', formula: { type: 'sample', input: ['a', 'b', 'c'], n: -1 } },
+          {
+            outputKey: 'selectedA',
+            formula: { type: 'sample', input: ['a', 'b', 'c'], n: 0 },
+          },
+          {
+            outputKey: 'selectedB',
+            formula: { type: 'sample', input: ['a', 'b', 'c'], n: -1 },
+          },
         ]),
         makeScreen('s1', 'end'),
       ],
@@ -1647,7 +1764,10 @@ describe('compute node — sample formula validation', () => {
       nodes: [
         start,
         makeCompute('c1', [
-          { outputKey: 'selected', formula: { type: 'sample', input: ['a', 'b', 'c'], n: 1.5 } },
+          {
+            outputKey: 'selected',
+            formula: { type: 'sample', input: ['a', 'b', 'c'], n: 1.5 },
+          },
         ]),
         makeScreen('s1', 'end'),
       ],
@@ -1671,21 +1791,81 @@ describe('unknown-template', () => {
 
   it('passes valid templates for all families', () => {
     const flow = flowWithComponents([
-      { componentFamily: 'content', template: 'rich-text', props: { content: 'hello' } },
-      { componentFamily: 'content', template: 'image', props: { url: 'x.png', alt: '' } },
-      { componentFamily: 'content', template: 'video', props: { url: 'v.mp4' } },
-      { componentFamily: 'content', template: 'audio', props: { url: 'a.mp3' } },
-      { componentFamily: 'response', template: 'text-input', props: { dataKey: 'a', label: 'A' } },
-      { componentFamily: 'response', template: 'text-area', props: { dataKey: 'b', label: 'B' } },
-      { componentFamily: 'response', template: 'numeric-input', props: { dataKey: 'c', label: 'C' } },
-      { componentFamily: 'response', template: 'slider', props: { dataKey: 'd', label: 'D' } },
-      { componentFamily: 'response', template: 'radio', props: { dataKey: 'e', label: 'E', options: [] } },
-      { componentFamily: 'response', template: 'checkboxes', props: { dataKey: 'f', label: 'F', options: [] } },
-      { componentFamily: 'response', template: 'dropdown', props: { dataKey: 'g', label: 'G', options: [] } },
-      { componentFamily: 'response', template: 'single-checkbox', props: { dataKey: 'h', label: 'H', defaultValue: false } },
-      { componentFamily: 'response', template: 'date-input', props: { dataKey: 'i', label: 'I' } },
-      { componentFamily: 'response', template: 'time-input', props: { dataKey: 'j', label: 'J' } },
-      { componentFamily: 'response', template: 'likert-scale', props: { dataKey: 'k', label: 'K', options: [] } },
+      {
+        componentFamily: 'content',
+        template: 'rich-text',
+        props: { content: 'hello' },
+      },
+      {
+        componentFamily: 'content',
+        template: 'image',
+        props: { url: 'x.png', alt: '' },
+      },
+      {
+        componentFamily: 'content',
+        template: 'video',
+        props: { url: 'v.mp4' },
+      },
+      {
+        componentFamily: 'content',
+        template: 'audio',
+        props: { url: 'a.mp3' },
+      },
+      {
+        componentFamily: 'response',
+        template: 'text-input',
+        props: { dataKey: 'a', label: 'A' },
+      },
+      {
+        componentFamily: 'response',
+        template: 'text-area',
+        props: { dataKey: 'b', label: 'B' },
+      },
+      {
+        componentFamily: 'response',
+        template: 'numeric-input',
+        props: { dataKey: 'c', label: 'C' },
+      },
+      {
+        componentFamily: 'response',
+        template: 'slider',
+        props: { dataKey: 'd', label: 'D' },
+      },
+      {
+        componentFamily: 'response',
+        template: 'radio',
+        props: { dataKey: 'e', label: 'E', options: [] },
+      },
+      {
+        componentFamily: 'response',
+        template: 'checkboxes',
+        props: { dataKey: 'f', label: 'F', options: [] },
+      },
+      {
+        componentFamily: 'response',
+        template: 'dropdown',
+        props: { dataKey: 'g', label: 'G', options: [] },
+      },
+      {
+        componentFamily: 'response',
+        template: 'single-checkbox',
+        props: { dataKey: 'h', label: 'H', defaultValue: false },
+      },
+      {
+        componentFamily: 'response',
+        template: 'date-input',
+        props: { dataKey: 'i', label: 'I' },
+      },
+      {
+        componentFamily: 'response',
+        template: 'time-input',
+        props: { dataKey: 'j', label: 'J' },
+      },
+      {
+        componentFamily: 'response',
+        template: 'likert-scale',
+        props: { dataKey: 'k', label: 'K', options: [] },
+      },
       { componentFamily: 'layout', template: 'button', props: {} },
     ]);
     expect(codes(flow).filter((c) => c === 'unknown-template')).toEqual([]);
@@ -1732,7 +1912,11 @@ describe('unknown-template', () => {
       // @ts-expect-error intentionally invalid
       { componentFamily: 'content', template: 'nonexistent', props: {} },
       // @ts-expect-error intentionally invalid
-      { componentFamily: 'response', template: 'nonexistent', props: { dataKey: 'x', label: 'X' } },
+      {
+        componentFamily: 'response',
+        template: 'nonexistent',
+        props: { dataKey: 'x', label: 'X' },
+      },
       // @ts-expect-error intentionally invalid
       { componentFamily: 'layout', template: 'nonexistent', props: {} },
       // @ts-expect-error intentionally invalid
@@ -1769,7 +1953,11 @@ describe('unknown-template', () => {
         props: {
           if: { type: 'simple', operator: 'eq', dataKey: '$$pg.x', value: '1' },
           // @ts-expect-error intentionally invalid
-          component: { componentFamily: 'content', template: 'unknown', props: {} },
+          component: {
+            componentFamily: 'content',
+            template: 'unknown',
+            props: {},
+          },
         },
       },
     ]);
@@ -1786,7 +1974,11 @@ describe('unknown-template', () => {
           id: 'iter',
           values: ['a', 'b'],
           // @ts-expect-error intentionally invalid
-          component: { componentFamily: 'response', template: 'unknown', props: { dataKey: 'x', label: 'X' } },
+          component: {
+            componentFamily: 'response',
+            template: 'unknown',
+            props: { dataKey: 'x', label: 'X' },
+          },
         },
       },
     ]);

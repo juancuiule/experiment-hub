@@ -1,6 +1,6 @@
 'use client';
 
-import { ErrorCategory, ValidationError } from '@/lib/flow-validation';
+import { ErrorCategory, ValidationError } from '@/lib/experiment-validation';
 import { FrameworkNode } from '@/lib/nodes';
 import {
   AlertTriangle,
