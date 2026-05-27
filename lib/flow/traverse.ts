@@ -109,6 +109,9 @@ function initialState(
         visibleBranchContributions,
       };
     }
+    case 'end': {
+      return { type: 'end' };
+    }
   }
 }
 
@@ -390,6 +393,9 @@ export async function traverseInNode(
         dataPath: step.dataPath,
         handlers: step.handlers,
       });
+    }
+    case 'end': {
+      return { ...step, state: { type: 'end' } };
     }
   }
 }

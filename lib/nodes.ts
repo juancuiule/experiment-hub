@@ -185,6 +185,7 @@ const AUTO_TRAVERSE_TYPES = [
   'branch',
   'fork',
   'compute',
+  'end',
 ] as const;
 type AutoTraverseNodeType = (typeof AUTO_TRAVERSE_TYPES)[number];
 
