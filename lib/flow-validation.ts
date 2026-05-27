@@ -804,7 +804,8 @@ function checkSharedOptionReferences(flow: ExperimentFlow): ValidationError[] {
   const pushReferenceError = (code: string, message: string) =>
     errors.push({ code, category: 'reference', message });
   const definedOptions = new Set(Object.keys(flow.options ?? {}));
-  const hasSupportedTemplatePlaceholder = /\{\{(?:\$\$|\$|@|#)[a-zA-Z0-9_.\-]+\}\}/;
+  const hasSupportedTemplatePlaceholder =
+    /\{\{(?:\$\$|\$|@|#)[a-zA-Z0-9_.\-]+\}\}/;
 
   function checkComponent(component: ScreenComponent, screenSlug: string) {
     const props = component.props as Record<string, unknown>;
@@ -814,7 +815,10 @@ function checkSharedOptionReferences(flow: ExperimentFlow): ValidationError[] {
       // - Static validation cannot fully validate the resolved keys (e.g., 'mirada-1', 'mirada-2', ...)
       // - The actual validation happens at runtime when resolveOptionsSource() evaluates the template
       // - We only skip static checks for placeholders supported by resolveValuesInString()
-      if (!definedOptions.has(name) && !hasSupportedTemplatePlaceholder.test(name)) {
+      if (
+        !definedOptions.has(name) &&
+        !hasSupportedTemplatePlaceholder.test(name)
+      ) {
         pushReferenceError(
           'unknown-shared-options',
           `Screen "${screenSlug}" references undefined shared option set "%${name}"`,

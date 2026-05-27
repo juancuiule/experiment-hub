@@ -64,7 +64,7 @@ export default async function Home(props: Props) {
       )}
       <Experiment startingNode={startingNode} experiment={experiment} />
       {process.env.NODE_ENV === 'development' && (
-        <details>
+        <details className="my-2">
           <summary className="text-content-secondary cursor-pointer text-xs">
             Data Debug
           </summary>
