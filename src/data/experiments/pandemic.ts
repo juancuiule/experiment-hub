@@ -194,11 +194,6 @@ const pandemic: ExperimentFlow = {
       to: 'screen-psychedelics-last-time',
     },
     {
-      type: 'sequential',
-      from: 'screen-psychedelics-most-impactful',
-      to: 'screen-psychedelics-last-time',
-    },
-    {
       type: 'path-contains',
       from: 'path-psychedelics',
       to: 'screen-psychedelics-last-time',

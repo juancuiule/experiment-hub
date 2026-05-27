@@ -38,17 +38,41 @@ export type ValidationError = {
 
 function isNested(node: FrameworkNode, edges: FrameworkEdge[]): boolean {
   // A node is considered to be inside a path or loop (nested)
-  // if there is a path-contains or loop-template edge from
-  // any ancestor path or loop node to it, even if the node is not
-  // a direct child of the template (i.e. nested multiple levels
-  // deep inside the template).
-  // COMPLETE THIS...
-  return edges.some((edge) => {
-    return (
-      edge.to === node.id &&
-      (edge.type === 'path-contains' || edge.type === 'loop-template')
-    );
-  });
+  // if there is a path-contains or loop-template from any ancestor
+  // path or loop to it, even if the node is not a direct child of the
+  // template (i.e. nested multiple levels deep inside the template)
+
+  // These are edges that define nested-like relations without being
+  // paths or loops themselves; we need to follow these edges transitively
+  // to find all nested nodes.
+  const routingEdges = edges.filter(
+    (e) =>
+      e.type === 'branch-condition' ||
+      e.type === 'branch-default' ||
+      e.type === 'fork-edge',
+  );
+
+  // Start from direct children of paths and loops (targets of path-contains
+  // and loop-template edges)
+  const seed = new Set(
+    edges.filter((e) => isPathEdge(e) || isLoopEdge(e)).map(({ to }) => to),
+  );
+
+  // Expand by one step: add targets of routing edges whose source is already
+  // nested. Recurse until fixpoint (set stops growing).
+  // Sequential edges are skipped (they can exit the container).
+  // path-contains / loop-template are skipped (they open a new container).
+  function expand(current: Set<string>): Set<string> {
+    const next = new Set([
+      ...current,
+      ...routingEdges
+        .filter((e) => current.has(e.from.split('.')[0]))
+        .map((e) => e.to),
+    ]);
+    return next.size === current.size ? current : expand(next);
+  }
+
+  return expand(seed).has(node.id);
 }
 
 function validateConditionStructure(
@@ -179,7 +203,16 @@ function checkNodes({ nodes }: ExperimentFlow): ValidationError[] {
     'branches',
   );
 
-  // 5. Check fork nodes structure
+  // 5. Validate condition structures in branch
+  nodes
+    .filter((n): n is BranchNode => n.type === 'branch')
+    .forEach((branchNode) => {
+      branchNode.props.branches.forEach((branch) => {
+        errors.push(...validateConditionStructure(branch.config, 'branch'));
+      });
+    });
+
+  // 6. Check fork nodes structure
   const forkErrors = validateChildContainer<ForkNode>(
     nodes,
     'fork',

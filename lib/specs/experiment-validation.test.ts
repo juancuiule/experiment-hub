@@ -722,6 +722,219 @@ describe('screen definitions', () => {
   });
 });
 
+describe('nested node wiring', () => {
+  it('does not require sequential edge from branch arm screens inside a loop template', () => {
+    const flow: ExperimentFlow = {
+      nodes: [
+        start,
+        { id: 'loop', type: 'loop', props: { type: 'static', values: ['a', 'b'] } },
+        {
+          id: 'b',
+          type: 'branch',
+          props: {
+            name: 'B',
+            branches: [
+              {
+                id: 'is-a',
+                name: 'Is A',
+                config: { type: 'simple', operator: 'eq', dataKey: '@loop.value', value: 'a' },
+              },
+            ],
+          },
+        },
+        makeScreen('s-a', 'screen-a'),
+        makeScreen('s-other', 'screen-other'),
+        end,
+      ],
+      edges: [
+        seq('start', 'loop'),
+        { type: 'loop-template', from: 'loop', to: 'b' },
+        { type: 'branch-condition', from: 'b.is-a', to: 's-a' },
+        { type: 'branch-default', from: 'b', to: 's-other' },
+        seq('loop', 'end'),
+      ],
+      screens: [
+        { slug: 'screen-a', components: [] },
+        { slug: 'screen-other', components: [] },
+      ],
+    };
+    expect(validateExperiment(flow)).toEqual([]);
+  });
+
+  it('does not require sequential edge from branch arm screens inside a path', () => {
+    const flow: ExperimentFlow = {
+      nodes: [
+        start,
+        makeScreen('s-before', 'before'),
+        { id: 'p', type: 'path', props: { name: 'P' } },
+        {
+          id: 'b',
+          type: 'branch',
+          props: {
+            name: 'B',
+            branches: [
+              {
+                id: 'yes',
+                name: 'Yes',
+                config: { type: 'simple', operator: 'eq', dataKey: '$$before.answer', value: 'y' },
+              },
+            ],
+          },
+        },
+        makeScreen('s-yes', 'yes-screen'),
+        makeScreen('s-after', 'after'),
+        end,
+      ],
+      edges: [
+        seq('start', 's-before'),
+        seq('s-before', 'p'),
+        { type: 'path-contains', from: 'p', to: 'b', order: 0 },
+        { type: 'branch-condition', from: 'b.yes', to: 's-yes' },
+        { type: 'branch-default', from: 'b', to: 's-after' },
+        { type: 'path-contains', from: 'p', to: 's-after', order: 1 },
+        seq('p', 'end'),
+      ],
+      screens: [
+        {
+          slug: 'before',
+          components: [
+            {
+              componentFamily: 'response',
+              template: 'text-input',
+              props: { dataKey: 'answer', label: '?' },
+            },
+          ],
+        },
+        { slug: 'yes-screen', components: [] },
+        { slug: 'after', components: [] },
+      ],
+    };
+    expect(validateExperiment(flow)).toEqual([]);
+  });
+
+  it('does not treat direct branch arm of a top-level branch as nested', () => {
+    // Branch B is top-level (not inside a path/loop).
+    // arm 'with-path' → path P → s-in-path  (s-in-path is nested via path-contains)
+    // default arm      → s-direct            (NOT nested — B is top-level)
+    // P and s-direct both need explicit sequential edges; s-in-path does not.
+    const flow: ExperimentFlow = {
+      nodes: [
+        start,
+        makeScreen('s-q', 'q'),
+        {
+          id: 'b',
+          type: 'branch',
+          props: {
+            name: 'B',
+            branches: [
+              {
+                id: 'with-path',
+                name: 'With path',
+                config: {
+                  type: 'simple',
+                  operator: 'eq',
+                  dataKey: '$$q.answer',
+                  value: 'y',
+                },
+              },
+            ],
+          },
+        },
+        { id: 'p', type: 'path', props: { name: 'P' } },
+        makeScreen('s-in-path', 'in-path'),
+        makeScreen('s-direct', 'direct'),
+        end,
+      ],
+      edges: [
+        seq('start', 's-q'),
+        seq('s-q', 'b'),
+        { type: 'branch-condition', from: 'b.with-path', to: 'p' },
+        { type: 'branch-default', from: 'b', to: 's-direct' },
+        { type: 'path-contains', from: 'p', to: 's-in-path', order: 0 },
+        seq('p', 'end'),
+        seq('s-direct', 'end'),
+        // s-in-path has no sequential edge — nested inside p, no edge required
+      ],
+      screens: [
+        {
+          slug: 'q',
+          components: [
+            {
+              componentFamily: 'response',
+              template: 'text-input',
+              props: { dataKey: 'answer', label: '?' },
+            },
+          ],
+        },
+        { slug: 'in-path', components: [] },
+        { slug: 'direct', components: [] },
+      ],
+    };
+    expect(validateExperiment(flow)).toEqual([]);
+  });
+
+  it('reports missing-edge for the direct branch arm but not for the nested screen in its sibling path arm', () => {
+    // Same as above, but s-direct is missing its sequential exit edge.
+    // Only s-direct should be flagged — not s-in-path (nested) and not p (has its edge).
+    const flow: ExperimentFlow = {
+      nodes: [
+        start,
+        makeScreen('s-q', 'q'),
+        {
+          id: 'b',
+          type: 'branch',
+          props: {
+            name: 'B',
+            branches: [
+              {
+                id: 'with-path',
+                name: 'With path',
+                config: {
+                  type: 'simple',
+                  operator: 'eq',
+                  dataKey: '$$q.answer',
+                  value: 'y',
+                },
+              },
+            ],
+          },
+        },
+        { id: 'p', type: 'path', props: { name: 'P' } },
+        makeScreen('s-in-path', 'in-path'),
+        makeScreen('s-direct', 'direct'),
+        end,
+      ],
+      edges: [
+        seq('start', 's-q'),
+        seq('s-q', 'b'),
+        { type: 'branch-condition', from: 'b.with-path', to: 'p' },
+        { type: 'branch-default', from: 'b', to: 's-direct' },
+        { type: 'path-contains', from: 'p', to: 's-in-path', order: 0 },
+        seq('p', 'end'),
+        // missing: seq('s-direct', 'end')
+      ],
+      screens: [
+        {
+          slug: 'q',
+          components: [
+            {
+              componentFamily: 'response',
+              template: 'text-input',
+              props: { dataKey: 'answer', label: '?' },
+            },
+          ],
+        },
+        { slug: 'in-path', components: [] },
+        { slug: 'direct', components: [] },
+      ],
+    };
+    const errs = validateExperiment(flow);
+    expect(errs.map((e) => e.code)).toContain('missing-edge');
+    expect(errs.some((e) => e.message.includes('"s-direct"'))).toBe(true);
+    expect(errs.every((e) => !e.message.includes('"s-in-path"'))).toBe(true);
+  });
+});
+
 describe('@ reference checks', () => {
   it('accepts @value in a loop template screen', () => {
     const flow: ExperimentFlow = {
