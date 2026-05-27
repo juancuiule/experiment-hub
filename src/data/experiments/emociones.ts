@@ -2,7 +2,7 @@ import { ExperimentFlow } from '@/lib/types';
 
 const emociones: ExperimentFlow = {
   nodes: [
-    { id: 'start', type: 'start' },
+    // { id: 'start', type: 'start' },
     {
       id: 'compute-sample-items',
       type: 'compute',
@@ -393,6 +393,11 @@ const emociones: ExperimentFlow = {
       props: { slug: 'terms' },
     },
     {
+      id: 'screen-terms',
+      type: 'screen',
+      props: { slug: 'terms' },
+    },
+    {
       id: 'screen-intro',
       type: 'screen',
       props: { slug: 'intro' },
@@ -504,7 +509,11 @@ const emociones: ExperimentFlow = {
   ],
   edges: [
     { type: 'sequential', from: 'start', to: 'compute-sample-items' },
-    { type: 'sequential', from: 'compute-sample-items', to: 'screen-terms' },
+    {
+      type: 'sequential',
+      from: 'compute-sample-items',
+      to: 'screen-terms.algo',
+    },
     { type: 'sequential', from: 'screen-terms', to: 'screen-intro' },
     { type: 'sequential', from: 'screen-intro', to: 'loop-miradas' },
     { type: 'loop-template', from: 'loop-miradas', to: 'screen-mirada' },
@@ -513,6 +522,8 @@ const emociones: ExperimentFlow = {
     { type: 'sequential', from: 'checkpoint-answers', to: 'screen-regressors' },
   ],
   screens: [
+    { slug: 'algo', components: [] },
+    { slug: 'algo', components: [] },
     {
       slug: 'terms',
       components: [

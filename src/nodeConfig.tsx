@@ -1,17 +1,26 @@
+import { ErrorCategory } from '@/lib/experiment-validation';
 import { FrameworkNode } from '@/lib/nodes';
 import {
+  ArrowRightLeft,
+  Box,
   CirclePlay,
+  ClipboardX,
   CloudUpload,
   Cpu,
   GitFork,
+  Hash,
   LucideIcon,
   Repeat,
   Route,
   Split,
   Wallpaper,
 } from 'lucide-react';
+import { twMerge } from 'tailwind-merge';
 
-export const NODE_ICONS: Record<string, LucideIcon> = {
+export const BADGE_ICONS: Partial<
+  Record<FrameworkNode['type'] | ErrorCategory, LucideIcon>
+> = {
+  // Node types
   start: CirclePlay,
   screen: Wallpaper,
   branch: Split,
@@ -20,28 +29,45 @@ export const NODE_ICONS: Record<string, LucideIcon> = {
   loop: Repeat,
   checkpoint: CloudUpload,
   compute: Cpu,
+  // Error categories
+  edge: ArrowRightLeft,
+  reference: Hash,
+  node: Box,
+  component: ClipboardX,
 };
 
-export const NODE_COLORS: Record<FrameworkNode['type'], string> = {
-  start: 'bg-green-100 text-green-800 border-green-300',
-  screen: 'bg-blue-100 text-blue-800 border-blue-300',
-  branch: 'bg-yellow-100 text-yellow-800 border-yellow-300',
-  path: 'bg-purple-100 text-purple-800 border-purple-300',
-  fork: 'bg-orange-100 text-orange-800 border-orange-300',
-  loop: 'bg-pink-100 text-pink-800 border-pink-300',
-  checkpoint: 'bg-gray-100 text-gray-700 border-gray-300',
-  compute: 'bg-cyan-100 text-cyan-800 border-cyan-300',
+export const BADGE_CLASSES: Partial<
+  Record<FrameworkNode['type'] | ErrorCategory, string>
+> = {
+  // Node types
+  start: 'bg-lime-100 text-lime-700 border-lime-500',
+  screen: 'bg-sky-100 text-sky-700 border-sky-500',
+  branch: 'bg-orange-100 text-orange-700 border-orange-500',
+  path: 'bg-violet-100 text-violet-700 border-violet-500',
+  fork: 'bg-red-100 text-red-700 border-red-500',
+  loop: 'bg-yellow-100 text-yellow-700 border-yellow-500',
+  checkpoint: 'bg-teal-100 text-teal-700 border-teal-500',
+  compute: 'bg-neutral-100 text-neutral-700 border-neutral-500',
+  // Error categories
+  // edge: 'bg-gray-100 text-gray-700 border-gray-500',
+  // reference: 'bg-gray-100 text-gray-700 border-gray-500',
+  // node: 'bg-gray-100 text-gray-700 border-gray-500',
+  // component: 'bg-gray-100 text-gray-700 border-gray-500',
 };
+
+export const DEfAULT_BADGE_CLASS = 'bg-gray-100 text-gray-700 border-gray-300';
 
 export function NodeTypeBadge({ type }: { type: FrameworkNode['type'] }) {
-  const colorClass =
-    NODE_COLORS[type] ?? 'bg-gray-100 text-gray-700 border-gray-300';
-  const Icon = NODE_ICONS[type];
+  const nodeClass = BADGE_CLASSES[type] ?? DEfAULT_BADGE_CLASS;
+  const Icon = BADGE_ICONS[type] ?? Box;
   return (
     <span
-      className={`text-xxs flex items-center gap-1 rounded border px-1.5 py-0.5 font-semibold ${colorClass}`}
+      className={twMerge(
+        'flex items-center gap-1 rounded border px-1 py-0.5 font-semibold',
+        nodeClass,
+      )}
     >
-      {Icon && <Icon size={10} />}
+      <Icon size={12} />
       {type}
     </span>
   );
