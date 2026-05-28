@@ -11,6 +11,14 @@ export const EXPERIMENTS: Record<string, ExperimentFlow> = {
     nodes: [
       { id: 'start', type: 'start' },
       {
+        id: 'loop-city',
+        type: 'loop',
+        props: {
+          type: 'static',
+          values: ['New York', 'Los Angeles', 'Chicago'],
+        },
+      },
+      {
         id: 'screen-test',
         type: 'screen',
         props: {
@@ -20,13 +28,30 @@ export const EXPERIMENTS: Record<string, ExperimentFlow> = {
       { id: 'end', type: 'end' },
     ],
     edges: [
-      { from: 'start', to: 'screen-test', type: 'sequential' },
-      { from: 'screen-test', to: 'end', type: 'sequential' },
+      { from: 'start', to: 'loop-city', type: 'sequential' },
+      {
+        from: 'loop-city',
+        to: 'screen-test',
+        type: 'loop-template',
+      },
+      {
+        from: 'loop-city',
+        to: 'end',
+        type: 'sequential',
+      },
     ],
     screens: [
       {
         slug: 'test',
         components: [
+          {
+            componentFamily: 'content',
+            template: 'rich-text',
+            props: {
+              content:
+                "### What's your favorite fruit in {{@loop-city.value}}?",
+            },
+          },
           {
             componentFamily: 'control',
             template: 'for-each',
@@ -46,6 +71,13 @@ export const EXPERIMENTS: Record<string, ExperimentFlow> = {
                   tooltip: true,
                 },
               },
+            },
+          },
+          {
+            componentFamily: 'layout',
+            template: 'button',
+            props: {
+              text: 'Submit',
             },
           },
         ],

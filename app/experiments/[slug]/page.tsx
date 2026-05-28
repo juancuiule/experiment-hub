@@ -3,7 +3,9 @@ import { Condition } from '@/lib/conditions';
 import {
   FrameworkEdge,
   isBranchConditionEdge,
+  isBranchDefaultEdge,
   isForkEdge,
+  isLoopEdge,
   isPathEdge,
   isSequentialEdge,
 } from '@/lib/edges';
@@ -275,7 +277,7 @@ function referencesInScreen(
             : [];
         const innerAvail = {
           ...avail,
-          forEach: [...avail.forEach, c.props.id],
+          forEach: new Set([...avail.forEach, c.props.id]),
         };
         return [...sourceErrors, ...recur([c.props.component], innerAvail)];
       },
@@ -319,31 +321,29 @@ function referencesInNode(node: FrameworkNode): string[] {
 }
 
 type Available = {
-  // Used at node and sreen level
-  dataKeys: string[]; // => will be referenced by $$
-  loops: string[]; // => will be referenced by @
+  // Used at node and screen level
+  dataKeys: Set<string>; // => will be referenced by $$
+  loops: Set<string>; // => will be referenced by @
 
   // Used only at screen level
-  screenKeys: string[]; // => will be referenced by $ (screen or computation)
-  forEach: string[]; // => will be referenced by #
+  screenKeys: Set<string>; // => will be referenced by $ (screen or computation)
+  forEach: Set<string>; // => will be referenced by #
 };
 
 function isAvailable(reference: string, available: Available): boolean {
   if (reference.startsWith('$$')) {
-    const dataKey = reference.slice(2);
-    return available.dataKeys.includes(dataKey);
+    return available.dataKeys.has(reference.slice(2));
   }
   if (reference.startsWith('$')) {
-    const screenKey = reference.slice(1);
-    return available.screenKeys.includes(screenKey);
+    return available.screenKeys.has(reference.slice(1));
   }
   if (reference.startsWith('@')) {
     const [loopId] = reference.slice(1).split('.');
-    return available.loops.includes(loopId);
+    return available.loops.has(loopId);
   }
   if (reference.startsWith('#')) {
     const [forEachId] = reference.slice(1).split('.');
-    return available.forEach.includes(forEachId);
+    return available.forEach.has(forEachId);
   }
   return false;
 }
@@ -370,8 +370,8 @@ function checkReferences(experiment: ExperimentFlow) {
       // enter a new node. This means that $ and # references can not be used to
       // reference values produced in previous screens or for-each components, but
       // only values produced in the same screen or for-each component.
-      screenKeys: [],
-      forEach: [],
+      screenKeys: new Set<string>(),
+      forEach: new Set<string>(),
     };
 
     // We should find the node with the given id and check which
@@ -412,7 +412,7 @@ function checkReferences(experiment: ExperimentFlow) {
           // $ refs within this screen see its own response fields
           const screenAvailable: Available = {
             ...available,
-            screenKeys: screenDataKeys,
+            screenKeys: new Set(screenDataKeys),
           };
 
           const screenErrors = referencesInScreen(screen, screenAvailable);
@@ -421,10 +421,10 @@ function checkReferences(experiment: ExperimentFlow) {
           // Downstream nodes can reference this screen's fields as $$prefix.key
           const newAvailable: Available = {
             ...available,
-            dataKeys: [
+            dataKeys: new Set([
               ...available.dataKeys,
               ...screenDataKeys.map((k) => `${prefix}.${k}`),
-            ],
+            ]),
           };
 
           if (nextSeqId) {
@@ -438,29 +438,41 @@ function checkReferences(experiment: ExperimentFlow) {
         const children = edgesFrom
           .filter(isPathEdge)
           .sort((e1, e2) => e1.order - e2.order);
+        const childDataPath = [...dataPath, node.id];
 
+        let afterPath: Available;
         if (node.props.randomized) {
-          // If the path is randomized, we should check each child path separately,
-          // since they can have different references and we should check that all of them are valid.
-          children.forEach((child) => {
-            walkFrom(child.to, available, [...dataPath, node.id]);
-          });
-          // After checking all child paths we should add all the references from all child
-          // paths to the available references for the next nodes, since all of them will
-          // be available in the next nodes.
+          // Children run in unknown order — each one only sees pre-path available.
+          // After the path all children's data is reachable, so union their results.
+          const results = children.map(
+            (child) =>
+              walkFrom(child.to, available, childDataPath) ?? available,
+          );
+          afterPath = results.reduce(
+            (acc, result) => ({
+              ...acc,
+              dataKeys: new Set([...acc.dataKeys, ...result.dataKeys]),
+              loops: new Set([...acc.loops, ...result.loops]),
+            }),
+            available,
+          );
         } else {
-          // If the path is not randomized we should check each child path in order and accumulate
-          // the available references, since all of them will be available in the next paths.
+          // Children run in declared order — each one sees the accumulated output
+          // of all preceding children.
+          afterPath = children.reduce<Available>(
+            (acc, child) => walkFrom(child.to, acc, childDataPath) ?? acc,
+            available,
+          );
         }
 
         if (nextSeqId) {
-          return walkFrom(nextSeqId, available, dataPath);
+          return walkFrom(nextSeqId, afterPath, dataPath);
         }
-        return available;
+        return afterPath;
       }
       case 'branch': {
         const branches = edgesFrom.filter(
-          (edge) => isBranchConditionEdge(edge) || isSequentialEdge(edge),
+          (edge) => isBranchConditionEdge(edge) || isBranchDefaultEdge(edge),
         );
         branches.forEach((branch) => {
           walkFrom(branch.to, available, dataPath);
@@ -487,16 +499,19 @@ function checkReferences(experiment: ExperimentFlow) {
 
           computeAvailable = {
             ...computeAvailable,
-            screenKeys: [...computeAvailable.screenKeys, computation.outputKey],
+            screenKeys: new Set([
+              ...computeAvailable.screenKeys,
+              computation.outputKey,
+            ]),
             // This is a bit imprecise since it allows later computations in the same node
             // to reference earlier outputs using $$, but it simplifies the implementation.
             // If we wanted to be more precise we would need to track the outputs that will
             // be produced by the current compute node separately and only add them to the
-            // available outside this forEach loop
-            dataKeys: [
+            // available outside this computations.forEach loop
+            dataKeys: new Set([
               ...computeAvailable.dataKeys,
               `${prefix}.${computation.outputKey}`,
-            ],
+            ]),
           };
         });
 
@@ -517,12 +532,36 @@ function checkReferences(experiment: ExperimentFlow) {
         return available;
       }
       case 'loop': {
-        // const template = edgesFrom.find(isFrom(node));
-        //
-        if (nextSeqId) {
-          return walkFrom(nextSeqId, available, dataPath);
+        const templateEdge = edgesFrom.find(isLoopEdge);
+        let afterLoop = available;
+        if (templateEdge) {
+          const loopAvailable: Available = {
+            ...available,
+            loops: new Set([...available.loops, node.id]),
+          };
+          if (node.props.type === 'static') {
+            // Walk once per value — the runtime data path is [loopId, value],
+            // so each iteration produces distinct $$ keys downstream.
+            const allKeys = new Set(available.dataKeys);
+            for (const value of node.props.values) {
+              const iterResult = walkFrom(templateEdge.to, loopAvailable, [
+                ...dataPath,
+                node.id,
+                value,
+              ]);
+              iterResult.dataKeys.forEach((k) => allKeys.add(k));
+            }
+            afterLoop = { ...available, dataKeys: allKeys };
+          } else {
+            // Dynamic loop: source array unknown at validation time — validate
+            // template references but don't carry any keys downstream.
+            walkFrom(templateEdge.to, loopAvailable, [...dataPath, node.id]);
+          }
         }
-        return available;
+        if (nextSeqId) {
+          return walkFrom(nextSeqId, afterLoop, dataPath);
+        }
+        return afterLoop;
       }
       case 'end': {
         return available;
@@ -535,14 +574,18 @@ function checkReferences(experiment: ExperimentFlow) {
 
   // Start from each start node
   const startNodes = nodes.filter((n): n is StartNode => n.type === 'start');
-  const initialAvailable = {
-    screenKeys: [],
-    dataKeys: [],
-    loops: [],
-    forEach: [],
+  const initialAvailable: Available = {
+    dataKeys: new Set(),
+    loops: new Set(),
+    screenKeys: new Set(),
+    forEach: new Set(),
   };
 
   startNodes.forEach((start) => {
-    walkFrom(start.id, initialAvailable, []);
+    const availabe = walkFrom(start.id, initialAvailable, []);
+    console.log(
+      `References available after walking from start node "${start.id}":`,
+      availabe,
+    );
   });
 }
