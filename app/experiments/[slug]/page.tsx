@@ -215,89 +215,81 @@ type ComponentStringPropKey =
       : never
     : never;
 
-function referencesInScreen(screen: FrameworkScreen, available: Available): void {
-  const TEXT_PROPS = [
-    'label',
-    'content',
-    'text',
-    'url',
-    'alt',
-    'placeholder',
-    'minLabel',
-    'maxLabel',
-    'dataKey',
-    'errorMessage',
-  ] as const satisfies ReadonlyArray<ComponentStringPropKey>;
+const TEXT_PROPS = [
+  'label',
+  'content',
+  'text',
+  'url',
+  'alt',
+  'placeholder',
+  'minLabel',
+  'maxLabel',
+  'dataKey',
+  'errorMessage',
+] as const satisfies ReadonlyArray<ComponentStringPropKey>;
 
-  function propsRefs(props: Record<string, unknown>): string[] {
-    return TEXT_PROPS.flatMap((field) =>
-      typeof props[field] === 'string'
-        ? extractRefs(props[field] as string)
-        : [],
-    );
-  }
-
-  function checkRef(ref: string, foreachScope: string[]): void {
-    if (ref.startsWith('#')) {
-      const [forEachId] = ref.slice(1).split('.');
-      if (!foreachScope.includes(forEachId)) {
-        console.error(
-          `Screen "${screen.slug}": "${ref}" used outside a for-each with id "${forEachId}"`,
-        );
-      }
-    } else if (!isAvailable(ref, available)) {
-      console.error(
-        `Screen "${screen.slug}": reference "${ref}" is not available`,
+function propsErrors(
+  props: Record<string, unknown>,
+  screen: FrameworkScreen,
+  avail: Available,
+): string[] {
+  return TEXT_PROPS.flatMap((field) => {
+    if (typeof props[field] !== 'string') return [];
+    return extractRefs(props[field] as string)
+      .filter((ref) => !isAvailable(ref, avail))
+      .map(
+        (ref) => `Screen "${screen.slug}": reference "${ref}" is not available`,
       );
-    }
-  }
+  });
+}
 
-  const handlers: Handlers<string, { foreachScope: string[] }> = [
-    on({ componentFamily: 'response' }, (c, { foreachScope }): string[] => {
-      propsRefs(c.props).forEach((ref) => checkRef(ref, foreachScope));
-      return [];
-    }),
-    on({ componentFamily: 'content' }, (c, { foreachScope }): string[] => {
-      propsRefs(c.props).forEach((ref) => checkRef(ref, foreachScope));
-      return [];
-    }),
-    on(
-      { componentFamily: 'layout', template: 'button' },
-      (c, { foreachScope }): string[] => {
-        propsRefs(c.props).forEach((ref) => checkRef(ref, foreachScope));
-        return [];
-      },
+function referencesInScreen(
+  screen: FrameworkScreen,
+  available: Available,
+): string[] {
+  const handlers: Handlers<string, Available> = [
+    on({ componentFamily: 'response' }, (c, avail) =>
+      propsErrors(c.props, screen, avail),
+    ),
+    on({ componentFamily: 'content' }, (c, avail) =>
+      propsErrors(c.props, screen, avail),
+    ),
+    on({ componentFamily: 'layout', template: 'button' }, (c, avail) =>
+      propsErrors(c.props, screen, avail),
     ),
     on(
       { componentFamily: 'layout', template: 'group' },
-      (c, state, recur): string[] => {
-        recur(c.props.components, state);
-        return [];
-      },
+      (c, avail, recur): string[] => recur(c.props.components, avail),
     ),
     on(
       { componentFamily: 'control', template: 'conditional' },
-      (c, state, recur): string[] => {
-        recur([c.props.component], state);
-        if (c.props.else) recur([c.props.else], state);
-        return [];
-      },
+      (c, avail, recur): string[] => [
+        ...recur([c.props.component], avail),
+        ...(c.props.else ? recur([c.props.else], avail) : []),
+      ],
     ),
     on(
       { componentFamily: 'control', template: 'for-each' },
-      (c, { foreachScope }, recur): string[] => {
-        if (c.props.type === 'dynamic') {
-          extractRefs(c.props.dataKey).forEach((ref) =>
-            checkRef(ref, foreachScope),
-          );
-        }
-        recur([c.props.component], { foreachScope: [...foreachScope, c.props.id] });
-        return [];
+      (c, avail, recur): string[] => {
+        const sourceErrors =
+          c.props.type === 'dynamic'
+            ? extractRefs(c.props.dataKey)
+                .filter((ref) => !isAvailable(ref, avail))
+                .map(
+                  (ref) =>
+                    `Screen "${screen.slug}": reference "${ref}" is not available`,
+                )
+            : [];
+        const innerAvail = {
+          ...avail,
+          forEach: [...avail.forEach, c.props.id],
+        };
+        return [...sourceErrors, ...recur([c.props.component], innerAvail)];
       },
     ),
   ];
 
-  flatMap(screen.components, { foreachScope: [] }, handlers);
+  return flatMap(screen.components, available, handlers);
 }
 
 function referencesInNode(node: FrameworkNode): string[] {
@@ -435,7 +427,8 @@ function checkReferences(experiment: ExperimentFlow) {
             screenKeys: screenDataKeys,
           };
 
-          referencesInScreen(screen, screenAvailable);
+          const screenErrors = referencesInScreen(screen, screenAvailable);
+          screenErrors.forEach((e) => console.error(e));
 
           // Downstream nodes can reference this screen's fields as $$prefix.key
           const newAvailable: Available = {
