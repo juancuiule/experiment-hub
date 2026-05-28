@@ -1,4 +1,4 @@
-import { flatMap, on } from '@/lib/component-walker';
+import { flatMap, Handlers, on } from '@/lib/component-walker';
 import { Condition } from '@/lib/conditions';
 import {
   FrameworkEdge,
@@ -9,6 +9,7 @@ import {
 } from '@/lib/edges';
 import { validateExperiment } from '@/lib/experiment-validation';
 import { ComputeNode, FrameworkNode, StartNode } from '@/lib/nodes';
+import { resolveValuesInString } from '@/lib/resolve';
 import { FrameworkScreen } from '@/lib/screen';
 import { ExperimentFlow } from '@/lib/types';
 import { EXPERIMENTS } from '@/src/data/experiments';
@@ -170,6 +171,135 @@ function referencesInCompute(compute: ComputeNode) {
   });
 }
 
+function extractRefs(text: string): string[] {
+  const wrapped = [...text.matchAll(/\{\{((?:\$\$|@|#)[\w.\-]+)\}\}/g)].map(
+    (m) => m[1],
+  );
+  if (wrapped.length > 0) return wrapped;
+  const m = text.match(/^(\$\$|@|#)([\w.\-]+)$/);
+  return m ? [`${m[1]}${m[2]}`] : [];
+}
+
+type ForeachCtx = Record<string, { index: number; value: string }>;
+
+function collectScreenDataKeys(screen: FrameworkScreen): string[] {
+  const handlers: Handlers<string, ForeachCtx> = [
+    on({ componentFamily: 'response' }, (c, foreachData) => [
+      resolveValuesInString(c.props.dataKey, { screenData: { foreachData } }),
+    ]),
+    on({ template: 'group' }, (c, ctx, recur) =>
+      recur(c.props.components, ctx),
+    ),
+    on({ template: 'for-each' }, (c, ctx, recur) => {
+      if (c.props.type !== 'static') return [];
+      return c.props.values.flatMap((value, index) =>
+        recur([c.props.component], {
+          ...ctx,
+          [c.props.id]: { index, value },
+        }),
+      );
+    }),
+    // We skip conditional components because we can't guarantee which branch
+    // will be taken, so we can't guarantee which dataKeys will be available.
+    // We also skip buttons and other content components because they don't produce dataKeys.
+  ];
+  return flatMap(screen.components, {}, handlers);
+}
+
+// All prop keys across every component type whose value type includes string.
+// Derived so that TEXT_PROPS can only contain valid component prop keys.
+type ComponentStringPropKey =
+  FrameworkScreen['components'][number] extends infer C
+    ? C extends { props: infer P }
+      ? { [K in keyof P]: P[K] extends string | undefined ? K : never }[keyof P]
+      : never
+    : never;
+
+function referencesInScreen(screen: FrameworkScreen, available: Available): void {
+  const TEXT_PROPS = [
+    'label',
+    'content',
+    'text',
+    'url',
+    'alt',
+    'placeholder',
+    'minLabel',
+    'maxLabel',
+    'dataKey',
+    'errorMessage',
+  ] as const satisfies ReadonlyArray<ComponentStringPropKey>;
+
+  function propsRefs(props: Record<string, unknown>): string[] {
+    return TEXT_PROPS.flatMap((field) =>
+      typeof props[field] === 'string'
+        ? extractRefs(props[field] as string)
+        : [],
+    );
+  }
+
+  function checkRef(ref: string, foreachScope: string[]): void {
+    if (ref.startsWith('#')) {
+      const [forEachId] = ref.slice(1).split('.');
+      if (!foreachScope.includes(forEachId)) {
+        console.error(
+          `Screen "${screen.slug}": "${ref}" used outside a for-each with id "${forEachId}"`,
+        );
+      }
+    } else if (!isAvailable(ref, available)) {
+      console.error(
+        `Screen "${screen.slug}": reference "${ref}" is not available`,
+      );
+    }
+  }
+
+  const handlers: Handlers<string, { foreachScope: string[] }> = [
+    on({ componentFamily: 'response' }, (c, { foreachScope }): string[] => {
+      propsRefs(c.props).forEach((ref) => checkRef(ref, foreachScope));
+      return [];
+    }),
+    on({ componentFamily: 'content' }, (c, { foreachScope }): string[] => {
+      propsRefs(c.props).forEach((ref) => checkRef(ref, foreachScope));
+      return [];
+    }),
+    on(
+      { componentFamily: 'layout', template: 'button' },
+      (c, { foreachScope }): string[] => {
+        propsRefs(c.props).forEach((ref) => checkRef(ref, foreachScope));
+        return [];
+      },
+    ),
+    on(
+      { componentFamily: 'layout', template: 'group' },
+      (c, state, recur): string[] => {
+        recur(c.props.components, state);
+        return [];
+      },
+    ),
+    on(
+      { componentFamily: 'control', template: 'conditional' },
+      (c, state, recur): string[] => {
+        recur([c.props.component], state);
+        if (c.props.else) recur([c.props.else], state);
+        return [];
+      },
+    ),
+    on(
+      { componentFamily: 'control', template: 'for-each' },
+      (c, { foreachScope }, recur): string[] => {
+        if (c.props.type === 'dynamic') {
+          extractRefs(c.props.dataKey).forEach((ref) =>
+            checkRef(ref, foreachScope),
+          );
+        }
+        recur([c.props.component], { foreachScope: [...foreachScope, c.props.id] });
+        return [];
+      },
+    ),
+  ];
+
+  flatMap(screen.components, { foreachScope: [] }, handlers);
+}
+
 function referencesInNode(node: FrameworkNode): string[] {
   switch (node.type) {
     case 'start':
@@ -212,17 +342,14 @@ type Available = {
   forEach: string[]; // => will be referenced by #
 };
 
-function nodeKeys(node: FrameworkNode, screens: FrameworkScreen[]): string[] {
+function nodeKeys(node: FrameworkNode): string[] {
   switch (node.type) {
     case 'compute': {
       return node.props.computations.map((c) => c.outputKey);
     }
     case 'screen': {
-      const screen = screens.find((s) => s.slug === node.props.slug);
-      if (screen) {
-        // Here we should use something similar to the component-walker
-        // or collectFields function in order to add keys to the available ones
-      }
+      // Screen keys are handled directly in walkFrom's screen case via
+      // collectScreenDataKeys — not via this shared pre-switch path.
       return [];
     }
     default: {
@@ -275,10 +402,7 @@ function checkReferences(experiment: ExperimentFlow) {
     console.log(`Walking from node ${node.type} ${node.id}`);
 
     const refInNode = referencesInNode(node);
-    available.screenKeys = [
-      ...available.screenKeys,
-      ...nodeKeys(node, screens),
-    ];
+    available.screenKeys = [...available.screenKeys, ...nodeKeys(node)];
     refInNode.forEach((ref) => {
       if (!isAvailable(ref, available)) {
         console.error(
@@ -302,14 +426,30 @@ function checkReferences(experiment: ExperimentFlow) {
       case 'screen': {
         const screen = screens.find((s) => s.slug === node.props.slug);
         if (screen) {
-          // const prefix = [...dataPath, node.props.slug].join('.');
-          // 3. Add this screen keys to the available keys for the next
-          // nodes using the prefix as namespace
-          const newAvailable = available;
+          const prefix = [...dataPath, node.props.slug].join('.');
+          const screenDataKeys = collectScreenDataKeys(screen);
+
+          // $ refs within this screen see its own response fields
+          const screenAvailable: Available = {
+            ...available,
+            screenKeys: screenDataKeys,
+          };
+
+          referencesInScreen(screen, screenAvailable);
+
+          // Downstream nodes can reference this screen's fields as $$prefix.key
+          const newAvailable: Available = {
+            ...available,
+            dataKeys: [
+              ...available.dataKeys,
+              ...screenDataKeys.map((k) => `${prefix}.${k}`),
+            ],
+          };
+
           if (nextSeqId) {
             return walkFrom(nextSeqId, newAvailable, dataPath);
           }
-          return newAvailable; // THIS IS NOT COMPLETE
+          return newAvailable;
         }
         return available;
       }
