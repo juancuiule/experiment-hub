@@ -99,6 +99,10 @@ export type MaxFormula = { type: 'max'; inputs: FormulaInput[] };
 export type CountFormula = {
   type: 'count';
   inputs: FormulaInput[];
+  // Optional condition to count only inputs that satisfy a
+  // certain condition (e.g. count how many inputs are greater than 5)
+  // If no condition is provided, it will simply count the number of inputs
+  // that are truthy (non-zero for numbers, non-empty for strings, true for booleans)
   where?: Condition;
 };
 export type ConditionalFormula = {
