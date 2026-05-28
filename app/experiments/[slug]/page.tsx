@@ -8,7 +8,7 @@ import {
   isSequentialEdge,
 } from '@/lib/edges';
 import { validateExperiment } from '@/lib/experiment-validation';
-import { ComputeNode, FrameworkNode, StartNode } from '@/lib/nodes';
+import { ComputeNode, Formula, FrameworkNode, StartNode } from '@/lib/nodes';
 import { resolveValuesInString } from '@/lib/resolve';
 import { FrameworkScreen } from '@/lib/screen';
 import { ExperimentFlow } from '@/lib/types';
@@ -134,41 +134,34 @@ function referencesInCondition(condition: Condition): string[] {
   }
 }
 
-function referencesInCompute(compute: ComputeNode) {
-  return compute.props.computations.flatMap((computation) => {
-    switch (computation.formula.type) {
-      case 'sum':
-      case 'mean':
-      case 'min':
-      case 'max': {
-        return computation.formula.inputs;
-      }
-      case 'count': {
-        const { inputs, where } = computation.formula;
-        return [...inputs, ...(where ? referencesInCondition(where) : [])];
-      }
-      case 'conditional': {
-        return referencesInCondition(computation.formula.condition);
-      }
-      case 'lookup': {
-        return [computation.formula.input];
-      }
-      case 'count-correct': {
-        // This compute node is a bit weird, we should improve it before
-        // using it.
-        return [];
-      }
-      case 'sample': {
-        if (!Array.isArray(computation.formula.input)) {
-          return [computation.formula.input];
-        }
-        return [];
-      }
-      default: {
-        return [];
-      }
+function referencesInFormula(formula: Formula): string[] {
+  switch (formula.type) {
+    case 'sum':
+    case 'mean':
+    case 'min':
+    case 'max':
+      return formula.inputs;
+    case 'count': {
+      const { inputs, where } = formula;
+      return [...inputs, ...(where ? referencesInCondition(where) : [])];
     }
-  });
+    case 'conditional':
+      return referencesInCondition(formula.condition);
+    case 'lookup':
+      return [formula.input];
+    case 'count-correct':
+      return [];
+    case 'sample':
+      return Array.isArray(formula.input) ? [] : [formula.input];
+    default:
+      return [];
+  }
+}
+
+function referencesInCompute(compute: ComputeNode) {
+  return compute.props.computations.flatMap((c) =>
+    referencesInFormula(c.formula),
+  );
 }
 
 function extractRefs(text: string): string[] {
@@ -318,7 +311,8 @@ function referencesInNode(node: FrameworkNode): string[] {
       break;
     }
     case 'compute': {
-      return referencesInCompute(node);
+      // Handled incrementally in walkFrom's compute case.
+      break;
     }
   }
   return [];
@@ -333,22 +327,6 @@ type Available = {
   screenKeys: string[]; // => will be referenced by $ (screen or computation)
   forEach: string[]; // => will be referenced by #
 };
-
-function nodeKeys(node: FrameworkNode): string[] {
-  switch (node.type) {
-    case 'compute': {
-      return node.props.computations.map((c) => c.outputKey);
-    }
-    case 'screen': {
-      // Screen keys are handled directly in walkFrom's screen case via
-      // collectScreenDataKeys — not via this shared pre-switch path.
-      return [];
-    }
-    default: {
-      return [];
-    }
-  }
-}
 
 function isAvailable(reference: string, available: Available): boolean {
   if (reference.startsWith('$$')) {
@@ -382,7 +360,20 @@ function checkReferences(experiment: ExperimentFlow) {
   // all references used in the experiment are valid, meaning that they
   // point to existing dataKeys, loops or foreach in the experiment
   // definition at that time.
-  function walkFrom(nodeId: string, available: Available, dataPath: string[]) {
+  function walkFrom(nodeId: string, _available: Available, dataPath: string[]) {
+    const available = {
+      dataKeys: _available.dataKeys,
+      loops: _available.loops,
+      // screenKeys and forEach are only available within screens (or compute nodes)
+      // since they reference values that are produced within the screen (e.g. responses
+      // or computations) or within the for-each component, so we reset them when we
+      // enter a new node. This means that $ and # references can not be used to
+      // reference values produced in previous screens or for-each components, but
+      // only values produced in the same screen or for-each component.
+      screenKeys: [],
+      forEach: [],
+    };
+
     // We should find the node with the given id and check which
     // references it uses.
     const node = nodes.find((n) => n.id === nodeId);
@@ -391,14 +382,11 @@ function checkReferences(experiment: ExperimentFlow) {
       return available;
     }
 
-    console.log(`Walking from node ${node.type} ${node.id}`);
-
     const refInNode = referencesInNode(node);
-    available.screenKeys = [...available.screenKeys, ...nodeKeys(node)];
     refInNode.forEach((ref) => {
       if (!isAvailable(ref, available)) {
         console.error(
-          `Reference "${ref}" in node "${node.id}" is not available in the current context. Available: ${JSON.stringify(available)}`,
+          `Reference "${ref}" in node "${node.id}" is not available`,
         );
       }
     });
@@ -481,20 +469,41 @@ function checkReferences(experiment: ExperimentFlow) {
       }
       case 'compute': {
         const prefix = [...dataPath, node.id].join('.');
-        // We should add the dataKeys computed in this node to the
-        // savailable references for the next nodes
-        const newAvailable = {
-          ...available,
-          dataKeys: [
-            ...available.dataKeys,
-            ...node.props.computations.map((c) => `${prefix}.${c.outputKey}`),
-          ],
-        };
+        // Validate each computation against only the outputs produced so far,
+        // then accumulate — computation N cannot reference output N+1.
+        // $ refs within a compute node address prior outputs in the same node;
+        // $$ refs address data from earlier nodes.
+        let computeAvailable: Available = available;
+
+        node.props.computations.forEach((computation) => {
+          const refs = referencesInFormula(computation.formula);
+          refs.forEach((ref) => {
+            if (!isAvailable(ref, computeAvailable)) {
+              console.error(
+                `Compute "${node.id}" output "${computation.outputKey}": reference "${ref}" is not available`,
+              );
+            }
+          });
+
+          computeAvailable = {
+            ...computeAvailable,
+            screenKeys: [...computeAvailable.screenKeys, computation.outputKey],
+            // This is a bit imprecise since it allows later computations in the same node
+            // to reference earlier outputs using $$, but it simplifies the implementation.
+            // If we wanted to be more precise we would need to track the outputs that will
+            // be produced by the current compute node separately and only add them to the
+            // available outside this forEach loop
+            dataKeys: [
+              ...computeAvailable.dataKeys,
+              `${prefix}.${computation.outputKey}`,
+            ],
+          };
+        });
 
         if (nextSeqId) {
-          return walkFrom(nextSeqId, newAvailable, dataPath);
+          return walkFrom(nextSeqId, computeAvailable, dataPath);
         }
-        return newAvailable;
+        return computeAvailable;
       }
       case 'fork': {
         const forks = edgesFrom.filter(isForkEdge);
