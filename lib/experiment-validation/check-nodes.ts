@@ -1,4 +1,4 @@
-import { BranchNode, ForkNode, FrameworkNode } from '../nodes';
+import { BranchNode, ComputeNode, ForkNode, FrameworkNode } from '../nodes';
 import { ExperimentFlow } from '../types';
 import { ValidationError } from './types';
 import { validateConditionStructure } from './validate-condition-structure';
@@ -38,6 +38,61 @@ function validateChildContainer<N extends BranchNode | ForkNode>(
         seenIds.add(child.id);
       });
     });
+  return errors;
+}
+
+// Structural validation of compute nodes that is independent of the data flow:
+// duplicate output keys within a node, duplicate lookup-table keys, and invalid
+// sample sizes. Reference availability inside formulas is handled separately by
+// check-references, which needs the walk to know what data is in scope.
+function checkComputeNodes(nodes: FrameworkNode[]): ValidationError[] {
+  const errors: ValidationError[] = [];
+
+  nodes
+    .filter((n): n is ComputeNode => n.type === 'compute')
+    .forEach((node) => {
+      const seenOutputKeys = new Set<string>();
+      for (const { outputKey, formula } of node.props.computations) {
+        if (seenOutputKeys.has(outputKey)) {
+          errors.push({
+            code: 'duplicate-output-key',
+            category: 'node',
+            nodeType: 'compute',
+            message: `Compute "${node.id}" has duplicate outputKey "${outputKey}"`,
+          });
+        }
+        seenOutputKeys.add(outputKey);
+
+        if (formula.type === 'lookup') {
+          const seenWhen = new Set<number>();
+          for (const entry of formula.table) {
+            const key = Number(entry.when);
+            if (seenWhen.has(key)) {
+              errors.push({
+                code: 'duplicate-lookup-key',
+                category: 'node',
+                nodeType: 'compute',
+                message: `Compute "${node.id}" output "${outputKey}" has duplicate lookup key "${entry.when}"`,
+              });
+            }
+            seenWhen.add(key);
+          }
+        }
+
+        if (
+          formula.type === 'sample' &&
+          (!Number.isInteger(formula.n) || formula.n <= 0)
+        ) {
+          errors.push({
+            code: 'invalid-sample-size',
+            category: 'node',
+            nodeType: 'compute',
+            message: `Compute "${node.id}" output "${outputKey}" has sample size n="${formula.n}", but n must be a positive integer`,
+          });
+        }
+      }
+    });
+
   return errors;
 }
 
@@ -96,7 +151,7 @@ export function checkNodes({ nodes }: ExperimentFlow): ValidationError[] {
     'forks',
   );
 
-  errors.push(...branchErrors, ...forkErrors);
+  errors.push(...branchErrors, ...forkErrors, ...checkComputeNodes(nodes));
 
   return errors;
 }

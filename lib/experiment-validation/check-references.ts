@@ -312,40 +312,10 @@ export function checkReferences(flow: ExperimentFlow): ValidationError[] {
         const nodeLabel = `Compute "${nodeId}"`;
         const prefix = [...dataPath, nodeId].join('.');
         const nodeOutputs = new Set<string>();
-        const seenOutputKeys = new Set<string>();
+        // Structural checks (duplicate output keys, duplicate lookup keys,
+        // invalid sample sizes) live in check-nodes. Here we only validate that
+        // each formula's references are available given what's in scope so far.
         for (const { outputKey, formula } of node.props.computations) {
-          if (seenOutputKeys.has(outputKey)) {
-            rawErrors.push({
-              code: 'duplicate-output-key',
-              category: 'node',
-              message: `Compute "${nodeId}" has duplicate outputKey "${outputKey}"`,
-            });
-          }
-          seenOutputKeys.add(outputKey);
-          if (formula.type === 'lookup') {
-            const seenWhen = new Set<number>();
-            for (const entry of formula.table) {
-              const key = Number(entry.when);
-              if (seenWhen.has(key)) {
-                rawErrors.push({
-                  code: 'duplicate-lookup-key',
-                  category: 'node',
-                  message: `Compute "${nodeId}" output "${outputKey}" has duplicate lookup key "${entry.when}"`,
-                });
-              }
-              seenWhen.add(key);
-            }
-          }
-          if (
-            formula.type === 'sample' &&
-            (!Number.isInteger(formula.n) || formula.n <= 0)
-          ) {
-            rawErrors.push({
-              code: 'invalid-sample-size',
-              category: 'node',
-              message: `Compute "${nodeId}" output "${outputKey}" has sample size n="${formula.n}", but n must be a positive integer`,
-            });
-          }
           checkFormulaInputs(
             formula,
             nodeLabel,

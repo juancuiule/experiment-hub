@@ -10,7 +10,7 @@ import {
   isSequentialEdge,
 } from '@/lib/edges';
 import { validateExperiment } from '@/lib/experiment-validation';
-import { ComputeNode, Formula, FrameworkNode, StartNode } from '@/lib/nodes';
+import { Formula, FrameworkNode, StartNode } from '@/lib/nodes';
 import { resolveValuesInString } from '@/lib/resolve';
 import { FrameworkScreen } from '@/lib/screen';
 import { ExperimentFlow } from '@/lib/types';
@@ -160,19 +160,30 @@ function referencesInFormula(formula: Formula): string[] {
   }
 }
 
-function referencesInCompute(compute: ComputeNode) {
-  return compute.props.computations.flatMap((c) =>
-    referencesInFormula(c.formula),
-  );
-}
-
+// $$ must come before $ in the alternation so "$$foo" matches as a $$ token
+// rather than a $ token followed by "$foo". Matches the prefix precedence used
+// by resolveValuesInString and getPrefixAndPath in resolve.ts.
 function extractRefs(text: string): string[] {
-  const wrapped = [...text.matchAll(/\{\{((?:\$\$|@|#)[\w.\-]+)\}\}/g)].map(
+  const wrapped = [...text.matchAll(/\{\{((?:\$\$|\$|@|#)[\w.\-]+)\}\}/g)].map(
     (m) => m[1],
   );
   if (wrapped.length > 0) return wrapped;
-  const m = text.match(/^(\$\$|@|#)([\w.\-]+)$/);
+  const m = text.match(/^(\$\$|\$|@|#)([\w.\-]+)$/);
   return m ? [`${m[1]}${m[2]}`] : [];
+}
+
+// A bare $$ token sitting in prose without {{…}} braces is never interpolated
+// at runtime (resolveValuesInString only replaces wrapped tokens), so it leaks
+// to the participant verbatim. We scan only for $$ — flagging bare $, @ or #
+// would false-positive on currency ("$5"), handles ("@you") and counts ("#1").
+function unwrappedRefErrors(text: string, screen: FrameworkScreen): string[] {
+  const hasWrapped = /\{\{(?:\$\$|\$|@|#)[\w.\-]+\}\}/.test(text);
+  const isWholeBare = /^(?:\$\$|\$|@|#)[\w.\-]+$/.test(text);
+  if (hasWrapped || isWholeBare) return [];
+  return [...text.matchAll(/\$\$([\w.\-]+)/g)].map(
+    (m) =>
+      `Screen "${screen.slug}": "$$${m[1]}" is not wrapped in {{…}} and will not be interpolated`,
+  );
 }
 
 type ForeachCtx = Record<string, { index: number; value: string }>;
@@ -230,11 +241,16 @@ function propsErrors(
 ): string[] {
   return TEXT_PROPS.flatMap((field) => {
     if (typeof props[field] !== 'string') return [];
-    return extractRefs(props[field] as string)
-      .filter((ref) => !isAvailable(ref, avail))
-      .map(
-        (ref) => `Screen "${screen.slug}": reference "${ref}" is not available`,
-      );
+    const text = props[field] as string;
+    return [
+      ...extractRefs(text)
+        .filter((ref) => !isAvailable(ref, avail))
+        .map(
+          (ref) =>
+            `Screen "${screen.slug}": reference "${ref}" is not available`,
+        ),
+      ...unwrappedRefErrors(text, screen),
+    ];
   });
 }
 
