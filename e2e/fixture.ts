@@ -26,6 +26,7 @@ export const testExperiment: ExperimentFlow = {
     },
     { id: 'screen-children', type: 'screen', props: { slug: 'children' } },
     { id: 'screen-done', type: 'screen', props: { slug: 'done' } },
+    { id: 'end', type: 'end' },
   ],
   edges: [
     { type: 'sequential', from: 'start', to: 'screen-consent' },
@@ -42,6 +43,7 @@ export const testExperiment: ExperimentFlow = {
       to: 'screen-done',
     },
     { type: 'sequential', from: 'screen-children', to: 'screen-done' },
+    { type: 'sequential', from: 'screen-done', to: 'end' },
   ],
   screens: [
     {
