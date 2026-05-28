@@ -1021,6 +1021,89 @@ describe('@ reference checks', () => {
   });
 });
 
+describe('$ (single-dollar) reference checks', () => {
+  it('accepts a $ reference to a response field in the same screen', () => {
+    const flow: ExperimentFlow = {
+      nodes: [start, makeScreen('s1', 'welcome'), end],
+      edges: [seq('start', 's1'), seq('s1', 'end')],
+      screens: [
+        {
+          slug: 'welcome',
+          components: [
+            {
+              componentFamily: 'response',
+              template: 'text-input',
+              props: { dataKey: 'name', label: 'Name' },
+            },
+            {
+              componentFamily: 'content',
+              template: 'rich-text',
+              props: { content: 'Hello {{$name}}' },
+            },
+          ],
+        },
+      ],
+    };
+    expect(validateExperiment(flow)).toEqual([]);
+  });
+
+  it('reports unavailable-reference for a $ reference to a field not in the screen', () => {
+    const flow: ExperimentFlow = {
+      nodes: [start, makeScreen('s1', 'welcome'), end],
+      edges: [seq('start', 's1'), seq('s1', 'end')],
+      screens: [
+        {
+          slug: 'welcome',
+          components: [
+            {
+              componentFamily: 'response',
+              template: 'text-input',
+              props: { dataKey: 'name', label: 'Hello {{$other}}' },
+            },
+          ],
+        },
+      ],
+    };
+    expect(codes(flow)).toContain('unavailable-reference');
+  });
+
+  it('reports unavailable-reference for a $ reference to a prior screen field ($ never crosses screens)', () => {
+    const flow: ExperimentFlow = {
+      nodes: [
+        start,
+        makeScreen('s1', 'welcome'),
+        makeScreen('s2', 'profile'),
+        end,
+      ],
+      edges: [seq('start', 's1'), seq('s1', 's2'), seq('s2', 'end')],
+      screens: [
+        {
+          slug: 'welcome',
+          components: [
+            {
+              componentFamily: 'response',
+              template: 'text-input',
+              props: { dataKey: 'name', label: 'Name' },
+            },
+          ],
+        },
+        {
+          slug: 'profile',
+          components: [
+            {
+              componentFamily: 'response',
+              template: 'text-input',
+              props: { dataKey: 'note', label: 'Hi {{$name}}' },
+            },
+          ],
+        },
+      ],
+    };
+    // The same field is reachable as {{$$welcome.name}}, but $name is not.
+    expect(codes(flow)).toContain('unavailable-reference');
+  });
+});
+
 describe('$$ reference checks', () => {
   it('accepts a $$ reference to a screen that ran before', () => {
     const flow: ExperimentFlow = {
@@ -1091,6 +1174,105 @@ describe('$$ reference checks', () => {
     expect(validateExperiment(flow)).toEqual([]);
   });
 
+  it('accepts a $$ reference into the interior of an object-valued response field', () => {
+    // The response stores an object under "address"; the walk only records the
+    // leaf key "welcome.address", so a reference to a nested field must resolve
+    // against that ancestor.
+    const flow: ExperimentFlow = {
+      nodes: [
+        start,
+        makeScreen('s1', 'welcome'),
+        makeScreen('s2', 'profile'),
+        end,
+      ],
+      edges: [seq('start', 's1'), seq('s1', 's2'), seq('s2', 'end')],
+      screens: [
+        {
+          slug: 'welcome',
+          components: [
+            {
+              componentFamily: 'response',
+              template: 'text-input',
+              props: { dataKey: 'address', label: 'Address' },
+            },
+          ],
+        },
+        {
+          slug: 'profile',
+          components: [
+            {
+              componentFamily: 'response',
+              template: 'text-input',
+              props: { dataKey: 'note', label: 'You live in {{$$welcome.address.city}}' },
+            },
+          ],
+        },
+      ],
+    };
+    expect(validateExperiment(flow)).toEqual([]);
+  });
+
+  it('accepts a $ reference into the interior of a same-screen object-valued field', () => {
+    const flow: ExperimentFlow = {
+      nodes: [start, makeScreen('s1', 'welcome'), end],
+      edges: [seq('start', 's1'), seq('s1', 'end')],
+      screens: [
+        {
+          slug: 'welcome',
+          components: [
+            {
+              componentFamily: 'response',
+              template: 'text-input',
+              props: { dataKey: 'address', label: 'Address' },
+            },
+            {
+              componentFamily: 'content',
+              template: 'rich-text',
+              props: { content: 'City: {{$address.city}}' },
+            },
+          ],
+        },
+      ],
+    };
+    expect(validateExperiment(flow)).toEqual([]);
+  });
+
+  it('does not match a sibling key that shares a prefix segment', () => {
+    // "$$welcome.addressLine" must NOT resolve against the key "welcome.address".
+    const flow: ExperimentFlow = {
+      nodes: [
+        start,
+        makeScreen('s1', 'welcome'),
+        makeScreen('s2', 'profile'),
+        end,
+      ],
+      edges: [seq('start', 's1'), seq('s1', 's2'), seq('s2', 'end')],
+      screens: [
+        {
+          slug: 'welcome',
+          components: [
+            {
+              componentFamily: 'response',
+              template: 'text-input',
+              props: { dataKey: 'address', label: 'Address' },
+            },
+          ],
+        },
+        {
+          slug: 'profile',
+          components: [
+            {
+              componentFamily: 'response',
+              template: 'text-input',
+              props: { dataKey: 'note', label: 'Hi {{$$welcome.addressLine}}' },
+            },
+          ],
+        },
+      ],
+    };
+    expect(codes(flow)).toContain('unavailable-reference');
+  });
+
   it('reports unavailable-reference for a $$ token not yet written', () => {
     const flow: ExperimentFlow = {
       nodes: [start, makeScreen('s1', 'welcome')],
@@ -1123,6 +1305,36 @@ describe('$$ reference checks', () => {
               componentFamily: 'response',
               template: 'text-input',
               props: { dataKey: 'name', label: 'Hello $$welcome.name' },
+            },
+          ],
+        },
+      ],
+    };
+    expect(codes(flow)).toContain('unwrapped-token');
+  });
+
+  it('reports unwrapped-token for a bare $$ ref embedded in rich-text content', () => {
+    const flow: ExperimentFlow = {
+      nodes: [start, makeScreen('s1', 'welcome'), makeScreen('s2', 'profile'), end],
+      edges: [seq('start', 's1'), seq('s1', 's2'), seq('s2', 'end')],
+      screens: [
+        {
+          slug: 'welcome',
+          components: [
+            {
+              componentFamily: 'response',
+              template: 'text-input',
+              props: { dataKey: 'name', label: 'Name' },
+            },
+          ],
+        },
+        {
+          slug: 'profile',
+          components: [
+            {
+              componentFamily: 'content',
+              template: 'rich-text',
+              props: { content: 'Welcome back $$welcome.name, glad to see you' },
             },
           ],
         },

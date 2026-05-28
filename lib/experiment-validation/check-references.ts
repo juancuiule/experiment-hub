@@ -1,399 +1,506 @@
-import { ScreenComponent } from '../components';
+import { flatMap, Handlers, on } from '../component-walker';
 import { Condition } from '../conditions';
-import { FrameworkEdge } from '../edges';
-import { Formula } from '../nodes';
+import {
+  FrameworkEdge,
+  isBranchConditionEdge,
+  isBranchDefaultEdge,
+  isForkEdge,
+  isLoopEdge,
+  isPathEdge,
+  isSequentialEdge,
+} from '../edges';
+import { Formula, FrameworkNode, StartNode } from '../nodes';
 import { resolveValuesInString } from '../resolve';
-import { Context, ExperimentFlow } from '../types';
+import { FrameworkScreen } from '../screen';
+import { ExperimentFlow } from '../types';
 import { ValidationError } from './types';
 
-export function collectConditionDataKeys(cond: Condition): string[] {
-  if (cond.type === 'simple') return [cond.dataKey];
-  if (cond.type === 'and' || cond.type === 'or') {
-    return cond.conditions.flatMap(collectConditionDataKeys);
-  }
-  if (cond.type === 'not') return collectConditionDataKeys(cond.condition);
-  return [];
-}
+// The experiment uses multiple types of references:
+// - $dataKey:
+// => for referencing data collected from response components in the same screen
+// => for referencing data computed previously in the current compute node
+// Example: $slider => context.screenData.slider => in the same screen
+// Example: $total-correct => nodeOutputs['total-correct'] => in the same compute node
+//
+// - $$node-id.dataKey: (it can have multiple levels of nesting, e.g. $$node-id1.node-id2.dataKey)
+// => for referencing data previously collected from other screens or compute nodes
+// Example: $$regressors.age => context.data.regressors.age
+//
+// - @loopId for referencing the current iteration value of a loop
+// => stored in context.loopData keyed by the loop node id, used with .value or .index
+// Example: @loopSports.value => context.loopData.loopSports.value
+//
+// - #forEachId for referencing the current iteration value of a for-each component loop
+// => stored in context.screenData.foreachData keyed by the for-each id, used with .value/.index
+// Example: #foreachDrug.value => context.screenData.foreachData.foreachDrug.value
 
-type EdgeMaps = {
-  seqNext: Map<string, string>;
-  branchForkTargets: Map<string, string[]>;
-  pathChildren: Map<string, { to: string; order: number }[]>;
-  loopTemplateOf: Map<string, string>;
+const isFrom = (node: FrameworkNode) => (edge: FrameworkEdge) => {
+  return edge.from.split('.')[0] === node.id;
 };
 
-function buildEdgeMaps(edges: FrameworkEdge[]): EdgeMaps {
-  const seqNext = new Map<string, string>();
-  const branchForkTargets = new Map<string, string[]>();
-  const pathChildren = new Map<string, { to: string; order: number }[]>();
-  const loopTemplateOf = new Map<string, string>();
-
-  for (const edge of edges) {
-    switch (edge.type) {
-      case 'sequential':
-        seqNext.set(edge.from, edge.to);
-        break;
-      case 'branch-condition':
-      case 'branch-default':
-      case 'fork-edge': {
-        const nodeId = edge.from.split('.')[0];
-        const targets = branchForkTargets.get(nodeId) ?? [];
-        targets.push(edge.to);
-        branchForkTargets.set(nodeId, targets);
-        break;
-      }
-      case 'path-contains': {
-        const children = pathChildren.get(edge.from) ?? [];
-        children.push({ to: edge.to, order: edge.order });
-        pathChildren.set(edge.from, children);
-        break;
-      }
-      case 'loop-template':
-        loopTemplateOf.set(edge.from, edge.to);
-        break;
+function referencesInCondition(condition: Condition): string[] {
+  switch (condition.type) {
+    case 'simple': {
+      return [condition.dataKey];
     }
-  }
-
-  return { seqNext, branchForkTargets, pathChildren, loopTemplateOf };
-}
-
-function extractTokens(text: string): string[] {
-  const wrapped = [...text.matchAll(/\{\{(\$\$|@)([\w.\-]+)\}\}/g)].map(
-    (m) => `${m[1]}${m[2]}`,
-  );
-  if (wrapped.length > 0) return wrapped;
-  const m = text.match(/^(\$\$|@)([\w.\-]+)$/);
-  return m ? [`${m[1]}${m[2]}`] : [];
-}
-
-function checkText(
-  text: string,
-  context: string,
-  available: Set<string>,
-  insideLoop: boolean,
-  errors: ValidationError[],
-) {
-  for (const token of extractTokens(text)) {
-    if (token.startsWith('@')) {
-      if (!insideLoop) {
-        errors.push({
-          code: 'invalid-reference',
-          category: 'reference',
-          message: `${context} uses "${token}" but is not inside a loop`,
-        });
-      }
-    } else {
-      const path = token.slice(2);
-      const ok = [...available].some(
-        (a) => path === a || path.startsWith(a + '.'),
-      );
-      if (!ok) {
-        errors.push({
-          code: 'unavailable-reference',
-          category: 'reference',
-          message: `${context} references "${token}" but that data is not guaranteed to be available at this point`,
-        });
-      }
+    case 'and':
+    case 'or': {
+      return condition.conditions.flatMap(referencesInCondition);
     }
-  }
-  const hasWrapped = /\{\{(?:\$\$|@)[\w.\-]+\}\}/.test(text);
-  const isWholeBare = /^(?:\$\$|@)[\w.\-]+$/.test(text);
-  if (!hasWrapped && !isWholeBare) {
-    for (const m of text.matchAll(/\$\$([\w.\-]+)/g)) {
-      errors.push({
-        code: 'unwrapped-token',
-        category: 'reference',
-        message: `${context} contains "$$${m[1]}" without {{…}} — it will not be interpolated at runtime`,
-      });
+    case 'not': {
+      return referencesInCondition(condition.condition);
     }
   }
 }
 
-function checkFormulaInput(
-  input: string,
-  context: string,
-  available: Set<string>,
-  nodeOutputs: Set<string>,
-  insideLoop: boolean,
-  errors: ValidationError[],
-) {
-  if (input.startsWith('$') && !input.startsWith('$$')) {
-    const key = input.slice(1);
-    if (!nodeOutputs.has(key)) {
-      errors.push({
-        code: 'unavailable-reference',
-        category: 'reference',
-        message: `${context} uses "$${key}" but that output is not yet defined earlier in the same compute node`,
-      });
-    }
-  } else {
-    checkText(input, context, available, insideLoop, errors);
-  }
-}
-
-function checkFormulaInputs(
-  formula: Formula,
-  context: string,
-  available: Set<string>,
-  nodeOutputs: Set<string>,
-  insideLoop: boolean,
-  errors: ValidationError[],
-) {
+function referencesInFormula(formula: Formula): string[] {
   switch (formula.type) {
     case 'sum':
     case 'mean':
     case 'min':
-    case 'max': {
-      for (const inp of formula.inputs) {
-        checkFormulaInput(
-          inp,
-          context,
-          available,
-          nodeOutputs,
-          insideLoop,
-          errors,
-        );
-      }
-      break;
-    }
+    case 'max':
+      return formula.inputs;
     case 'count': {
-      for (const inp of formula.inputs) {
-        checkFormulaInput(
-          inp,
-          context,
-          available,
-          nodeOutputs,
-          insideLoop,
-          errors,
-        );
-      }
-      if (formula.where) {
-        for (const key of collectConditionDataKeys(formula.where)) {
-          if (!key.startsWith('@')) {
-            checkFormulaInput(
-              key,
-              context,
-              available,
-              nodeOutputs,
-              insideLoop,
-              errors,
-            );
-          }
-        }
-      }
-      break;
+      const { inputs, where } = formula;
+      return [...inputs, ...(where ? referencesInCondition(where) : [])];
     }
-    case 'conditional': {
-      for (const key of collectConditionDataKeys(formula.condition)) {
-        checkFormulaInput(
-          key,
-          context,
-          available,
-          nodeOutputs,
-          insideLoop,
-          errors,
-        );
-      }
-      break;
-    }
-    case 'lookup': {
-      checkFormulaInput(
-        formula.input,
-        context,
-        available,
-        nodeOutputs,
-        insideLoop,
-        errors,
-      );
-      break;
-    }
-    case 'sample': {
-      if (!Array.isArray(formula.input)) {
-        checkFormulaInput(
-          formula.input,
-          context,
-          available,
-          nodeOutputs,
-          insideLoop,
-          errors,
-        );
-      }
-      break;
-    }
+    case 'conditional':
+      return referencesInCondition(formula.condition);
+    case 'lookup':
+      return [formula.input];
+    case 'count-correct':
+      return [];
+    case 'sample':
+      return Array.isArray(formula.input) ? [] : [formula.input];
+    default:
+      return [];
   }
 }
 
-export function checkReferences(flow: ExperimentFlow): ValidationError[] {
-  const rawErrors: ValidationError[] = [];
-  const nodeMap = new Map(flow.nodes.map((n) => [n.id, n]));
-  const screenMap = new Map((flow.screens ?? []).map((s) => [s.slug, s]));
-  const { seqNext, branchForkTargets, pathChildren, loopTemplateOf } =
-    buildEdgeMaps(flow.edges);
+// $$ must come before $ in the alternation so "$$foo" matches as a $$ token
+// rather than a $ token followed by "$foo". Matches the prefix precedence used
+// by resolveValuesInString and getPrefixAndPath in resolve.ts.
+function extractRefs(text: string): string[] {
+  const wrapped = [...text.matchAll(/\{\{((?:\$\$|\$|@|#)[\w.\-]+)\}\}/g)].map(
+    (m) => m[1],
+  );
+  if (wrapped.length > 0) return wrapped;
+  const m = text.match(/^(\$\$|\$|@|#)([\w.\-]+)$/);
+  return m ? [`${m[1]}${m[2]}`] : [];
+}
 
-  function walk(
+type Available = {
+  // Used at node and screen level
+  dataKeys: Set<string>; // => referenced by $$
+  loops: Set<string>; // => referenced by @
+
+  // Used only at screen level (reset on entering each node)
+  screenKeys: Set<string>; // => referenced by $ (screen response or compute output)
+  forEach: Set<string>; // => referenced by #
+};
+
+// A reference is available if some collected key equals it or is an ancestor of
+// it. Responses that store object values only contribute the leaf dataKey (e.g.
+// "welcome.profile"), so a reference into the object's interior
+// ("welcome.profile.address.city") is matched against that ancestor. The "+ ."
+// guard keeps "welcome.profileX" from matching the key "welcome.profile".
+function hasKeyOrAncestor(path: string, keys: Set<string>): boolean {
+  return [...keys].some((key) => path === key || path.startsWith(`${key}.`));
+}
+
+function isAvailable(reference: string, available: Available): boolean {
+  if (reference.startsWith('$$')) {
+    return hasKeyOrAncestor(reference.slice(2), available.dataKeys);
+  }
+  if (reference.startsWith('$')) {
+    return hasKeyOrAncestor(reference.slice(1), available.screenKeys);
+  }
+  if (reference.startsWith('@')) {
+    const [loopId] = reference.slice(1).split('.');
+    return available.loops.has(loopId);
+  }
+  if (reference.startsWith('#')) {
+    const [forEachId] = reference.slice(1).split('.');
+    return available.forEach.has(forEachId);
+  }
+  return false;
+}
+
+// Maps an unavailable reference to a ValidationError. An @ reference that is not
+// in scope means it is used outside the loop it belongs to; anything else is data
+// that is not guaranteed to have been written at this point in the flow.
+function unavailableRefError(ref: string, context: string): ValidationError {
+  if (ref.startsWith('@')) {
+    return {
+      code: 'invalid-reference',
+      category: 'reference',
+      message: `${context} uses "${ref}" but is not inside a loop`,
+    };
+  }
+  return {
+    code: 'unavailable-reference',
+    category: 'reference',
+    message: `${context} references "${ref}" but that data is not guaranteed to be available at this point`,
+  };
+}
+
+// A bare $$ token sitting in prose without {{…}} braces is never interpolated
+// at runtime (resolveValuesInString only replaces wrapped tokens), so it leaks
+// to the participant verbatim. We scan only for $$ — flagging bare $, @ or #
+// would false-positive on currency ("$5"), handles ("@you") and counts ("#1").
+function unwrappedRefErrors(text: string, context: string): ValidationError[] {
+  const hasWrapped = /\{\{(?:\$\$|\$|@|#)[\w.\-]+\}\}/.test(text);
+  const isWholeBare = /^(?:\$\$|\$|@|#)[\w.\-]+$/.test(text);
+  if (hasWrapped || isWholeBare) return [];
+  return [...text.matchAll(/\$\$([\w.\-]+)/g)].map((m) => ({
+    code: 'unwrapped-token',
+    category: 'reference' as const,
+    message: `${context} contains "$$${m[1]}" without {{…}} — it will not be interpolated at runtime`,
+  }));
+}
+
+type ForeachCtx = Record<string, { index: number; value: string }>;
+
+// All response dataKeys a screen produces, resolving for-each interpolation so
+// that statically-expanded iterations contribute distinct keys. These become the
+// $ (screen-local) references available within the screen and the $$ keys exposed
+// to downstream nodes.
+function collectScreenDataKeys(screen: FrameworkScreen): string[] {
+  const handlers: Handlers<string, ForeachCtx> = [
+    on({ componentFamily: 'response' }, (c, foreachData) => [
+      resolveValuesInString(c.props.dataKey, { screenData: { foreachData } }),
+    ]),
+    on({ template: 'group' }, (c, ctx, recur) =>
+      recur(c.props.components, ctx),
+    ),
+    on({ template: 'for-each' }, (c, ctx, recur) => {
+      if (c.props.type !== 'static') return [];
+      return c.props.values.flatMap((value, index) =>
+        recur([c.props.component], {
+          ...ctx,
+          [c.props.id]: { index, value },
+        }),
+      );
+    }),
+    // Conditional components are skipped: we can't guarantee which branch runs,
+    // so we can't guarantee which dataKeys are produced. Buttons and other
+    // content components don't produce dataKeys.
+  ];
+  return flatMap(screen.components, {}, handlers);
+}
+
+// All prop keys across every component type whose value type includes string.
+// Derived so that TEXT_PROPS can only contain valid component prop keys.
+type ComponentStringPropKey =
+  FrameworkScreen['components'][number] extends infer C
+    ? C extends { props: infer P }
+      ? { [K in keyof P]: P[K] extends string | undefined ? K : never }[keyof P]
+      : never
+    : never;
+
+const TEXT_PROPS = [
+  'label',
+  'content',
+  'text',
+  'url',
+  'alt',
+  'placeholder',
+  'minLabel',
+  'maxLabel',
+  'dataKey',
+  'errorMessage',
+] as const satisfies ReadonlyArray<ComponentStringPropKey>;
+
+function propsErrors(
+  props: Record<string, unknown>,
+  context: string,
+  avail: Available,
+): ValidationError[] {
+  return TEXT_PROPS.flatMap((field) => {
+    if (typeof props[field] !== 'string') return [];
+    const text = props[field] as string;
+    return [
+      ...extractRefs(text)
+        .filter((ref) => !isAvailable(ref, avail))
+        .map((ref) => unavailableRefError(ref, context)),
+      ...unwrappedRefErrors(text, context),
+    ];
+  });
+}
+
+function referencesInScreen(
+  screen: FrameworkScreen,
+  available: Available,
+): ValidationError[] {
+  const context = `Screen "${screen.slug}"`;
+  const handlers: Handlers<ValidationError, Available> = [
+    on({ componentFamily: 'response' }, (c, avail) =>
+      propsErrors(c.props, context, avail),
+    ),
+    on({ componentFamily: 'content' }, (c, avail) =>
+      propsErrors(c.props, context, avail),
+    ),
+    on({ componentFamily: 'layout', template: 'button' }, (c, avail) =>
+      propsErrors(c.props, context, avail),
+    ),
+    on(
+      { componentFamily: 'layout', template: 'group' },
+      (c, avail, recur): ValidationError[] => recur(c.props.components, avail),
+    ),
+    on(
+      { componentFamily: 'control', template: 'conditional' },
+      (c, avail, recur): ValidationError[] => [
+        ...recur([c.props.component], avail),
+        ...(c.props.else ? recur([c.props.else], avail) : []),
+      ],
+    ),
+    on(
+      { componentFamily: 'control', template: 'for-each' },
+      (c, avail, recur): ValidationError[] => {
+        const sourceErrors =
+          c.props.type === 'dynamic'
+            ? extractRefs(c.props.dataKey)
+                .filter((ref) => !isAvailable(ref, avail))
+                .map((ref) => unavailableRefError(ref, context))
+            : [];
+        const innerAvail = {
+          ...avail,
+          forEach: new Set([...avail.forEach, c.props.id]),
+        };
+        return [...sourceErrors, ...recur([c.props.component], innerAvail)];
+      },
+    ),
+  ];
+
+  return flatMap(screen.components, available, handlers);
+}
+
+// References used directly on a node (branch conditions, dynamic loop source).
+// Compute nodes are handled incrementally in the walk's compute case.
+function referencesInNode(node: FrameworkNode): string[] {
+  switch (node.type) {
+    case 'branch': {
+      return node.props.branches.flatMap((branch) =>
+        referencesInCondition(branch.config),
+      );
+    }
+    case 'loop': {
+      if (node.props.type === 'dynamic') {
+        return [node.props.dataKey];
+      }
+      return [];
+    }
+    default:
+      return [];
+  }
+}
+
+// References can be used in many places in the experiment definition: component
+// props, edge/branch conditions, compute formulas, loop sources. This walk
+// collects which values are in scope at each point and reports references that
+// point to data, loops or for-each ids that aren't guaranteed to be available.
+export function checkReferences(experiment: ExperimentFlow): ValidationError[] {
+  const { nodes, edges, screens = [] } = experiment;
+  const rawErrors: ValidationError[] = [];
+
+  function walkFrom(
     nodeId: string,
-    available: Set<string>,
+    _available: Available,
     dataPath: string[],
-    insideLoop: boolean,
-  ): Set<string> {
-    const node = nodeMap.get(nodeId);
+  ): Available {
+    const available: Available = {
+      dataKeys: _available.dataKeys,
+      loops: _available.loops,
+      // screenKeys and forEach reference values produced inside a screen (or
+      // compute node) or a for-each component, so they reset on each node. $ and
+      // # references therefore can only address values from the same screen /
+      // compute / for-each, never earlier ones.
+      screenKeys: new Set<string>(),
+      forEach: new Set<string>(),
+    };
+
+    const node = nodes.find((n) => n.id === nodeId);
     if (!node) return available;
 
-    const current = new Set(available);
+    referencesInNode(node).forEach((ref) => {
+      if (!isAvailable(ref, available)) {
+        rawErrors.push(unavailableRefError(ref, `Node "${node.id}"`));
+      }
+    });
+
+    const edgesFrom = edges.filter(isFrom(node));
+    const nextSeqId = edgesFrom.find(isSequentialEdge)?.to.split('.')[0];
 
     switch (node.type) {
       case 'start':
       case 'checkpoint': {
-        const next = seqNext.get(nodeId);
-        if (next) return walk(next, current, dataPath, insideLoop);
-        break;
+        if (nextSeqId) return walkFrom(nextSeqId, available, dataPath);
+        return available;
       }
-
       case 'screen': {
-        const screen = screenMap.get(node.props.slug);
+        const screen = screens.find((s) => s.slug === node.props.slug);
         if (screen) {
           const prefix = [...dataPath, node.props.slug].join('.');
-          const screenLabel = `Screen "${node.props.slug}"`;
+          const screenDataKeys = collectScreenDataKeys(screen);
 
-          function processComponent(component: ScreenComponent, ctx: Context) {
-            const props = component.props as Record<string, unknown>;
-            for (const field of ['label', 'content', 'text'] as const) {
-              if (typeof props[field] === 'string') {
-                checkText(
-                  props[field] as string,
-                  screenLabel,
-                  current,
-                  insideLoop,
-                  rawErrors,
-                );
-              }
-            }
-            if (component.componentFamily === 'response') {
-              current.add(
-                `${prefix}.${resolveValuesInString(component.props.dataKey, ctx)}`,
-              );
-            } else if (
-              component.componentFamily === 'layout' &&
-              component.template === 'group'
-            ) {
-              for (const child of component.props.components)
-                processComponent(child, ctx);
-            } else if (component.componentFamily === 'control') {
-              if (component.template === 'conditional') {
-                processComponent(component.props.component, ctx);
-                if (component.props.else)
-                  processComponent(component.props.else, ctx);
-              } else if (
-                component.template === 'for-each' &&
-                component.props.type === 'static'
-              ) {
-                component.props.values.forEach((value, index) => {
-                  const subCtx: Context = {
-                    screenData: {
-                      foreachData: { [component.props.id]: { index, value } },
-                    },
-                  };
-                  processComponent(component.props.component, subCtx);
-                });
-              }
-            }
-          }
+          // $ refs within this screen see its own response fields.
+          const screenAvailable: Available = {
+            ...available,
+            screenKeys: new Set(screenDataKeys),
+          };
+          rawErrors.push(...referencesInScreen(screen, screenAvailable));
 
-          for (const component of screen.components) {
-            processComponent(component, {});
-          }
+          // Downstream nodes can reference this screen's fields as $$prefix.key.
+          const newAvailable: Available = {
+            ...available,
+            dataKeys: new Set([
+              ...available.dataKeys,
+              ...screenDataKeys.map((k) => `${prefix}.${k}`),
+            ]),
+          };
+
+          if (nextSeqId) return walkFrom(nextSeqId, newAvailable, dataPath);
+          return newAvailable;
         }
-        const next = seqNext.get(nodeId);
-        if (next) return walk(next, current, dataPath, insideLoop);
-        break;
+        return available;
       }
-
-      case 'compute': {
-        const nodeLabel = `Compute "${nodeId}"`;
-        const prefix = [...dataPath, nodeId].join('.');
-        const nodeOutputs = new Set<string>();
-        // Structural checks (duplicate output keys, duplicate lookup keys,
-        // invalid sample sizes) live in check-nodes. Here we only validate that
-        // each formula's references are available given what's in scope so far.
-        for (const { outputKey, formula } of node.props.computations) {
-          checkFormulaInputs(
-            formula,
-            nodeLabel,
-            current,
-            nodeOutputs,
-            insideLoop,
-            rawErrors,
-          );
-          current.add(`${prefix}.${outputKey}`);
-          nodeOutputs.add(outputKey);
-        }
-        const next = seqNext.get(nodeId);
-        if (next) return walk(next, current, dataPath, insideLoop);
-        break;
-      }
-
       case 'path': {
-        const children = (pathChildren.get(nodeId) ?? []).sort(
-          (a, b) => a.order - b.order,
-        );
-        let childAvailable = new Set(current);
-        for (const { to } of children) {
-          childAvailable = walk(
-            to,
-            childAvailable,
-            [...dataPath, nodeId],
-            insideLoop,
+        const children = edgesFrom
+          .filter(isPathEdge)
+          .sort((e1, e2) => e1.order - e2.order);
+        const childDataPath = [...dataPath, node.id];
+
+        let afterPath: Available;
+        if (node.props.randomized) {
+          // Children run in unknown order — each only sees pre-path available.
+          // After the path all children's data is reachable, so union results.
+          const results = children.map((child) =>
+            walkFrom(child.to, available, childDataPath),
+          );
+          afterPath = results.reduce<Available>(
+            (acc, result) => ({
+              ...acc,
+              dataKeys: new Set([...acc.dataKeys, ...result.dataKeys]),
+              loops: new Set([...acc.loops, ...result.loops]),
+            }),
+            available,
+          );
+        } else {
+          // Children run in declared order — each sees the accumulated output of
+          // all preceding children.
+          afterPath = children.reduce<Available>(
+            (acc, child) => walkFrom(child.to, acc, childDataPath),
+            available,
           );
         }
-        childAvailable.forEach((k) => current.add(k));
-        const next = seqNext.get(nodeId);
-        if (next) return walk(next, current, dataPath, insideLoop);
-        break;
-      }
 
-      case 'loop': {
-        const templateId = loopTemplateOf.get(nodeId);
-        if (templateId) {
-          walk(templateId, new Set(current), [...dataPath, nodeId], true);
-        }
-        const next = seqNext.get(nodeId);
-        if (next) return walk(next, current, dataPath, insideLoop);
-        break;
+        if (nextSeqId) return walkFrom(nextSeqId, afterPath, dataPath);
+        return afterPath;
       }
-
       case 'branch': {
-        for (const branch of node.props.branches) {
-          for (const dataKey of collectConditionDataKeys(branch.config)) {
-            checkText(
-              dataKey,
-              `Branch "${node.id}" condition`,
-              current,
-              insideLoop,
-              rawErrors,
-            );
+        const branches = edgesFrom.filter(
+          (edge) => isBranchConditionEdge(edge) || isBranchDefaultEdge(edge),
+        );
+        branches.forEach((branch) => {
+          walkFrom(branch.to, available, dataPath);
+        });
+        return available;
+      }
+      case 'compute': {
+        const prefix = [...dataPath, node.id].join('.');
+        // Validate each computation against only the outputs produced so far,
+        // then accumulate — computation N cannot reference output N+1. $ refs
+        // within a compute node address prior outputs in the same node; $$ refs
+        // address data from earlier nodes.
+        let computeAvailable: Available = available;
+
+        node.props.computations.forEach((computation) => {
+          referencesInFormula(computation.formula).forEach((ref) => {
+            if (!isAvailable(ref, computeAvailable)) {
+              rawErrors.push(
+                unavailableRefError(
+                  ref,
+                  `Compute "${node.id}" output "${computation.outputKey}"`,
+                ),
+              );
+            }
+          });
+
+          computeAvailable = {
+            ...computeAvailable,
+            screenKeys: new Set([
+              ...computeAvailable.screenKeys,
+              computation.outputKey,
+            ]),
+            // Slightly imprecise: this lets later computations reference earlier
+            // outputs via $$ as well as $, but it keeps the implementation simple.
+            dataKeys: new Set([
+              ...computeAvailable.dataKeys,
+              `${prefix}.${computation.outputKey}`,
+            ]),
+          };
+        });
+
+        if (nextSeqId) return walkFrom(nextSeqId, computeAvailable, dataPath);
+        return computeAvailable;
+      }
+      case 'fork': {
+        edgesFrom.filter(isForkEdge).forEach((fork) => {
+          walkFrom(fork.to, available, dataPath);
+        });
+        // Forks are mutually exclusive, so their outputs are not guaranteed for
+        // downstream nodes — only within each fork arm.
+        return available;
+      }
+      case 'loop': {
+        const templateEdge = edgesFrom.find(isLoopEdge);
+        let afterLoop = available;
+        if (templateEdge) {
+          const loopAvailable: Available = {
+            ...available,
+            loops: new Set([...available.loops, node.id]),
+          };
+          if (node.props.type === 'static') {
+            // Walk once per value — the runtime data path is [loopId, value],
+            // so each iteration produces distinct $$ keys downstream.
+            const allKeys = new Set(available.dataKeys);
+            for (const value of node.props.values) {
+              const iterResult = walkFrom(templateEdge.to, loopAvailable, [
+                ...dataPath,
+                node.id,
+                value,
+              ]);
+              iterResult.dataKeys.forEach((k) => allKeys.add(k));
+            }
+            afterLoop = { ...available, dataKeys: allKeys };
+          } else {
+            // Dynamic loop: source array unknown at validation time — validate
+            // template references but don't carry any keys downstream.
+            walkFrom(templateEdge.to, loopAvailable, [...dataPath, node.id]);
           }
         }
-        const targets = branchForkTargets.get(nodeId) ?? [];
-        for (const target of targets) {
-          walk(target, new Set(current), dataPath, insideLoop);
-        }
-        break;
+        if (nextSeqId) return walkFrom(nextSeqId, afterLoop, dataPath);
+        return afterLoop;
       }
-
-      case 'fork': {
-        const targets = branchForkTargets.get(nodeId) ?? [];
-        for (const target of targets) {
-          walk(target, new Set(current), dataPath, insideLoop);
-        }
-        break;
-      }
+      case 'end':
+      default:
+        return available;
     }
-
-    return current;
   }
 
-  const startNode = flow.nodes.find((n) => n.type === 'start');
-  if (startNode) walk(startNode.id, new Set(), [], false);
+  const initialAvailable: Available = {
+    dataKeys: new Set(),
+    loops: new Set(),
+    screenKeys: new Set(),
+    forEach: new Set(),
+  };
+
+  // Walk from every start node. Shared downstream nodes, multiple start nodes,
+  // and re-walking static-loop bodies per value all produce duplicate errors,
+  // so dedup by code+message before returning.
+  nodes
+    .filter((n): n is StartNode => n.type === 'start')
+    .forEach((start) => walkFrom(start.id, initialAvailable, []));
 
   const seen = new Set<string>();
   return rawErrors.filter((e) => {
