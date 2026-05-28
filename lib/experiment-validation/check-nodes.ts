@@ -1,39 +1,7 @@
-import { Condition } from '../conditions';
 import { BranchNode, ForkNode, FrameworkNode } from '../nodes';
 import { ExperimentFlow } from '../types';
-import { ErrorCategory, ValidationError } from './types';
-
-function validateConditionStructure(
-  condition: Condition,
-  category: ErrorCategory,
-): ValidationError[] {
-  const errors: ValidationError[] = [];
-
-  switch (condition.type) {
-    case 'and':
-    case 'or': {
-      if (condition.conditions.length === 0) {
-        errors.push({
-          code: 'condition-empty',
-          category,
-          message: `A "${condition.type}" condition has no children, but at least one condition is required`,
-        });
-      }
-
-      errors.push(
-        ...condition.conditions.flatMap((child) =>
-          validateConditionStructure(child, category),
-        ),
-      );
-      break;
-    }
-    case 'not': {
-      errors.push(...validateConditionStructure(condition.condition, category));
-    }
-  }
-
-  return errors;
-}
+import { ValidationError } from './types';
+import { validateConditionStructure } from './validate-condition-structure';
 
 function validateChildContainer<N extends BranchNode | ForkNode>(
   nodes: FrameworkNode[],
@@ -73,6 +41,8 @@ function validateChildContainer<N extends BranchNode | ForkNode>(
   return errors;
 }
 
+const REQUIRE_AT_LEAST_ONE: FrameworkNode['type'][] = ['start', 'end'];
+
 export function checkNodes({ nodes }: ExperimentFlow): ValidationError[] {
   const errors: ValidationError[] = [];
 
@@ -91,23 +61,16 @@ export function checkNodes({ nodes }: ExperimentFlow): ValidationError[] {
     }
   });
 
-  if (!nodes.some((node) => node.type === 'start')) {
-    errors.push({
-      code: 'missing-start',
-      category: 'node',
-      message: 'Flow has no start node',
-      nodeType: 'start',
-    });
-  }
-
-  if (!nodes.some((node) => node.type === 'end')) {
-    errors.push({
-      code: 'missing-end',
-      category: 'node',
-      message: 'Flow has no end node',
-      nodeType: 'end',
-    });
-  }
+  REQUIRE_AT_LEAST_ONE.forEach((type) => {
+    if (!nodes.some((node) => node.type === type)) {
+      errors.push({
+        code: `missing-${type}`,
+        category: 'node',
+        message: `Flow has no ${type} node`,
+        nodeType: type,
+      });
+    }
+  });
 
   const branchErrors = validateChildContainer<BranchNode>(
     nodes,

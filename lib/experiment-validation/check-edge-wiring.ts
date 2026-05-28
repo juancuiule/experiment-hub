@@ -50,6 +50,28 @@ function isNested(node: FrameworkNode, edges: FrameworkEdge[]): boolean {
   return expand(seed).has(node.id);
 }
 
+const WITHOUT_SEQUENTIAL: FrameworkNode['type'][] = ['branch', 'fork', 'end'];
+const WITH_OPTIONAL_SEQUENTIAL: FrameworkNode['type'][] = [
+  'checkpoint',
+  'screen',
+  'compute',
+  'path',
+  'loop',
+];
+
+const REQUIRED_SOURCE_TYPE: Partial<
+  Record<FrameworkEdge['type'], FrameworkNode['type']>
+> = {
+  'branch-condition': 'branch',
+  'branch-default': 'branch',
+  'path-contains': 'path',
+  'loop-template': 'loop',
+  'fork-edge': 'fork',
+};
+
+const isFrom = (node: FrameworkNode) => (edge: FrameworkEdge) =>
+  edge.from.split('.')[0] === node.id;
+
 export function checkEdgeWiring(flow: ExperimentFlow): ValidationError[] {
   const errors: ValidationError[] = [];
 
@@ -57,18 +79,7 @@ export function checkEdgeWiring(flow: ExperimentFlow): ValidationError[] {
 
   const nodesMap = new Map(nodes.map((n) => [n.id, n]));
 
-  const noSequential: FrameworkNode['type'][] = ['branch', 'fork', 'end'];
-  const optionalSequential: FrameworkNode['type'][] = [
-    'checkpoint',
-    'screen',
-    'compute',
-    'path',
-    'loop',
-  ];
-
-  const isFrom = (node: FrameworkNode) => (edge: FrameworkEdge) =>
-    edge.from.split('.')[0] === node.id;
-
+  // 1. Check sequential edges from each node:
   nodes.forEach((node) => {
     const outgoingSequential = edges
       .filter(isSequentialEdge)
@@ -76,7 +87,7 @@ export function checkEdgeWiring(flow: ExperimentFlow): ValidationError[] {
 
     const requiresSequential =
       node.type === 'start' ||
-      (optionalSequential.includes(node.type) && !isNested(node, edges));
+      (WITH_OPTIONAL_SEQUENTIAL.includes(node.type) && !isNested(node, edges));
 
     if (requiresSequential && outgoingSequential.length === 0) {
       errors.push({
@@ -87,7 +98,10 @@ export function checkEdgeWiring(flow: ExperimentFlow): ValidationError[] {
       });
     }
 
-    if (noSequential.includes(node.type) && outgoingSequential.length > 0) {
+    if (
+      WITHOUT_SEQUENTIAL.includes(node.type) &&
+      outgoingSequential.length > 0
+    ) {
       errors.push({
         code: 'invalid-edge',
         category: 'edge',
@@ -96,7 +110,10 @@ export function checkEdgeWiring(flow: ExperimentFlow): ValidationError[] {
       });
     }
 
-    if (!noSequential.includes(node.type) && outgoingSequential.length > 1) {
+    if (
+      !WITHOUT_SEQUENTIAL.includes(node.type) &&
+      outgoingSequential.length > 1
+    ) {
       errors.push({
         code: 'ambiguous-edge',
         category: 'edge',
@@ -106,6 +123,7 @@ export function checkEdgeWiring(flow: ExperimentFlow): ValidationError[] {
     }
   });
 
+  // 2. Check path-contains, loop-template, branch-condition/default, and fork edges from each node:
   nodes.forEach((node) => {
     switch (node.type) {
       case 'path': {
@@ -136,7 +154,7 @@ export function checkEdgeWiring(flow: ExperimentFlow): ValidationError[] {
       }
 
       case 'fork': {
-        const forkEdges = edges.filter(isForkEdge).filter(isFrom(node));
+        const forkEdges = edges.filter(isFrom(node)).filter(isForkEdge);
         if (forkEdges.length < 2) {
           errors.push({
             code: 'missing-edge',
@@ -146,11 +164,11 @@ export function checkEdgeWiring(flow: ExperimentFlow): ValidationError[] {
           });
         }
 
-        const forks = node.props.forks.map((f) => f.id);
+        const forksIds = node.props.forks.map((f) => f.id);
 
         forkEdges.forEach((edge) => {
           const forkId = edge.from.split('.')[1];
-          if (!forks.includes(forkId)) {
+          if (!forksIds.includes(forkId)) {
             errors.push({
               code: 'invalid-edge',
               category: 'edge',
@@ -160,7 +178,7 @@ export function checkEdgeWiring(flow: ExperimentFlow): ValidationError[] {
           }
         });
 
-        forks.forEach((forkId) => {
+        forksIds.forEach((forkId) => {
           const hasForkEdge = forkEdges.some(
             (e) => e.from === `${node.id}.${forkId}`,
           );
@@ -181,6 +199,10 @@ export function checkEdgeWiring(flow: ExperimentFlow): ValidationError[] {
           .filter(isBranchDefaultEdge)
           .filter(isFrom(node));
 
+        const conditionEdges = edges
+          .filter(isBranchConditionEdge)
+          .filter(isFrom(node));
+
         if (defaultEdges.length !== 1) {
           const missing = defaultEdges.length == 0;
           errors.push({
@@ -191,12 +213,6 @@ export function checkEdgeWiring(flow: ExperimentFlow): ValidationError[] {
           });
         }
 
-        const conditionEdges = edges
-          .filter(isBranchConditionEdge)
-          .filter(isFrom(node));
-
-        const branches = node.props.branches.map((b) => b.id);
-
         if (conditionEdges.length === 0) {
           errors.push({
             code: 'missing-edge',
@@ -206,9 +222,11 @@ export function checkEdgeWiring(flow: ExperimentFlow): ValidationError[] {
           });
         }
 
+        const branchesIds = node.props.branches.map((b) => b.id);
+
         conditionEdges.forEach((edge) => {
           const branchId = edge.from.split('.')[1];
-          if (!branches.includes(branchId)) {
+          if (!branchesIds.includes(branchId)) {
             errors.push({
               code: 'invalid-edge',
               category: 'edge',
@@ -218,7 +236,7 @@ export function checkEdgeWiring(flow: ExperimentFlow): ValidationError[] {
           }
         });
 
-        branches.forEach((branchId) => {
+        branchesIds.forEach((branchId) => {
           const hasConditionEdge = conditionEdges.some(
             (e) => e.from === `${node.id}.${branchId}`,
           );
@@ -237,20 +255,10 @@ export function checkEdgeWiring(flow: ExperimentFlow): ValidationError[] {
     }
   });
 
-  const requiresSource: Partial<
-    Record<FrameworkEdge['type'], FrameworkNode['type']>
-  > = {
-    'branch-condition': 'branch',
-    'branch-default': 'branch',
-    'path-contains': 'path',
-    'loop-template': 'loop',
-    'fork-edge': 'fork',
-  };
-
   edges.forEach((edge) => {
     const [nodeId] = edge.from.split('.');
     const node = nodesMap.get(nodeId);
-    const requiredType = requiresSource[edge.type];
+    const requiredType = REQUIRED_SOURCE_TYPE[edge.type];
     if (node && requiredType && node.type !== requiredType) {
       errors.push({
         code: 'invalid-edge',

@@ -3,37 +3,36 @@ import { FrameworkScreen } from '../screen';
 import { ExperimentFlow } from '../types';
 import { ValidationError } from './types';
 
-export function checkScreenDefinitions(flow: ExperimentFlow): ValidationError[] {
+export function checkScreenDefinitions(
+  flow: ExperimentFlow,
+): ValidationError[] {
   const errors: ValidationError[] = [];
   const { screens = [], nodes } = flow;
 
   const screenNodes = nodes.filter((n): n is ScreenNode => n.type === 'screen');
 
-  const screensMap = new Map<string, FrameworkScreen[]>();
-  const duplicatedSlugs = new Set<string>();
+  const screensBySlug = new Map<string, FrameworkScreen[]>();
   screens.forEach((screen) => {
-    const existing = screensMap.get(screen.slug);
-    if (existing) {
-      duplicatedSlugs.add(screen.slug);
-      screensMap.set(screen.slug, [...existing, screen]);
-    } else {
-      screensMap.set(screen.slug, [screen]);
+    const existing = screensBySlug.get(screen.slug) ?? [];
+    screensBySlug.set(screen.slug, [...existing, screen]);
+  });
+
+  // 1. Check for duplicate screen slugs
+  screensBySlug.forEach((group, slug) => {
+    if (group.length > 1) {
+      errors.push({
+        code: 'duplicate-screen',
+        category: 'screen',
+        message: `Duplicate screen slug "${slug}" found in screens: ${group
+          .map((s) => JSON.stringify(s))
+          .join(', ')}`,
+      });
     }
   });
 
-  duplicatedSlugs.forEach((slug) => {
-    errors.push({
-      code: 'duplicate-screen',
-      category: 'screen',
-      message: `Duplicate screen slug "${slug}" found in screens: ${screensMap
-        .get(slug)
-        ?.map((s) => JSON.stringify(s))
-        .join(', ')}`,
-    });
-  });
-
+  // 2. Check that every screen node references a defined screen slug
   screenNodes.forEach((node) => {
-    if (!screensMap.has(node.props.slug)) {
+    if (!screensBySlug.has(node.props.slug)) {
       errors.push({
         code: 'missing-screen',
         category: 'screen',
@@ -42,9 +41,9 @@ export function checkScreenDefinitions(flow: ExperimentFlow): ValidationError[] 
     }
   });
 
+  // 3. Check for unreferenced screen definitions
   const referencedSlugs = new Set(screenNodes.map((node) => node.props.slug));
-
-  screensMap.keys().forEach((slug) => {
+  screensBySlug.forEach((_, slug) => {
     if (!referencedSlugs.has(slug)) {
       errors.push({
         code: 'unreferenced-screen',
