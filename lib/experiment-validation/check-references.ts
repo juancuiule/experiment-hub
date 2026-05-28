@@ -1,8 +1,8 @@
 import { ScreenComponent } from '../components';
 import { Condition } from '../conditions';
-import { Formula, FrameworkNode } from '../nodes';
-import { resolveValuesInString } from '../resolve';
 import { FrameworkEdge } from '../edges';
+import { Formula } from '../nodes';
+import { resolveValuesInString } from '../resolve';
 import { Context, ExperimentFlow } from '../types';
 import { ValidationError } from './types';
 
@@ -145,18 +145,39 @@ function checkFormulaInputs(
     case 'min':
     case 'max': {
       for (const inp of formula.inputs) {
-        checkFormulaInput(inp, context, available, nodeOutputs, insideLoop, errors);
+        checkFormulaInput(
+          inp,
+          context,
+          available,
+          nodeOutputs,
+          insideLoop,
+          errors,
+        );
       }
       break;
     }
     case 'count': {
       for (const inp of formula.inputs) {
-        checkFormulaInput(inp, context, available, nodeOutputs, insideLoop, errors);
+        checkFormulaInput(
+          inp,
+          context,
+          available,
+          nodeOutputs,
+          insideLoop,
+          errors,
+        );
       }
       if (formula.where) {
         for (const key of collectConditionDataKeys(formula.where)) {
           if (!key.startsWith('@')) {
-            checkFormulaInput(key, context, available, nodeOutputs, insideLoop, errors);
+            checkFormulaInput(
+              key,
+              context,
+              available,
+              nodeOutputs,
+              insideLoop,
+              errors,
+            );
           }
         }
       }
@@ -164,17 +185,38 @@ function checkFormulaInputs(
     }
     case 'conditional': {
       for (const key of collectConditionDataKeys(formula.condition)) {
-        checkFormulaInput(key, context, available, nodeOutputs, insideLoop, errors);
+        checkFormulaInput(
+          key,
+          context,
+          available,
+          nodeOutputs,
+          insideLoop,
+          errors,
+        );
       }
       break;
     }
     case 'lookup': {
-      checkFormulaInput(formula.input, context, available, nodeOutputs, insideLoop, errors);
+      checkFormulaInput(
+        formula.input,
+        context,
+        available,
+        nodeOutputs,
+        insideLoop,
+        errors,
+      );
       break;
     }
     case 'sample': {
       if (!Array.isArray(formula.input)) {
-        checkFormulaInput(formula.input, context, available, nodeOutputs, insideLoop, errors);
+        checkFormulaInput(
+          formula.input,
+          context,
+          available,
+          nodeOutputs,
+          insideLoop,
+          errors,
+        );
       }
       break;
     }
@@ -217,7 +259,13 @@ export function checkReferences(flow: ExperimentFlow): ValidationError[] {
             const props = component.props as Record<string, unknown>;
             for (const field of ['label', 'content', 'text'] as const) {
               if (typeof props[field] === 'string') {
-                checkText(props[field] as string, screenLabel, current, insideLoop, rawErrors);
+                checkText(
+                  props[field] as string,
+                  screenLabel,
+                  current,
+                  insideLoop,
+                  rawErrors,
+                );
               }
             }
             if (component.componentFamily === 'response') {
@@ -298,7 +346,14 @@ export function checkReferences(flow: ExperimentFlow): ValidationError[] {
               message: `Compute "${nodeId}" output "${outputKey}" has sample size n="${formula.n}", but n must be a positive integer`,
             });
           }
-          checkFormulaInputs(formula, nodeLabel, current, nodeOutputs, insideLoop, rawErrors);
+          checkFormulaInputs(
+            formula,
+            nodeLabel,
+            current,
+            nodeOutputs,
+            insideLoop,
+            rawErrors,
+          );
           current.add(`${prefix}.${outputKey}`);
           nodeOutputs.add(outputKey);
         }
@@ -313,7 +368,12 @@ export function checkReferences(flow: ExperimentFlow): ValidationError[] {
         );
         let childAvailable = new Set(current);
         for (const { to } of children) {
-          childAvailable = walk(to, childAvailable, [...dataPath, nodeId], insideLoop);
+          childAvailable = walk(
+            to,
+            childAvailable,
+            [...dataPath, nodeId],
+            insideLoop,
+          );
         }
         childAvailable.forEach((k) => current.add(k));
         const next = seqNext.get(nodeId);
@@ -334,7 +394,13 @@ export function checkReferences(flow: ExperimentFlow): ValidationError[] {
       case 'branch': {
         for (const branch of node.props.branches) {
           for (const dataKey of collectConditionDataKeys(branch.config)) {
-            checkText(dataKey, `Branch "${node.id}" condition`, current, insideLoop, rawErrors);
+            checkText(
+              dataKey,
+              `Branch "${node.id}" condition`,
+              current,
+              insideLoop,
+              rawErrors,
+            );
           }
         }
         const targets = branchForkTargets.get(nodeId) ?? [];

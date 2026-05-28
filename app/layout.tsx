@@ -4,6 +4,7 @@ import { twMerge } from 'tailwind-merge';
 import './globals.css';
 import { ThemeProvider } from '@/src/theme-provider';
 import { ThemeToggle } from '@/src/ThemeToggle';
+import Image from 'next/image';
 
 const montserrat = Montserrat({
   variable: '--font-sans',
@@ -41,7 +42,9 @@ export default function RootLayout({
         >
           <main className="relative mx-auto flex min-h-screen w-full max-w-lg flex-col items-center justify-start p-6">
             <nav className="flex w-full flex-row items-center justify-between gap-3">
-              <img
+              <Image
+                width="48"
+                height="48"
                 src="/experiment-hub-logo.png"
                 className="h-12 w-auto"
                 alt="Experiment Hub logo with text"

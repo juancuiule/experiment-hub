@@ -47,6 +47,8 @@ export default async function Home(props: Props) {
   const errors = validateExperiment(experiment);
 
   if (errors.length > 0) {
+    console.log('== Experiment validation errors: ==');
+    errors.forEach((error) => console.log(error));
     return <ValidationErrors errors={errors} />;
   }
 
