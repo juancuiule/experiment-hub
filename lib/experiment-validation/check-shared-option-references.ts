@@ -1,52 +1,50 @@
-import { ScreenComponent } from '../components';
+import { flatMap, Handlers, on } from '../component-walker';
 import { ExperimentFlow } from '../types';
 import { ValidationError } from './types';
 
 export function checkSharedOptionReferences(
   flow: ExperimentFlow,
 ): ValidationError[] {
-  const errors: ValidationError[] = [];
   const definedOptions = new Set(Object.keys(flow.options ?? {}));
   const hasSupportedTemplatePlaceholder =
     /\{\{(?:\$\$|\$|@|#)[a-zA-Z0-9_.\-]+\}\}/;
 
-  function checkComponent(component: ScreenComponent, screenSlug: string) {
-    const props = component.props as Record<string, unknown>;
-    if (typeof props.options === 'string' && props.options.startsWith('%')) {
+  // State = screen slug, threaded through for use in error messages.
+  const handlers: Handlers<ValidationError, string> = [
+    on({ componentFamily: 'response' }, (c, screenSlug): ValidationError[] => {
+      const props = c.props as Record<string, unknown>;
+      if (typeof props.options !== 'string' || !props.options.startsWith('%'))
+        return [];
       const name = props.options.slice(1);
-      if (
-        !definedOptions.has(name) &&
-        !hasSupportedTemplatePlaceholder.test(name)
-      ) {
-        errors.push({
+      if (definedOptions.has(name) || hasSupportedTemplatePlaceholder.test(name))
+        return [];
+      return [
+        {
           code: 'unknown-shared-options',
           category: 'reference',
           message: `Screen "${screenSlug}" references undefined shared option set "%${name}"`,
-        });
-      }
-    }
-    if (
-      component.componentFamily === 'layout' &&
-      component.template === 'group'
-    ) {
-      for (const child of component.props.components)
-        checkComponent(child, screenSlug);
-    } else if (component.componentFamily === 'control') {
-      if (component.template === 'conditional') {
-        checkComponent(component.props.component, screenSlug);
-        if (component.props.else)
-          checkComponent(component.props.else, screenSlug);
-      } else if (component.template === 'for-each') {
-        checkComponent(component.props.component, screenSlug);
-      }
-    }
-  }
+        },
+      ];
+    }),
+    on(
+      { componentFamily: 'layout', template: 'group' },
+      (c, slug, recur): ValidationError[] => recur(c.props.components, slug),
+    ),
+    on(
+      { componentFamily: 'control', template: 'conditional' },
+      (c, slug, recur): ValidationError[] => [
+        ...recur([c.props.component], slug),
+        ...(c.props.else ? recur([c.props.else], slug) : []),
+      ],
+    ),
+    on(
+      { componentFamily: 'control', template: 'for-each' },
+      (c, slug, recur): ValidationError[] =>
+        recur([c.props.component], slug),
+    ),
+  ];
 
-  for (const screen of flow.screens ?? []) {
-    for (const component of screen.components) {
-      checkComponent(component, screen.slug);
-    }
-  }
-
-  return errors;
+  return (flow.screens ?? []).flatMap((screen) =>
+    flatMap(screen.components, screen.slug, handlers),
+  );
 }

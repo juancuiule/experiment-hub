@@ -146,6 +146,15 @@ describe('node identity', () => {
     expect(codes(flow)).toContain('missing-start');
   });
 
+  it('reports missing-end when there is no end node', () => {
+    const flow: ExperimentFlow = {
+      nodes: [start, makeScreen('s1', 'welcome')],
+      edges: [seq('start', 's1')],
+      screens: [{ slug: 'welcome', components: [] }],
+    };
+    expect(codes(flow)).toContain('missing-end');
+  });
+
   it('accepts multiple start nodes (valid multi-entry-point design)', () => {
     const flow: ExperimentFlow = {
       nodes: [
@@ -180,6 +189,19 @@ describe('edge endpoints', () => {
     const flow: ExperimentFlow = {
       nodes: [start],
       edges: [seq('start', 'ghost')],
+    };
+    expect(codes(flow)).toContain('unknown-node');
+    expect(messages(flow).some((m) => m.includes('"ghost"'))).toBe(true);
+  });
+
+  it('reports unknown-node when dot-segment from node id does not exist', () => {
+    const flow: ExperimentFlow = {
+      nodes: [start, makeScreen('s1', 'q')],
+      edges: [
+        seq('start', 's1'),
+        { type: 'branch-condition', from: 'ghost.cond', to: 's1' },
+      ],
+      screens: [{ slug: 'q', components: [] }],
     };
     expect(codes(flow)).toContain('unknown-node');
     expect(messages(flow).some((m) => m.includes('"ghost"'))).toBe(true);
@@ -395,6 +417,82 @@ describe('branch wiring', () => {
     expect(messages(flow).some((m) => m.includes('"maybe"'))).toBe(true);
   });
 
+  it('reports empty-branch when branch has no branches defined', () => {
+    const flow: ExperimentFlow = {
+      nodes: [
+        start,
+        { id: 'b', type: 'branch', props: { name: 'B', branches: [] } },
+        end,
+      ],
+      edges: [],
+      screens: [],
+    };
+    expect(codes(flow)).toContain('empty-branch');
+  });
+
+  it('reports duplicate-branch-id when two branches share the same id', () => {
+    const flow: ExperimentFlow = {
+      nodes: [
+        start,
+        {
+          id: 'b',
+          type: 'branch',
+          props: {
+            name: 'B',
+            branches: [
+              {
+                id: 'cond',
+                name: 'First',
+                config: {
+                  type: 'simple',
+                  operator: 'eq',
+                  dataKey: '$$s.v',
+                  value: 'y',
+                },
+              },
+              {
+                id: 'cond',
+                name: 'Second',
+                config: {
+                  type: 'simple',
+                  operator: 'eq',
+                  dataKey: '$$s.v',
+                  value: 'n',
+                },
+              },
+            ],
+          },
+        },
+        end,
+      ],
+      edges: [],
+      screens: [],
+    };
+    expect(codes(flow)).toContain('duplicate-branch-id');
+  });
+
+  it('reports condition-empty when a branch condition is an empty and/or', () => {
+    const flow: ExperimentFlow = {
+      nodes: [
+        start,
+        {
+          id: 'b',
+          type: 'branch',
+          props: {
+            name: 'B',
+            branches: [
+              { id: 'cond', name: 'Cond', config: { type: 'and', conditions: [] } },
+            ],
+          },
+        },
+        end,
+      ],
+      edges: [],
+      screens: [],
+    };
+    expect(codes(flow)).toContain('condition-empty');
+  });
+
   it('reports invalid-edge when branch-condition references a non-existent branch id', () => {
     const flow: ExperimentFlow = {
       nodes: [
@@ -533,6 +631,76 @@ describe('fork wiring', () => {
     expect(messages(flow).some((m) => m.includes('at least two are required'))).toBe(
       false,
     );
+  });
+
+  it('reports empty-fork when fork has no forks defined', () => {
+    const flow: ExperimentFlow = {
+      nodes: [
+        start,
+        { id: 'f', type: 'fork', props: { name: 'F', forks: [] } },
+        end,
+      ],
+      edges: [],
+      screens: [],
+    };
+    expect(codes(flow)).toContain('empty-fork');
+  });
+
+  it('reports duplicate-fork-id when two forks share the same id', () => {
+    const flow: ExperimentFlow = {
+      nodes: [
+        start,
+        {
+          id: 'f',
+          type: 'fork',
+          props: {
+            name: 'F',
+            forks: [
+              { id: 'arm', name: 'First' },
+              { id: 'arm', name: 'Second' },
+            ],
+          },
+        },
+        end,
+      ],
+      edges: [],
+      screens: [],
+    };
+    expect(codes(flow)).toContain('duplicate-fork-id');
+  });
+
+  it('reports unrouted-fork when a fork id in props has no fork-edge', () => {
+    const flow: ExperimentFlow = {
+      nodes: [
+        start,
+        {
+          id: 'f',
+          type: 'fork',
+          props: {
+            name: 'F',
+            forks: [
+              { id: 'a', name: 'A' },
+              { id: 'b', name: 'B' },
+              { id: 'c', name: 'C' },
+            ],
+          },
+        },
+        makeScreen('sa', 'a'),
+        makeScreen('sb', 'b'),
+      ],
+      edges: [
+        seq('start', 'f'),
+        { type: 'fork-edge', from: 'f.a', to: 'sa' },
+        { type: 'fork-edge', from: 'f.b', to: 'sb' },
+        // 'c' has no fork-edge
+      ],
+      screens: [
+        { slug: 'a', components: [] },
+        { slug: 'b', components: [] },
+      ],
+    };
+    expect(codes(flow)).toContain('unrouted-fork');
+    expect(messages(flow).some((m) => m.includes('"c"'))).toBe(true);
   });
 
   it('reports invalid-edge when fork-edge references a non-existent fork id', () => {
@@ -2253,96 +2421,73 @@ describe('compute node — sample formula validation', () => {
   });
 });
 
-describe('unknown-template', () => {
-  function flowWithComponents(
-    components: ExperimentFlow['screens'][0]['components'],
-  ): ExperimentFlow {
-    return {
-      nodes: [start, makeScreen('s1', 'pg')],
-      edges: [seq('start', 's1')],
-      screens: [{ slug: 'pg', components }],
+describe('cyclic-flow', () => {
+  it('reports cyclic-flow when two screens form a sequential cycle', () => {
+    const flow: ExperimentFlow = {
+      nodes: [start, makeScreen('s1', 'pg1'), makeScreen('s2', 'pg2'), end],
+      edges: [
+        seq('start', 's1'),
+        seq('s1', 's2'),
+        seq('s2', 's1'),
+      ],
+      screens: [
+        { slug: 'pg1', components: [] },
+        { slug: 'pg2', components: [] },
+      ],
     };
-  }
+    expect(codes(flow)).toContain('cyclic-flow');
+  });
 
-  it('passes valid templates for all families', () => {
-    const flow = flowWithComponents([
-      {
-        componentFamily: 'content',
-        template: 'rich-text',
-        props: { content: 'hello' },
-      },
-      {
-        componentFamily: 'content',
-        template: 'image',
-        props: { url: 'x.png', alt: '' },
-      },
-      {
-        componentFamily: 'content',
-        template: 'video',
-        props: { url: 'v.mp4' },
-      },
-      {
-        componentFamily: 'content',
-        template: 'audio',
-        props: { url: 'a.mp3' },
-      },
-      {
-        componentFamily: 'response',
-        template: 'text-input',
-        props: { dataKey: 'a', label: 'A' },
-      },
-      {
-        componentFamily: 'response',
-        template: 'text-area',
-        props: { dataKey: 'b', label: 'B' },
-      },
-      {
-        componentFamily: 'response',
-        template: 'numeric-input',
-        props: { dataKey: 'c', label: 'C' },
-      },
-      {
-        componentFamily: 'response',
-        template: 'slider',
-        props: { dataKey: 'd', label: 'D' },
-      },
-      {
-        componentFamily: 'response',
-        template: 'radio',
-        props: { dataKey: 'e', label: 'E', options: [] },
-      },
-      {
-        componentFamily: 'response',
-        template: 'checkboxes',
-        props: { dataKey: 'f', label: 'F', options: [] },
-      },
-      {
-        componentFamily: 'response',
-        template: 'dropdown',
-        props: { dataKey: 'g', label: 'G', options: [] },
-      },
-      {
-        componentFamily: 'response',
-        template: 'single-checkbox',
-        props: { dataKey: 'h', label: 'H', defaultValue: false },
-      },
-      {
-        componentFamily: 'response',
-        template: 'date-input',
-        props: { dataKey: 'i', label: 'I' },
-      },
-      {
-        componentFamily: 'response',
-        template: 'time-input',
-        props: { dataKey: 'j', label: 'J' },
-      },
-      {
-        componentFamily: 'response',
-        template: 'likert-scale',
-        props: { dataKey: 'k', label: 'K', options: [] },
-      },
-      { componentFamily: 'layout', template: 'button', props: {} },
-    ]);
-    expect(codes(flow).filter((c) => c === 'unknown-template')).toEqual([]);
+  it('does not report cyclic-flow for a valid linear flow', () => {
+    expect(codes(minimalFlow)).not.toContain('cyclic-flow');
+  });
+});
+
+describe('unreachable-node', () => {
+  it('reports unreachable-node for a screen with no incoming edges', () => {
+    const flow: ExperimentFlow = {
+      nodes: [
+        start,
+        makeScreen('s1', 'pg1'),
+        makeScreen('orphan', 'pg2'),
+        end,
+      ],
+      edges: [seq('start', 's1'), seq('s1', 'end')],
+      screens: [
+        { slug: 'pg1', components: [] },
+        { slug: 'pg2', components: [] },
+      ],
+    };
+    expect(codes(flow)).toContain('unreachable-node');
+  });
+
+  it('does not report unreachable-node for a valid flow', () => {
+    expect(codes(minimalFlow)).not.toContain('unreachable-node');
+  });
+});
+
+describe('severity', () => {
+  it('assigns severity warning to unreferenced-screen', () => {
+    const flow: ExperimentFlow = {
+      nodes: [start, makeScreen('s1', 'pg'), end],
+      edges: [seq('start', 's1'), seq('s1', 'end')],
+      screens: [
+        { slug: 'pg', components: [] },
+        { slug: 'unused', components: [] },
+      ],
+    };
+    const errors = validateExperiment(flow);
+    const unreferenced = errors.find((e) => e.code === 'unreferenced-screen');
+    expect(unreferenced?.severity).toBe('warning');
+  });
+
+  it('leaves severity undefined (error) for structural errors', () => {
+    const errors = validateExperiment({
+      nodes: [end],
+      edges: [],
+      screens: [],
+    });
+    const structural = errors.find((e) => e.code === 'missing-start');
+    expect(structural?.severity).toBeUndefined();
   });
 });

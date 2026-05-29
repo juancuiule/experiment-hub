@@ -9,6 +9,7 @@ import {
 } from '../edges';
 import { FrameworkNode } from '../nodes';
 import { ExperimentFlow } from '../types';
+import { isFrom } from './edge-helpers';
 import { ValidationError } from './types';
 
 function isNested(node: FrameworkNode, edges: FrameworkEdge[]): boolean {
@@ -68,9 +69,6 @@ const REQUIRED_SOURCE_TYPE: Partial<
   'loop-template': 'loop',
   'fork-edge': 'fork',
 };
-
-const isFrom = (node: FrameworkNode) => (edge: FrameworkEdge) =>
-  edge.from.split('.')[0] === node.id;
 
 export function checkEdgeWiring(flow: ExperimentFlow): ValidationError[] {
   const errors: ValidationError[] = [];

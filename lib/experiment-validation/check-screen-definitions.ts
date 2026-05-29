@@ -48,6 +48,7 @@ export function checkScreenDefinitions(
       errors.push({
         code: 'unreferenced-screen',
         category: 'screen',
+        severity: 'warning',
         message: `Screen definition "${slug}" is not referenced by any screen node`,
       });
     }

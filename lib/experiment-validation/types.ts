@@ -14,4 +14,5 @@ export type ValidationError = {
   nodeType?: FrameworkNode['type'];
   category: ErrorCategory;
   message: string;
+  severity?: 'error' | 'warning';
 };

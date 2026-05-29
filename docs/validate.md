@@ -185,29 +185,21 @@ Same rule as component references — `@`-keyed conditions only make sense insid
 
 ---
 
-## 7. Component templates
+## 7. Graph structure
 
-Every component in a screen definition must use a `componentFamily` and `template` pair that the renderer knows how to handle. An unknown family or template causes `RenderComponent` to silently render nothing or a raw JSON dump.
+### 7.1 No cycles in the flow graph
 
-### 7.1 `componentFamily` must be one of the four known families
+The flow graph (all edge types combined) must be acyclic. A cycle — for example, a sequential edge from node B back to node A — causes the reference walker to recurse infinitely and crash the server component.
 
-Valid values: `content`, `response`, `layout`, `control`.
+- **Code:** `cyclic-flow`
+- **Why:** The flow engine assumes a DAG. A cycle makes data availability undefined and prevents the flow from ever reaching an `end` node.
 
-- **Code:** `unknown-template`
-- **Why:** `RenderComponent` switches on `componentFamily`. An unrecognised value falls through to a raw JSON dump shown to the participant.
+### 7.2 Every node must be reachable from a start node
 
-### 7.2 `template` must be valid for its `componentFamily`
+Every node (other than `start` nodes themselves) must be reachable by following any sequence of edges from at least one `start` node. An unreachable node is dead configuration that can never execute.
 
-Valid templates per family:
-- `content`: `rich-text`, `image`, `video`, `audio`
-- `response`: `slider`, `single-checkbox`, `text-input`, `text-area`, `date-input`, `time-input`, `dropdown`, `radio`, `checkboxes`, `numeric-input`, `likert-scale`
-- `layout`: `button`, `group`
-- `control`: `conditional`, `for-each`
-
-- **Code:** `unknown-template`
-- **Why:** `RenderComponent` returns `null` for an unrecognised template within a known family, silently rendering nothing and collecting no data.
-
-This check recurses into `group`, `conditional`, and `for-each` containers so nested components are also validated.
+- **Code:** `unreachable-node`
+- **Why:** Dead nodes accumulate silently, make the config harder to maintain, and can mislead about what the flow actually does.
 
 ---
 
@@ -230,4 +222,5 @@ This check recurses into `group`, `conditional`, and `for-each` containers so ne
 | `invalid-reference`       | An `@` token is used outside a loop context                                             |
 | `unknown-shared-options`  | A `%name` options reference has no matching entry in `ExperimentFlow.options`           |
 | `unwrapped-token`         | A `$$key` token appears without `{{ }}` wrapping and will not be interpolated at runtime |
-| `unknown-template`        | A component uses a `componentFamily` or `template` value that is not recognized by the renderer |
+| `cyclic-flow`             | A node is part of a cycle in the flow graph                                             |
+| `unreachable-node`        | A node is not reachable from any start node                                             |

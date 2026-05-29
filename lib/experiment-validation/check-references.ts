@@ -13,6 +13,7 @@ import { Formula, FrameworkNode, StartNode } from '../nodes';
 import { resolveValuesInString } from '../resolve';
 import { FrameworkScreen } from '../screen';
 import { ExperimentFlow } from '../types';
+import { isFrom } from './edge-helpers';
 import { ValidationError } from './types';
 
 // The experiment uses multiple types of references:
@@ -33,10 +34,6 @@ import { ValidationError } from './types';
 // - #forEachId for referencing the current iteration value of a for-each component loop
 // => stored in context.screenData.foreachData keyed by the for-each id, used with .value/.index
 // Example: #foreachDrug.value => context.screenData.foreachData.foreachDrug.value
-
-const isFrom = (node: FrameworkNode) => (edge: FrameworkEdge) => {
-  return edge.from.split('.')[0] === node.id;
-};
 
 function referencesInCondition(condition: Condition): string[] {
   switch (condition.type) {
@@ -302,8 +299,23 @@ function referencesInNode(node: FrameworkNode): string[] {
 export function checkReferences(experiment: ExperimentFlow): ValidationError[] {
   const { nodes, edges, screens = [] } = experiment;
   const rawErrors: ValidationError[] = [];
+  const visitingNow = new Set<string>();
 
   function walkFrom(
+    nodeId: string,
+    _available: Available,
+    dataPath: string[],
+  ): Available {
+    if (visitingNow.has(nodeId)) return _available;
+    visitingNow.add(nodeId);
+    try {
+      return walkFromInner(nodeId, _available, dataPath);
+    } finally {
+      visitingNow.delete(nodeId);
+    }
+  }
+
+  function walkFromInner(
     nodeId: string,
     _available: Available,
     dataPath: string[],
