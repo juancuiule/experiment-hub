@@ -49,7 +49,7 @@ export const EXPERIMENTS: Record<string, ExperimentFlow> = {
             template: 'rich-text',
             props: {
               content:
-                "### What's your favorite fruit in {{@loop-city.value}}?",
+                "# What's your favorite fruit in {{@loop-city.value}}? \n\n ## Alguna cosa \n\n ### Un h3 \n\n #### Un h4 para probar \n\n ##### Otro título, ahora h5",
             },
           },
           {

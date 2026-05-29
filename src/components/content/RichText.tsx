@@ -34,6 +34,18 @@ export function RichText({ component, context }: Props) {
               className="text-content-primary mb-2 text-xl font-bold"
             />
           ),
+          h4: ({ node: _node, ...props }) => (
+            <h4
+              {...props}
+              className="text-content-primary mb-1 text-lg font-bold"
+            />
+          ),
+          h5: ({ node: _node, ...props }) => (
+            <h5
+              {...props}
+              className="text-content-primary mb-1 text-base font-semibold"
+            />
+          ),
           p: ({ node: _node, ...props }) => (
             <p {...props} className="text-content-primary mb-[1lh]" />
           ),
