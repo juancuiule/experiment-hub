@@ -593,6 +593,27 @@ export function next(data?: ContextData) {
   return (step: FlowStep) => traverse(step, data);
 }
 
+export function selectStartNode(
+  params: Record<string, string | string[] | undefined>,
+  experiment: ExperimentFlow,
+): string {
+  const startNodes = experiment.nodes.filter((n) => n.type === 'start');
+  for (const node of startNodes) {
+    if (
+      node.props &&
+      Object.prototype.hasOwnProperty.call(params, node.props.param.key)
+    ) {
+      if (
+        !node.props.param.value ||
+        params[node.props.param.key] === node.props.param.value
+      ) {
+        return node.id;
+      }
+    }
+  }
+  return startNodes[0].id;
+}
+
 export async function startExperiment(
   experiment: ExperimentFlow,
   startNodeId?: string,

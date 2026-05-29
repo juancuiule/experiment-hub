@@ -1,7 +1,6 @@
 import { flatMap, Handlers, on } from '../component-walker';
 import { Condition } from '../conditions';
 import {
-  FrameworkEdge,
   isBranchConditionEdge,
   isBranchDefaultEdge,
   isForkEdge,
@@ -438,15 +437,16 @@ export function checkReferences(experiment: ExperimentFlow): ValidationError[] {
             }
           });
 
-          if (computation.formula.type === 'count-correct') {
+          const { formula, outputKey } = computation;
+          if (formula.type === 'count-correct') {
             const loopExists = nodes.some(
-              (n) => n.id === computation.formula.loopId && n.type === 'loop',
+              (n) => n.id === formula.loopId && n.type === 'loop',
             );
             if (!loopExists) {
               rawErrors.push({
                 code: 'unknown-node',
                 category: 'reference',
-                message: `Compute "${node.id}" output "${computation.outputKey}" count-correct references loop "${computation.formula.loopId}" which is not a loop node in this experiment`,
+                message: `Compute "${node.id}" output "${outputKey}" count-correct references loop "${formula.loopId}" which is not a loop node in this experiment`,
               });
             }
           }

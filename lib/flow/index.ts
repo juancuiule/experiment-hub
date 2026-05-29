@@ -5,6 +5,7 @@ export {
   getScreenView,
   isEnded,
   next,
+  selectStartNode,
   startExperiment,
   traverse,
   traverseInLoop,

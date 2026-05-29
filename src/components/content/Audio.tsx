@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import { AudioComponent } from "@/lib/components/content";
+import { AudioComponent } from '@/lib/components/content';
 
 type Props = {
   component: AudioComponent;

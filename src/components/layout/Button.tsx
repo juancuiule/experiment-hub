@@ -1,9 +1,9 @@
-"use client";
+'use client';
 
-import { ButtonComponent } from "@/lib/components/layout";
-import { resolveValuesInString } from "@/lib/resolve";
-import { Context } from "@/lib/types";
-import { twMerge } from "tailwind-merge";
+import { ButtonComponent } from '@/lib/components/layout';
+import { resolveValuesInString } from '@/lib/resolve';
+import { Context } from '@/lib/types';
+import { twMerge } from 'tailwind-merge';
 
 type Props = {
   component: ButtonComponent;
@@ -14,15 +14,15 @@ type Props = {
 export function Button({ component, isLoading, context }: Props) {
   const text = component.props.text
     ? resolveValuesInString(component.props.text, context)
-    : "Continue";
+    : 'Continue';
   return (
-    <div className={twMerge(component.props.alignBottom ? "mt-auto pt-5" : "")}>
+    <div className={twMerge(component.props.alignBottom ? 'mt-auto pt-5' : '')}>
       <button
         type="submit"
         disabled={component.props.disabled || isLoading}
-        className="w-full h-10 bg-background-inverted text-content-inverted uppercase text-sm font-medium tracking-wide rounded-sm hover:bg-background-inverted/80 active:scale-[0.98] disabled:active:scale-100 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition duration-150 ease-out"
+        className="bg-background-inverted text-content-inverted hover:bg-background-inverted/80 h-10 w-full cursor-pointer rounded-sm text-sm font-medium tracking-wide uppercase transition duration-150 ease-out active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100"
       >
-        {isLoading ? "…" : text}
+        {isLoading ? '…' : text}
       </button>
     </div>
   );

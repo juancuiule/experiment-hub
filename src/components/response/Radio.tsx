@@ -1,11 +1,11 @@
-"use client";
+'use client';
 
-import { Option, RadioComponent } from "@/lib/components/response";
-import { Context, ContextData } from "@/lib/types";
-import * as RadioGroupPrimitive from "@radix-ui/react-radio-group";
-import { Controller, UseFormReturn } from "react-hook-form";
-import { Label } from "../Label";
-import { FieldError, OptionTooltip, resolveOptions } from "../primitives";
+import { Option, RadioComponent } from '@/lib/components/response';
+import { Context, ContextData } from '@/lib/types';
+import * as RadioGroupPrimitive from '@radix-ui/react-radio-group';
+import { Controller, UseFormReturn } from 'react-hook-form';
+import { Label } from '../Label';
+import { FieldError, OptionTooltip, resolveOptions } from '../primitives';
 
 type Props = {
   component: RadioComponent;
@@ -32,16 +32,21 @@ export function Radio({ component, form, context, sharedOptions }: Props) {
           <RadioGroupPrimitive.Root
             value={field.value}
             onValueChange={field.onChange}
-            className="flex flex-col gap-2 mt-2"
+            className="mt-2 flex flex-col gap-2"
           >
-            {resolveOptions(component.props.options, context, component.props.dataKey, sharedOptions).map((opt) => (
+            {resolveOptions(
+              component.props.options,
+              context,
+              component.props.dataKey,
+              sharedOptions,
+            ).map((opt) => (
               <div key={opt.value} className="flex items-center gap-2">
                 <RadioGroupPrimitive.Item
                   id={`${dataKey}-${opt.value}`}
                   value={opt.value}
-                  className="w-4 h-4 rounded-full border border-content-secondary flex items-center justify-center shrink-0 data-[state=checked]:border-content-active active:scale-90 transition duration-150 ease-out focus-visible:ring-2 focus-visible:ring-ring/50 cursor-pointer"
+                  className="border-content-secondary data-[state=checked]:border-content-active focus-visible:ring-ring/50 flex h-4 w-4 shrink-0 cursor-pointer items-center justify-center rounded-full border transition duration-150 ease-out focus-visible:ring-2 active:scale-90"
                 >
-                  <RadioGroupPrimitive.Indicator className="w-2 h-2 rounded-full bg-content-active" />
+                  <RadioGroupPrimitive.Indicator className="bg-content-active h-2 w-2 rounded-full" />
                 </RadioGroupPrimitive.Item>
                 <Label
                   context={context}

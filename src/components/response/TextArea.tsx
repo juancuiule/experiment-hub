@@ -1,12 +1,12 @@
-"use client";
+'use client';
 
-import { TextAreaComponent } from "@/lib/components/response";
-import { resolveValuesInString } from "@/lib/resolve";
-import { Context, ContextData } from "@/lib/types";
-import { UseFormReturn } from "react-hook-form";
-import { twMerge } from "tailwind-merge";
-import { Label } from "../Label";
-import { FieldError } from "../primitives";
+import { TextAreaComponent } from '@/lib/components/response';
+import { resolveValuesInString } from '@/lib/resolve';
+import { Context, ContextData } from '@/lib/types';
+import { UseFormReturn } from 'react-hook-form';
+import { twMerge } from 'tailwind-merge';
+import { Label } from '../Label';
+import { FieldError } from '../primitives';
 
 type Props = {
   component: TextAreaComponent;
@@ -30,10 +30,12 @@ export function TextArea({ component, form, context }: Props) {
         id={dataKey}
         {...register(dataKey)}
         rows={component.props.lines ?? 4}
-        placeholder={placeholder ? resolveValuesInString(placeholder, context) : undefined}
+        placeholder={
+          placeholder ? resolveValuesInString(placeholder, context) : undefined
+        }
         className={twMerge(
-          "border-b border-border-default py-1 outline-none bg-transparent w-full placeholder:text-content-secondary focus:border-content-active transition-[border-color,color] duration-150 ease-out text-sm",
-          "resize-none",
+          'border-border-default placeholder:text-content-secondary focus:border-content-active w-full border-b bg-transparent py-1 text-sm transition-[border-color,color] duration-150 ease-out outline-none',
+          'resize-none',
         )}
       />
       <FieldError message={errors[dataKey]?.message as string | undefined} />

@@ -1,12 +1,12 @@
-"use client";
+'use client';
 
-import { TextInputComponent } from "@/lib/components/response";
-import { resolveValuesInString } from "@/lib/resolve";
-import { Context, ContextData } from "@/lib/types";
-import { UseFormReturn } from "react-hook-form";
-import { Input } from "../Input";
-import { Label } from "../Label";
-import { FieldError } from "../primitives";
+import { TextInputComponent } from '@/lib/components/response';
+import { resolveValuesInString } from '@/lib/resolve';
+import { Context, ContextData } from '@/lib/types';
+import { UseFormReturn } from 'react-hook-form';
+import { Input } from '../Input';
+import { Label } from '../Label';
+import { FieldError } from '../primitives';
 
 type Props = {
   component: TextInputComponent;
@@ -30,7 +30,9 @@ export function TextInput({ component, form, context }: Props) {
         id={dataKey}
         {...register(dataKey)}
         type="text"
-        placeholder={placeholder ? resolveValuesInString(placeholder, context) : undefined}
+        placeholder={
+          placeholder ? resolveValuesInString(placeholder, context) : undefined
+        }
       />
       <FieldError message={errors[dataKey]?.message as string | undefined} />
     </div>

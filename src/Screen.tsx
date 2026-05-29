@@ -7,8 +7,8 @@ import { Option } from '@/lib/components/response';
 import { FrameworkScreen } from '@/lib/screen';
 import { buildScreenBindings } from '@/lib/screen-bindings';
 import { Context, ContextData } from '@/lib/types';
-import { DataSection } from './components/DataTree';
 import { RenderComponent } from './components/RenderComponent';
+import { DataSection } from './debug/DataTree';
 
 type ScreenProps = {
   screen: FrameworkScreen;

@@ -1,11 +1,11 @@
-"use client";
+'use client';
 
-import { TimeInputComponent } from "@/lib/components/response";
-import { Context, ContextData } from "@/lib/types";
-import { UseFormReturn } from "react-hook-form";
-import { Input } from "../Input";
-import { Label } from "../Label";
-import { FieldError } from "../primitives";
+import { TimeInputComponent } from '@/lib/components/response';
+import { Context, ContextData } from '@/lib/types';
+import { UseFormReturn } from 'react-hook-form';
+import { Input } from '../Input';
+import { Label } from '../Label';
+import { FieldError } from '../primitives';
 
 type Props = {
   component: TimeInputComponent;

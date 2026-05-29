@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import { VideoComponent } from "@/lib/components/content";
+import { VideoComponent } from '@/lib/components/content';
 
 type Props = {
   component: VideoComponent;

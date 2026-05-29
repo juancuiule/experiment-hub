@@ -1,9 +1,9 @@
-"use client";
+'use client';
 
-import { resolveValuesInString } from "@/lib/resolve";
-import { Context } from "@/lib/types";
-import Markdown from "react-markdown";
-import { twMerge } from "tailwind-merge";
+import { resolveValuesInString } from '@/lib/resolve';
+import { Context } from '@/lib/types';
+import Markdown from 'react-markdown';
+import { twMerge } from 'tailwind-merge';
 
 interface Props extends React.LabelHTMLAttributes<HTMLLabelElement> {
   children: string;
@@ -11,16 +11,16 @@ interface Props extends React.LabelHTMLAttributes<HTMLLabelElement> {
 }
 
 const allowedElements = [
-  "b",
-  "i",
-  "em",
-  "strong",
-  "u",
-  "s",
-  "del",
-  "code",
-  "a",
-  "p",
+  'b',
+  'i',
+  'em',
+  'strong',
+  'u',
+  's',
+  'del',
+  'code',
+  'a',
+  'p',
 ];
 
 export function Label({ children, context, ...props }: Props) {
@@ -34,7 +34,7 @@ export function Label({ children, context, ...props }: Props) {
             return (
               <code
                 className={twMerge(
-                  "bg-content-primary/10 px-1 rounded text-sm",
+                  'bg-content-primary/10 rounded px-1 text-sm',
                   className,
                 )}
                 {...props}

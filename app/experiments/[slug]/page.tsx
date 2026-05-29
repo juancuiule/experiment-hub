@@ -1,7 +1,7 @@
 import { validateExperiment } from '@/lib/experiment-validation';
-import { ExperimentFlow } from '@/lib/types';
+import { selectStartNode } from '@/lib/flow';
 import { EXPERIMENTS } from '@/src/data/experiments';
-import { DataDebug, StateDebug } from '@/src/Debug';
+import { DataDebug, StateDebug } from '@/src/debug/Debug';
 import Experiment from '@/src/Experiment';
 import { ValidationErrors } from '@/src/ValidationErrors';
 
@@ -12,27 +12,6 @@ type Props = {
 };
 
 export const revalidate = 0; // Disable caching to ensure fresh data on each request
-
-function determineStartingNode(
-  searchParams: { [key: string]: string | string[] | undefined },
-  experiment: ExperimentFlow,
-) {
-  const keys = Object.keys(searchParams);
-  const startNodes = experiment.nodes.filter((node) => node.type === 'start');
-
-  for (const node of startNodes) {
-    if (node.props && keys.includes(node.props.param.key)) {
-      if (node.props.param.value) {
-        const paramValue = searchParams[node.props.param.key];
-        if (paramValue === node.props.param.value) {
-          return node.id; // Return the ID of the starting node
-        }
-      }
-    }
-  }
-
-  return startNodes[0].id;
-}
 
 export default async function Home(props: Props) {
   const { slug } = await props.params;
@@ -52,7 +31,7 @@ export default async function Home(props: Props) {
     return <ValidationErrors errors={errors} />;
   }
 
-  const startingNode = determineStartingNode(searchParams, experiment);
+  const startingNode = selectStartNode(searchParams, experiment);
 
   return (
     <>

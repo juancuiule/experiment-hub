@@ -1,4 +1,4 @@
-import { twMerge } from "tailwind-merge";
+import { twMerge } from 'tailwind-merge';
 
 type Props = React.InputHTMLAttributes<HTMLInputElement>;
 
@@ -7,9 +7,9 @@ export function Input(props: Props) {
     <input
       {...props}
       className={twMerge(
-        "border-b border-border-default py-1 outline-none",
-        "bg-transparent w-full placeholder:text-content-secondary focus:border-content-active",
-        "transition-[border-color,color] duration-150 ease-out text-sm",
+        'border-border-default border-b py-1 outline-none',
+        'placeholder:text-content-secondary focus:border-content-active w-full bg-transparent',
+        'text-sm transition-[border-color,color] duration-150 ease-out',
       )}
     />
   );
