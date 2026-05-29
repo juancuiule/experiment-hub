@@ -163,6 +163,71 @@ describe('collectFields — content', () => {
   });
 });
 
+describe('collectFields — button', () => {
+  it('returns empty for a button without payload', () => {
+    const c: ScreenComponent = {
+      componentFamily: 'layout',
+      template: 'button',
+      props: { text: 'Continue' },
+    };
+    expect(collectFields([c], null)).toHaveLength(0);
+  });
+
+  it('emits one static field for a button with payload', () => {
+    const c: ScreenComponent = {
+      componentFamily: 'layout',
+      template: 'button',
+      props: { text: 'Yes', payload: { dataKey: 'answer', value: 'yes' } },
+    };
+    const result = collectFields([c], null);
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({
+      kind: 'static',
+      key: 'answer',
+      gate: null,
+      source: { kind: 'button-payload' },
+    } as StaticField);
+  });
+
+  it('carries enclosingCondition as gate on the emitted field', () => {
+    const cond: Condition = {
+      type: 'simple',
+      operator: 'eq',
+      dataKey: '$q',
+      value: 'yes',
+    };
+    const c: ScreenComponent = {
+      componentFamily: 'layout',
+      template: 'button',
+      props: { text: 'Yes', payload: { dataKey: 'answer', value: 'yes' } },
+    };
+    const result = collectFields([c], cond);
+    expect(result[0].gate).toEqual(cond);
+  });
+
+  it('emits one field per button that has a payload', () => {
+    const yes: ScreenComponent = {
+      componentFamily: 'layout',
+      template: 'button',
+      props: { text: 'Yes', payload: { dataKey: 'answer', value: 'yes' } },
+    };
+    const no: ScreenComponent = {
+      componentFamily: 'layout',
+      template: 'button',
+      props: { text: 'No', payload: { dataKey: 'answer', value: 'no' } },
+    };
+    const plain: ScreenComponent = {
+      componentFamily: 'layout',
+      template: 'button',
+      props: { text: 'Skip' },
+    };
+    const result = collectFields([yes, no, plain], null);
+    expect(result).toHaveLength(2);
+    expect((result[0] as StaticField).key).toBe('answer');
+    expect((result[1] as StaticField).key).toBe('answer');
+  });
+});
+
 describe('collectFields — conditional', () => {
   it('if-branch descriptor gets the conditional condition', () => {
     const cond: Condition = {
@@ -596,6 +661,60 @@ describe('buildSchemaFromFields — base shape', () => {
     const descriptors = collectFields([c], null);
     const schema = buildSchemaFromFields(descriptors, { data: {} });
     expect(schema.safeParse({ 'field-argentina': 'hello' }).success).toBe(true);
+    expect(schema.safeParse({}).success).toBe(true);
+  });
+});
+
+describe('buildSchemaFromFields — button payload', () => {
+  it('accepts any value for a button payload field', () => {
+    const c: ScreenComponent = {
+      componentFamily: 'layout',
+      template: 'button',
+      props: { text: 'Yes', payload: { dataKey: 'answer', value: 'yes' } },
+    };
+    const descriptors = collectFields([c], null);
+    const schema = buildSchemaFromFields(descriptors, { data: {} });
+    expect(schema.safeParse({ answer: 'yes' }).success).toBe(true);
+    expect(schema.safeParse({ answer: 42 }).success).toBe(true);
+    expect(schema.safeParse({ answer: false }).success).toBe(true);
+  });
+
+  it('passes when button payload field is absent (optional)', () => {
+    const c: ScreenComponent = {
+      componentFamily: 'layout',
+      template: 'button',
+      props: { text: 'Yes', payload: { dataKey: 'answer', value: 'yes' } },
+    };
+    const descriptors = collectFields([c], null);
+    const schema = buildSchemaFromFields(descriptors, { data: {} });
+    expect(schema.safeParse({}).success).toBe(true);
+  });
+
+  it('button payload field does not interfere with required response field validation', () => {
+    const button: ScreenComponent = {
+      componentFamily: 'layout',
+      template: 'button',
+      props: { text: 'Yes', payload: { dataKey: 'choice', value: 'yes' } },
+    };
+    const input: ScreenComponent = {
+      componentFamily: 'response',
+      template: 'text-input',
+      props: { dataKey: 'name', label: 'Name', required: true },
+    };
+    const descriptors = collectFields([button, input], null);
+    const schema = buildSchemaFromFields(descriptors, { data: {} });
+    expect(schema.safeParse({ choice: 'yes', name: 'Alice' }).success).toBe(true);
+    expect(schema.safeParse({ choice: 'yes', name: '' }).success).toBe(false);
+  });
+
+  it('button without payload contributes no field to the schema', () => {
+    const c: ScreenComponent = {
+      componentFamily: 'layout',
+      template: 'button',
+      props: { text: 'Continue' },
+    };
+    const descriptors = collectFields([c], null);
+    const schema = buildSchemaFromFields(descriptors, { data: {} });
     expect(schema.safeParse({}).success).toBe(true);
   });
 });

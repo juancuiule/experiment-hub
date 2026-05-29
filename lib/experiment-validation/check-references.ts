@@ -186,9 +186,26 @@ function collectScreenDataKeys(screen: FrameworkScreen): string[] {
         }),
       );
     }),
+    on({ componentFamily: 'layout', template: 'button' }, (c, foreachData) =>
+      // We treat button payload keys as screen data since they can
+      // be referenced by downstream nodes. This is a bit misleading since
+      // the payload value isn't really "produced" until the button is clicked
+      // and the dataKey is not available for $ references within the same screen,
+      // but it keeps the model simpler and more consistent for downstream nodes.
+      // Another issue is that this dataKey will not always be present to downstream nodes
+      // — if the button is never clicked, or if it's behind a conditional that doesn't
+      // run — but we can't guarantee that for any screen data so it doesn't create a
+      // new class of "sometimes available" data.
+      c.props.payload
+        ? [
+            resolveValuesInString(c.props.payload.dataKey, {
+              screenData: { foreachData },
+            }),
+          ]
+        : [],
+    ),
     // Conditional components are skipped: we can't guarantee which branch runs,
-    // so we can't guarantee which dataKeys are produced. Buttons and other
-    // content components don't produce dataKeys.
+    // so we can't guarantee which dataKeys are produced.
   ];
   return flatMap(screen.components, {}, handlers);
 }
@@ -224,12 +241,20 @@ function propsErrors(
     if (typeof props[field] !== 'string') return [];
     const text = props[field] as string;
     return [
-      ...extractRefs(text)
-        .filter((ref) => !isAvailable(ref, avail))
-        .map((ref) => unavailableRefError(ref, context)),
+      ...unavailableRefErrors(text, avail, context),
       ...unwrappedRefErrors(text, context),
     ];
   });
+}
+
+function unavailableRefErrors(
+  text: string,
+  available: Available,
+  context: string,
+): ValidationError[] {
+  return extractRefs(text)
+    .filter((ref) => !isAvailable(ref, available))
+    .map((ref) => unavailableRefError(ref, context));
 }
 
 function referencesInScreen(
@@ -244,9 +269,26 @@ function referencesInScreen(
     on({ componentFamily: 'content' }, (c, avail) =>
       propsErrors(c.props, context, avail),
     ),
-    on({ componentFamily: 'layout', template: 'button' }, (c, avail) =>
-      propsErrors(c.props, context, avail),
-    ),
+    on({ componentFamily: 'layout', template: 'button' }, (c, avail) => [
+      ...propsErrors(c.props, context, avail),
+      // Here we validate the payload dataKey and value (if value is a string) as well
+      ...(c.props.payload
+        ? [
+            ...unavailableRefErrors(
+              c.props.payload.dataKey,
+              avail,
+              `${context} button payload dataKey`,
+            ),
+            ...(typeof c.props.payload.value === 'string'
+              ? unavailableRefErrors(
+                  c.props.payload.value,
+                  avail,
+                  `${context} button payload value`,
+                )
+              : []),
+          ]
+        : []),
+    ]),
     on(
       { componentFamily: 'layout', template: 'group' },
       (c, avail, recur): ValidationError[] => recur(c.props.components, avail),

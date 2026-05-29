@@ -1,4 +1,5 @@
 import { ScreenComponent } from './components';
+import { ButtonComponent } from './components/layout';
 import { hasRandomizedOptions, ResponseComponent } from './components/response';
 import { Condition, resolveCondition } from './conditions';
 import { flatMap, Handlers, on } from './component-walker';
@@ -22,7 +23,10 @@ export type StaticField = {
   gate: Condition | null;
   /** The component this field collects, OR the marker "order" if this is
    *  the :order companion of a randomized response. */
-  source: ResponseComponent | { kind: 'order'; ref: ResponseComponent };
+  source:
+    | ResponseComponent
+    | { kind: 'order'; ref: ResponseComponent }
+    | { kind: 'button-payload' };
 };
 
 /**
@@ -36,7 +40,10 @@ export type DynamicField = {
   keyTemplate: string;
   gate: Condition | null;
   loops: [ForEachMeta, ...ForEachMeta[]];
-  source: ResponseComponent | { kind: 'order'; ref: ResponseComponent };
+  source:
+    | ResponseComponent
+    | { kind: 'order'; ref: ResponseComponent }
+    | { kind: 'button-payload' };
 };
 
 export type Field = StaticField | DynamicField;
@@ -47,6 +54,12 @@ export function isOrderMarker(
   source: Field['source'],
 ): source is { kind: 'order'; ref: ResponseComponent } {
   return 'kind' in source && source.kind === 'order';
+}
+
+export function isButtonPayload(
+  source: Field['source'],
+): source is { kind: 'button-payload' } {
+  return 'kind' in source && source.kind === 'button-payload';
 }
 
 // ─── Collection ──────────────────────────────────────────────────────────────
@@ -82,6 +95,21 @@ export function collectFields(
       }
       return fields;
     }),
+
+    on(
+      { componentFamily: 'layout', template: 'button' },
+      (c: ButtonComponent, { enclosingGate }): Field[] => {
+        if (!c.props.payload) return [];
+        return [
+          {
+            kind: 'static',
+            key: c.props.payload.dataKey,
+            gate: enclosingGate,
+            source: { kind: 'button-payload' },
+          },
+        ];
+      },
+    ),
 
     on({ componentFamily: 'layout', template: 'group' }, (c, state, recur) =>
       recur(c.props.components, state),

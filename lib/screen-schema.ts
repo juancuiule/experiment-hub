@@ -4,6 +4,7 @@ import { buildFieldSchema } from './field-schema';
 import {
   DynamicField,
   Field,
+  isButtonPayload,
   isOrderMarker,
   iterateLoops,
   StaticField,
@@ -17,6 +18,7 @@ const orderSchema = z.array(z.string()).optional();
 
 // Pick the per-field zod schema for a Field, given its source.
 function fieldSchema(source: Field['source']): z.ZodTypeAny {
+  if (isButtonPayload(source)) return z.unknown().optional();
   return isOrderMarker(source) ? orderSchema : buildFieldSchema(source);
 }
 

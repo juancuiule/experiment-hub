@@ -94,14 +94,35 @@ export function RenderComponent({
 
     case 'layout': {
       switch (component.template) {
-        case 'button':
+        case 'button': {
+          const mergedButtonComponent = deepMerge(component, {
+            props: {
+              payload: component.props.payload
+                ? {
+                    dataKey: resolveValuesInString(
+                      component.props.payload.dataKey,
+                      context,
+                    ),
+                    value:
+                      typeof component.props.payload.value === 'string'
+                        ? resolveValuesInString(
+                            component.props.payload.value,
+                            context,
+                          )
+                        : component.props.payload.value,
+                  }
+                : undefined,
+            },
+          });
           return (
             <Button
-              component={component}
+              component={mergedButtonComponent}
               isLoading={isLoading}
               context={context}
+              form={form}
             />
           );
+        }
         case 'group':
           return (
             <Group

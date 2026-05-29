@@ -2626,6 +2626,158 @@ describe('unreachable-node', () => {
   });
 });
 
+describe('button payload reference checks', () => {
+  it('does not report unavailable-reference when a branch condition uses a $$ key written by a button payload', () => {
+    const flow: ExperimentFlow = {
+      nodes: [
+        start,
+        makeScreen('first'),
+        {
+          id: 'branch',
+          type: 'branch',
+          props: {
+            name: 'B',
+            branches: [
+              {
+                id: 'more',
+                name: 'More',
+                config: {
+                  type: 'simple',
+                  operator: 'eq',
+                  dataKey: '$$first.answer',
+                  value: 'yes',
+                },
+              },
+            ],
+          },
+        },
+        makeScreen('extra'),
+        end,
+      ],
+      edges: [
+        seq('start', 'first'),
+        seq('first', 'branch'),
+        { type: 'branch-condition', from: 'branch.more', to: 'extra' },
+        { type: 'branch-default', from: 'branch', to: 'end' },
+        seq('extra', 'end'),
+      ],
+      screens: [
+        {
+          slug: 'first',
+          components: [
+            {
+              componentFamily: 'layout',
+              template: 'button',
+              props: { text: 'Yes', payload: { dataKey: 'answer', value: 'yes' } },
+            },
+            {
+              componentFamily: 'layout',
+              template: 'button',
+              props: { text: 'No', payload: { dataKey: 'answer', value: 'no' } },
+            },
+          ],
+        },
+        { slug: 'extra', components: [] },
+      ],
+    };
+    expect(codes(flow)).not.toContain('unavailable-reference');
+  });
+
+  it('reports unavailable-reference when a branch condition uses a $$ key that no button on the screen provides', () => {
+    const flow: ExperimentFlow = {
+      nodes: [
+        start,
+        makeScreen('first'),
+        {
+          id: 'branch',
+          type: 'branch',
+          props: {
+            name: 'B',
+            branches: [
+              {
+                id: 'more',
+                name: 'More',
+                config: {
+                  type: 'simple',
+                  operator: 'eq',
+                  dataKey: '$$first.missing-key',
+                  value: 'yes',
+                },
+              },
+            ],
+          },
+        },
+        end,
+      ],
+      edges: [
+        seq('start', 'first'),
+        seq('first', 'branch'),
+        { type: 'branch-default', from: 'branch', to: 'end' },
+      ],
+      screens: [
+        {
+          slug: 'first',
+          components: [
+            {
+              componentFamily: 'layout',
+              template: 'button',
+              props: { text: 'Yes', payload: { dataKey: 'answer', value: 'yes' } },
+            },
+          ],
+        },
+      ],
+    };
+    expect(codes(flow)).toContain('unavailable-reference');
+  });
+
+  it('button without payload does not contribute any key to the available set', () => {
+    const flow: ExperimentFlow = {
+      nodes: [
+        start,
+        makeScreen('first'),
+        {
+          id: 'branch',
+          type: 'branch',
+          props: {
+            name: 'B',
+            branches: [
+              {
+                id: 'more',
+                name: 'More',
+                config: {
+                  type: 'simple',
+                  operator: 'eq',
+                  dataKey: '$$first.answer',
+                  value: 'yes',
+                },
+              },
+            ],
+          },
+        },
+        end,
+      ],
+      edges: [
+        seq('start', 'first'),
+        seq('first', 'branch'),
+        { type: 'branch-default', from: 'branch', to: 'end' },
+      ],
+      screens: [
+        {
+          slug: 'first',
+          components: [
+            {
+              componentFamily: 'layout',
+              template: 'button',
+              props: { text: 'Continue' },
+            },
+          ],
+        },
+      ],
+    };
+    expect(codes(flow)).toContain('unavailable-reference');
+  });
+});
+
 describe('severity', () => {
   it('assigns severity warning to unreferenced-screen', () => {
     const flow: ExperimentFlow = {

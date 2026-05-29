@@ -13,6 +13,7 @@ export type ButtonComponent = BaseLayoutComponent<
     text?: string;
     disabled?: boolean;
     alignBottom?: boolean;
+    payload?: { dataKey: string; value: unknown };
   }
 >;
 
