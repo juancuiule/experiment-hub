@@ -38,12 +38,21 @@ function appendShuffledOrders(
   context: Context,
 ): ContextData {
   const shuffledOptions = context.screenData?.shuffledOptions ?? {};
-  const orders = Object.fromEntries(
+  const optionOrders = Object.fromEntries(
     Object.entries(shuffledOptions)
       .filter(([key]) => key in data)
       .map(([key, opts]) => [`${key}:order`, opts.map((o) => o.value)]),
   );
-  return { ...data, ...orders };
+  // A for-each id is the id of a control component, not a data key, so its
+  // presentation order is always recorded (no `key in data` guard).
+  const shuffledForeachOrders = context.screenData?.shuffledForeachOrders ?? {};
+  const foreachOrders = Object.fromEntries(
+    Object.entries(shuffledForeachOrders).map(([id, values]) => [
+      `${id}:order`,
+      values,
+    ]),
+  );
+  return { ...data, ...optionOrders, ...foreachOrders };
 }
 
 function defaultsFromFields(

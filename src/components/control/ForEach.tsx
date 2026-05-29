@@ -26,6 +26,13 @@ export function ForEach({
   const { component: template } = component.props;
 
   const items: string[] = useMemo(() => {
+    // A randomized for-each has its presentation order computed once at screen
+    // entry and stored in context; prefer it so the order is stable across
+    // re-renders and never recomputed locally.
+    const shuffled =
+      context.screenData?.shuffledForeachOrders?.[component.props.id];
+    if (shuffled) return shuffled;
+
     return component.props.type === 'static'
       ? component.props.values
       : (getValue(component.props.dataKey, context) as string[]) || [];

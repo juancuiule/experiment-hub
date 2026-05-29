@@ -892,6 +892,46 @@ describe('conditional inside for-each', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Randomized for-each rendering
+// ---------------------------------------------------------------------------
+
+describe('randomized for-each rendering', () => {
+  const randomizedForeach: FrameworkScreen['components'] = [
+    {
+      componentFamily: 'control',
+      template: 'for-each',
+      props: {
+        id: 'sport-items',
+        type: 'static',
+        values: ['tennis', 'golf', 'squash'],
+        randomized: true,
+        component: {
+          componentFamily: 'content',
+          template: 'rich-text',
+          props: { content: 'item:{{#sport-items.value}}' },
+        },
+      },
+    },
+  ];
+
+  it('renders items in the order from screenData.shuffledForeachOrders', () => {
+    renderScreen(randomizedForeach, {
+      screenData: {
+        shuffledForeachOrders: { 'sport-items': ['golf', 'squash', 'tennis'] },
+      },
+    });
+    const rendered = screen.getAllByText(/^item:/).map((el) => el.textContent);
+    expect(rendered).toEqual(['item:golf', 'item:squash', 'item:tennis']);
+  });
+
+  it('falls back to source order when no shuffled order is present', () => {
+    renderScreen(randomizedForeach, {});
+    const rendered = screen.getAllByText(/^item:/).map((el) => el.textContent);
+    expect(rendered).toEqual(['item:tennis', 'item:golf', 'item:squash']);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // For-each
 // ---------------------------------------------------------------------------
 
