@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form';
 
 import { Option } from '@/lib/components/response';
 import { FrameworkScreen } from '@/lib/screen';
-import { buildScreenBindings } from '@/lib/screen-bindings';
+import { augmentSubmitData, buildScreenBindings } from '@/lib/screen-bindings';
 import { Context, ContextData } from '@/lib/types';
 import { RenderComponent } from './components/RenderComponent';
 import { DataSection } from './debug/DataTree';
@@ -36,16 +36,7 @@ export function Screen({
   });
 
   const onSubmit = (data: ContextData) => {
-    const shuffledOptions = context.screenData?.shuffledOptions ?? {};
-    const orders = Object.fromEntries(
-      Object.entries(shuffledOptions)
-        .filter(([key]) => key in data)
-        .map(([key, opts]) => [
-          `${key}:order`,
-          (opts as Array<{ value: string }>).map((o) => o.value),
-        ]),
-    );
-    onNext({ ...data, ...orders }).catch((err) =>
+    onNext(augmentSubmitData(data, context)).catch((err) =>
       console.error('Failed to advance experiment:', err),
     );
   };
