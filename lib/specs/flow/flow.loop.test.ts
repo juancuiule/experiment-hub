@@ -301,7 +301,7 @@ describe("loop (randomized iteration order)", () => {
     step = await traverse(step, {});
     step = await traverse(step, {}); // exit loop → screen-end
     expect((step.state as any).node.id).toBe("screen-end");
-    // $$loops.loop-stim.order resolves from context.loops in any downstream node.
+    // The shuffled order is preserved in context.loops for downstream steps.
     expect(step.context.loops?.["loop-stim"]?.order).toEqual([
       "dog",
       "bird",
