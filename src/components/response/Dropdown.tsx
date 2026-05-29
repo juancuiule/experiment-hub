@@ -5,13 +5,13 @@ import {
   DropdownComponent,
   Option,
 } from '@/lib/components/response';
-import { resolveValuesInString } from '@/lib/resolve';
+import { resolveOptions, resolveValuesInString } from '@/lib/resolve';
 import { Context, ContextData } from '@/lib/types';
 import * as SelectPrimitive from '@radix-ui/react-select';
 import { ChevronDown } from 'lucide-react';
 import { Controller, UseFormReturn } from 'react-hook-form';
 import { Label } from '../Label';
-import { FieldError, resolveOptions } from '../primitives';
+import { FieldError } from '../primitives';
 
 type Props = {
   component: DropdownComponent;

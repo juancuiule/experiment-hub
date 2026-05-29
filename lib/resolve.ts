@@ -66,6 +66,21 @@ export function resolveOptionsSource(
   );
 }
 
+// Resolves the option list for a response component, preferring pre-shuffled
+// options stored in the screen context (keyed by dataKey) over re-resolving
+// from the source. This preserves shuffle order across re-renders.
+export function resolveOptions(
+  options: OptionsSource,
+  context: Context,
+  dataKey?: string,
+  sharedOptions?: Record<string, Option[]>,
+): Option[] {
+  if (dataKey && context.screenData?.shuffledOptions?.[dataKey]) {
+    return context.screenData.shuffledOptions[dataKey] as Option[];
+  }
+  return resolveOptionsSource(options, context, sharedOptions);
+}
+
 export function resolveLikertOptionsSource(
   options: LikertOptionsSource,
   sharedOptions?: Record<string, Option[]>,

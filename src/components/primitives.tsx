@@ -1,8 +1,7 @@
 'use client';
 
 import { ScreenComponent } from '@/lib/components';
-import { Option, OptionsSource } from '@/lib/components/response';
-import { resolveOptionsSource } from '@/lib/resolve';
+import { Option } from '@/lib/components/response';
 import { Context, ContextData } from '@/lib/types';
 import { Info } from 'lucide-react';
 import { UseFormReturn } from 'react-hook-form';
@@ -14,18 +13,6 @@ export type RenderProps = {
   isLoading: boolean;
   sharedOptions?: Record<string, Option[]>;
 };
-
-export function resolveOptions(
-  options: OptionsSource,
-  context: Context,
-  dataKey?: string,
-  sharedOptions?: Record<string, Option[]>,
-): Option[] {
-  if (dataKey && context.screenData?.shuffledOptions?.[dataKey]) {
-    return context.screenData.shuffledOptions[dataKey] as Option[];
-  }
-  return resolveOptionsSource(options, context, sharedOptions);
-}
 
 export function OptionTooltip({ text }: { text: string }) {
   return (

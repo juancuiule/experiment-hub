@@ -11,7 +11,8 @@ import { Check } from 'lucide-react';
 import { Controller, UseFormReturn } from 'react-hook-form';
 import { twMerge } from 'tailwind-merge';
 import { Label } from '../Label';
-import { FieldError, OptionTooltip, resolveOptions } from '../primitives';
+import { resolveOptions } from '@/lib/resolve';
+import { FieldError, OptionTooltip } from '../primitives';
 
 type Props = {
   component: CheckboxesComponent;
