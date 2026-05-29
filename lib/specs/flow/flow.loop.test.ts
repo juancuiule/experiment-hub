@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { startExperiment, traverse } from "@/lib/flow";
 import { ExperimentFlow } from "@/lib/types";
 import { makeScreen, seq } from "../test-helpers";
@@ -190,6 +190,153 @@ describe("loop tracking (context.loops)", () => {
       "red",
       "blue",
       "green",
+    ]);
+  });
+});
+
+describe("loop (randomized iteration order)", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  const staticFlow: ExperimentFlow = {
+    nodes: [
+      { id: "start", type: "start" },
+      {
+        id: "loop-stim",
+        type: "loop",
+        props: {
+          type: "static",
+          values: ["cat", "dog", "bird"],
+          randomized: true,
+        },
+      },
+      makeScreen("screen-stim", "stim"),
+      makeScreen("screen-end", "end"),
+    ],
+    edges: [
+      seq("start", "loop-stim"),
+      { type: "loop-template", from: "loop-stim", to: "screen-stim" },
+      seq("loop-stim", "screen-end"),
+    ],
+  };
+
+  it("shuffles the static values once on entry (deterministic with mocked Math.random)", async () => {
+    // Fisher-Yates in shuffle() with Math.random()===0 reverses-then-rotates
+    // ["cat","dog","bird"] -> ["dog","bird","cat"].
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const step = await startExperiment(staticFlow, "start");
+    expect(step.context.loops?.["loop-stim"]?.order).toEqual([
+      "dog",
+      "bird",
+      "cat",
+    ]);
+    expect(step.context.loopData?.["loop-stim"]?.value).toBe("dog");
+  });
+
+  it("produces an iteration order that is a permutation of the input", async () => {
+    let step = await startExperiment(staticFlow, "start");
+    const seen: string[] = [];
+    while (step.state.type === "in-loop") {
+      seen.push(step.context.loopData?.["loop-stim"]?.value);
+      step = await traverse(step, {});
+    }
+    expect(seen.slice().sort()).toEqual(["bird", "cat", "dog"]);
+  });
+
+  it("keeps the shuffled order stable across all iterations", async () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    let step = await startExperiment(staticFlow, "start");
+    const order = step.context.loops?.["loop-stim"]?.order;
+    const seen: string[] = [];
+    while (step.state.type === "in-loop") {
+      seen.push(step.context.loopData?.["loop-stim"]?.value);
+      // order must not change as iterations advance
+      expect(step.context.loops?.["loop-stim"]?.order).toEqual(order);
+      step = await traverse(step, {});
+    }
+    // The values are presented in exactly the recorded order.
+    expect(seen).toEqual(order);
+  });
+
+  it("resolves dynamic values from context first, then shuffles", async () => {
+    const dynamicFlow: ExperimentFlow = {
+      nodes: [
+        { id: "start", type: "start" },
+        makeScreen("screen-setup", "setup"),
+        {
+          id: "loop-dyn",
+          type: "loop",
+          props: { type: "dynamic", dataKey: "$$setup.items", randomized: true },
+        },
+        makeScreen("screen-item", "item"),
+        makeScreen("screen-end", "end"),
+      ],
+      edges: [
+        seq("start", "screen-setup"),
+        seq("screen-setup", "loop-dyn"),
+        { type: "loop-template", from: "loop-dyn", to: "screen-item" },
+        seq("loop-dyn", "screen-end"),
+      ],
+    };
+
+    let step = await startExperiment(dynamicFlow, "start");
+    step = await traverse(step, { items: ["alpha", "beta", "gamma"] });
+    const order = step.context.loops?.["loop-dyn"]?.order ?? [];
+    // Shuffled order is still a permutation of the resolved context values.
+    expect(order.slice().sort()).toEqual(["alpha", "beta", "gamma"]);
+
+    const seen: string[] = [];
+    while (step.state.type === "in-loop") {
+      seen.push(step.context.loopData?.["loop-dyn"]?.value);
+      step = await traverse(step, {});
+    }
+    expect(seen).toEqual(order);
+  });
+
+  it("exposes the shuffled order to a downstream node via context.loops", async () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    let step = await startExperiment(staticFlow, "start");
+    step = await traverse(step, {});
+    step = await traverse(step, {});
+    step = await traverse(step, {}); // exit loop → screen-end
+    expect((step.state as any).node.id).toBe("screen-end");
+    // $$loops.loop-stim.order resolves from context.loops in any downstream node.
+    expect(step.context.loops?.["loop-stim"]?.order).toEqual([
+      "dog",
+      "bird",
+      "cat",
+    ]);
+  });
+
+  it("leaves iteration order unchanged when randomized is false", async () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const flow: ExperimentFlow = {
+      nodes: [
+        { id: "start", type: "start" },
+        {
+          id: "loop-stim",
+          type: "loop",
+          props: {
+            type: "static",
+            values: ["cat", "dog", "bird"],
+            randomized: false,
+          },
+        },
+        makeScreen("screen-stim", "stim"),
+        makeScreen("screen-end", "end"),
+      ],
+      edges: [
+        seq("start", "loop-stim"),
+        { type: "loop-template", from: "loop-stim", to: "screen-stim" },
+        seq("loop-stim", "screen-end"),
+      ],
+    };
+    const step = await startExperiment(flow, "start");
+    expect(step.context.loops?.["loop-stim"]?.order).toEqual([
+      "cat",
+      "dog",
+      "bird",
     ]);
   });
 });
