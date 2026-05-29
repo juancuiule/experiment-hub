@@ -2421,6 +2421,166 @@ describe('compute node — sample formula validation', () => {
   });
 });
 
+describe('compute node — count-correct formula validation', () => {
+  const loopNode = {
+    id: 'trial-loop',
+    type: 'loop' as const,
+    props: { type: 'static' as const, values: ['a', 'b'] },
+  };
+
+  function makePickCompute(itemsKey: string, loopId: string) {
+    return makeCompute('c1', [
+      {
+        outputKey: 'score',
+        formula: {
+          type: 'count-correct',
+          itemsKey,
+          loopId,
+          screenSlug: 'trial',
+          answerKey: 'answer',
+          correctKey: 'correct',
+        },
+      },
+    ]);
+  }
+
+  it('passes when itemsKey is available and loopId exists', () => {
+    const flow: ExperimentFlow = {
+      nodes: [
+        start,
+        makeScreen('s-pick', 'pick'),
+        loopNode,
+        makeScreen('s-trial', 'trial'),
+        makePickCompute('$$pick.items', 'trial-loop'),
+        makeScreen('s-end', 'end'),
+        end,
+      ],
+      edges: [
+        seq('start', 's-pick'),
+        seq('s-pick', 'trial-loop'),
+        { type: 'loop-template', from: 'trial-loop', to: 's-trial' },
+        seq('trial-loop', 'c1'),
+        seq('c1', 's-end'),
+        seq('s-end', 'end'),
+      ],
+      screens: [
+        {
+          slug: 'pick',
+          components: [
+            {
+              componentFamily: 'response',
+              template: 'text-input',
+              props: { dataKey: 'items', label: 'Items' },
+            },
+          ],
+        },
+        { slug: 'trial', components: [] },
+        { slug: 'end', components: [] },
+      ],
+    };
+    expect(codes(flow)).toEqual([]);
+  });
+
+  it('reports unavailable-reference when itemsKey is not yet written', () => {
+    const flow: ExperimentFlow = {
+      nodes: [
+        start,
+        loopNode,
+        makeScreen('s-trial', 'trial'),
+        makePickCompute('$$pick.items', 'trial-loop'),
+        makeScreen('s-end', 'end'),
+        end,
+      ],
+      edges: [
+        seq('start', 'trial-loop'),
+        { type: 'loop-template', from: 'trial-loop', to: 's-trial' },
+        seq('trial-loop', 'c1'),
+        seq('c1', 's-end'),
+        seq('s-end', 'end'),
+      ],
+      screens: [
+        { slug: 'trial', components: [] },
+        { slug: 'end', components: [] },
+      ],
+    };
+    expect(codes(flow)).toContain('unavailable-reference');
+  });
+
+  it('reports unknown-node when loopId does not reference a loop node', () => {
+    const flow: ExperimentFlow = {
+      nodes: [
+        start,
+        makeScreen('s-pick', 'pick'),
+        loopNode,
+        makeScreen('s-trial', 'trial'),
+        makePickCompute('$$pick.items', 'nonexistent-loop'),
+        makeScreen('s-end', 'end'),
+        end,
+      ],
+      edges: [
+        seq('start', 's-pick'),
+        seq('s-pick', 'trial-loop'),
+        { type: 'loop-template', from: 'trial-loop', to: 's-trial' },
+        seq('trial-loop', 'c1'),
+        seq('c1', 's-end'),
+        seq('s-end', 'end'),
+      ],
+      screens: [
+        {
+          slug: 'pick',
+          components: [
+            {
+              componentFamily: 'response',
+              template: 'text-input',
+              props: { dataKey: 'items', label: 'Items' },
+            },
+          ],
+        },
+        { slug: 'trial', components: [] },
+        { slug: 'end', components: [] },
+      ],
+    };
+    expect(codes(flow)).toContain('unknown-node');
+  });
+
+  it('reports unknown-node when loopId references a non-loop node', () => {
+    const flow: ExperimentFlow = {
+      nodes: [
+        start,
+        makeScreen('s-pick', 'pick'),
+        loopNode,
+        makeScreen('s-trial', 'trial'),
+        makePickCompute('$$pick.items', 's-pick'),
+        makeScreen('s-end', 'end'),
+        end,
+      ],
+      edges: [
+        seq('start', 's-pick'),
+        seq('s-pick', 'trial-loop'),
+        { type: 'loop-template', from: 'trial-loop', to: 's-trial' },
+        seq('trial-loop', 'c1'),
+        seq('c1', 's-end'),
+        seq('s-end', 'end'),
+      ],
+      screens: [
+        {
+          slug: 'pick',
+          components: [
+            {
+              componentFamily: 'response',
+              template: 'text-input',
+              props: { dataKey: 'items', label: 'Items' },
+            },
+          ],
+        },
+        { slug: 'trial', components: [] },
+        { slug: 'end', components: [] },
+      ],
+    };
+    expect(codes(flow)).toContain('unknown-node');
+  });
+});
+
 describe('cyclic-flow', () => {
   it('reports cyclic-flow when two screens form a sequential cycle', () => {
     const flow: ExperimentFlow = {

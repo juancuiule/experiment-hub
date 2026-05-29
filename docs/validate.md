@@ -209,16 +209,26 @@ Every node (other than `start` nodes themselves) must be reachable by following 
 | ----------------------- | ----------------------------------------------------------------------------------------- |
 | `duplicate-node-id`     | Two nodes share the same `id`                                                             |
 | `missing-start`         | No start node in the flow                                                                 |
-| `unknown-node`          | An edge references a node ID that does not exist                                          |
+| `missing-end`           | No end node in the flow                                                                   |
+| `empty-branch`          | A branch node has no `branches` defined                                                   |
+| `empty-fork`            | A fork node has no `forks` defined                                                        |
+| `duplicate-branch-id`   | A branch node has two branches with the same `id`                                         |
+| `duplicate-fork-id`     | A fork node has two forks with the same `id`                                              |
+| `condition-empty`       | An `and`/`or` condition has an empty `conditions` array                                   |
+| `duplicate-output-key`  | A compute node has two computations with the same `outputKey`                             |
+| `duplicate-lookup-key`  | A lookup formula has two table entries with the same `when` value (after numeric coercion)|
+| `invalid-sample-size`   | A sample formula has `n ≤ 0` or `n` is not an integer                                    |
+| `unknown-node`          | An edge references a node ID that does not exist; or a `count-correct` `loopId` does not resolve to a loop node |
 | `missing-edge`          | A node is missing a required outgoing edge                                                |
 | `duplicate-edge`        | A node has more than one edge where exactly one is required (e.g. loop-template)          |
 | `ambiguous-edge`        | A node has multiple edges where at most one is expected (e.g. sequential from checkpoint, sequential exit from path) |
 | `invalid-edge`          | An edge references a branch/fork ID that does not exist on the node                       |
 | `unrouted-branch`       | A branch ID in `props.branches` has no corresponding `branch-condition` edge              |
+| `unrouted-fork`         | A fork ID in `props.forks` has no corresponding `fork-edge`                               |
 | `missing-screen`        | A screen node references a slug with no screen definition                                 |
 | `duplicate-screen`      | Two screen definitions share the same slug                                                |
 | `unreferenced-screen`   | A screen definition is not referenced by any screen node                                  |
-| `unavailable-reference`   | A `$$` token references data not guaranteed to be written at that point                 |
+| `unavailable-reference`   | A `$$` token (or `count-correct` `itemsKey`) references data not guaranteed to be written at that point |
 | `invalid-reference`       | An `@` token is used outside a loop context                                             |
 | `unknown-shared-options`  | A `%name` options reference has no matching entry in `ExperimentFlow.options`           |
 | `unwrapped-token`         | A `$$key` token appears without `{{ }}` wrapping and will not be interpolated at runtime |

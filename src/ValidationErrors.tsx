@@ -28,8 +28,8 @@ function ErrorCategoryBadge({ category }: { category: ErrorCategory }) {
 function SeverityBadge({ severity }: { severity: 'error' | 'warning' }) {
   const severityClass =
     severity === 'warning'
-      ? 'bg-amber-50 text-warning'
-      : 'bg-red-50 text-error';
+      ? 'bg-warning/20 text-warning'
+      : 'bg-error/20 text-error';
   const Icon = severity === 'warning' ? TriangleAlert : OctagonX;
 
   return (
@@ -57,14 +57,16 @@ function ErrorCard({ error }: { error: ValidationError }) {
           {error.code}
         </span>
       </div>
-      <div className="text-content-secondary">{error.message}</div>
+      <div className="text-content-secondary line-clamp-2 hover:line-clamp-none">
+        {error.message}
+      </div>
     </div>
   );
 }
 
 export function ValidationErrors({ errors }: { errors: ValidationError[] }) {
   return (
-    <div className="flex flex-col gap-3 p-4">
+    <div className="flex flex-col gap-3 py-4">
       <span className="text-content-secondary font-mono text-[9px] tracking-wider uppercase">
         Validation Errors
       </span>

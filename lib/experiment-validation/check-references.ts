@@ -66,7 +66,7 @@ function referencesInFormula(formula: Formula): string[] {
     case 'lookup':
       return [formula.input];
     case 'count-correct':
-      return [];
+      return [formula.itemsKey];
     case 'sample':
       return Array.isArray(formula.input) ? [] : [formula.input];
     default:
@@ -437,6 +437,19 @@ export function checkReferences(experiment: ExperimentFlow): ValidationError[] {
               );
             }
           });
+
+          if (computation.formula.type === 'count-correct') {
+            const loopExists = nodes.some(
+              (n) => n.id === computation.formula.loopId && n.type === 'loop',
+            );
+            if (!loopExists) {
+              rawErrors.push({
+                code: 'unknown-node',
+                category: 'reference',
+                message: `Compute "${node.id}" output "${computation.outputKey}" count-correct references loop "${computation.formula.loopId}" which is not a loop node in this experiment`,
+              });
+            }
+          }
 
           computeAvailable = {
             ...computeAvailable,
