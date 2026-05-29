@@ -1,6 +1,12 @@
 import { ScreenComponent } from './components';
 import { defaultPerTemplate } from './components/response';
-import { Field, collectFields, isOrderMarker, iterateLoops } from './fields';
+import {
+  Field,
+  collectFields,
+  isButtonPayload,
+  isOrderMarker,
+  iterateLoops,
+} from './fields';
 import { resolveValuesInString } from './resolve';
 import { buildSchemaFromFields } from './screen-schema';
 import { Context, ContextData } from './types';
@@ -48,6 +54,7 @@ function defaultsFromFields(
   for (const field of fields) {
     const { source } = field;
     if (isOrderMarker(source)) continue;
+    if (isButtonPayload(source)) continue;
     if (field.kind === 'static') {
       entries.push([field.key, defaultPerTemplate(source)]);
     } else {
