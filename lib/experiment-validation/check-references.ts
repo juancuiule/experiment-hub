@@ -2,10 +2,11 @@ import { flatMap, Handlers, on } from '../component-walker';
 import { Condition } from '../conditions';
 import {
   BARE_DOUBLE_DOLLAR_RE,
-  BARE_REF_RE,
   HAS_WRAPPED_TOKEN_RE,
   IS_BARE_REF_RE,
+  PREFIX,
   TEMPLATE_TOKEN_RE,
+  parseRef,
 } from '../tokens';
 import {
   isBranchConditionEdge,
@@ -93,8 +94,8 @@ function extractRefs(text: string): string[] {
       return [`${m[1]}${path}`];
     });
   }
-  const m = text.match(BARE_REF_RE);
-  return m ? [`${m[1]}${m[2]}`] : [];
+  const ref = parseRef(text);
+  return ref ? [`${ref.prefix}${ref.path}`] : [];
 }
 
 type Available = {
@@ -117,28 +118,21 @@ function hasKeyOrAncestor(path: string, keys: Set<string>): boolean {
 }
 
 function isAvailable(reference: string, available: Available): boolean {
-  if (reference.startsWith('$$')) {
-    return hasKeyOrAncestor(reference.slice(2), available.dataKeys);
+  const ref = parseRef(reference);
+  if (!ref) return false;
+  switch (ref.prefix) {
+    case PREFIX.DATA:    return hasKeyOrAncestor(ref.path, available.dataKeys);
+    case PREFIX.SCREEN:  return hasKeyOrAncestor(ref.path, available.screenKeys);
+    case PREFIX.LOOP:    return available.loops.has(ref.path.split('.')[0]);
+    case PREFIX.FOREACH: return available.forEach.has(ref.path.split('.')[0]);
   }
-  if (reference.startsWith('$')) {
-    return hasKeyOrAncestor(reference.slice(1), available.screenKeys);
-  }
-  if (reference.startsWith('@')) {
-    const [loopId] = reference.slice(1).split('.');
-    return available.loops.has(loopId);
-  }
-  if (reference.startsWith('#')) {
-    const [forEachId] = reference.slice(1).split('.');
-    return available.forEach.has(forEachId);
-  }
-  return false;
 }
 
 // Maps an unavailable reference to a ValidationError. An @ reference that is not
 // in scope means it is used outside the loop it belongs to; anything else is data
 // that is not guaranteed to have been written at this point in the flow.
 function unavailableRefError(ref: string, context: string): ValidationError {
-  if (ref.startsWith('@')) {
+  if (ref.startsWith(PREFIX.LOOP)) {
     return {
       code: 'invalid-reference',
       category: 'reference',

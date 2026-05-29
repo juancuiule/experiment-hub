@@ -5,12 +5,13 @@ import {
   OptionsSource,
 } from './components/response';
 import {
-  FULL_REF_WITH_NESTED_RE,
+  PREFIX,
+  ParsedRef,
+  RefPrefix,
   TEMPLATE_TOKEN_RE,
+  parseRefWithNested,
 } from './tokens';
 import { Context } from './types';
-
-type Prefix = '$$' | '@' | '$' | '#';
 
 /*
 template syntax:
@@ -31,21 +32,14 @@ export function resolveValuesInString(
   _depth = 0,
 ): string {
   if (_depth > 10) return text;
-  return text.replace(TEMPLATE_TOKEN_RE, (match, prefix: Prefix, path: string) => {
+  return text.replace(TEMPLATE_TOKEN_RE, (match, prefix: RefPrefix, path: string) => {
     const resolved = getValue(`${prefix}${path}`, context, _depth + 1);
     return resolved != null ? String(resolved) : match;
   });
 }
 
-export function getPrefixAndPath(
-  text: string,
-): { prefix: Prefix; path: string } | null {
-  const match = text.match(FULL_REF_WITH_NESTED_RE);
-  if (match) {
-    const [, prefix, path] = match;
-    return { prefix: prefix as Prefix, path };
-  }
-  return null;
+export function getPrefixAndPath(text: string): ParsedRef | null {
+  return parseRefWithNested(text);
 }
 
 export function getPath(text: string, record: Record<string, any>): any {
@@ -108,25 +102,13 @@ export function getValue(key: string, context: Context, _depth = 0) {
   const { data = {}, screenData, loopData = {} } = context;
 
   const resolvedKey = resolveValuesInString(key, context, _depth);
-  const { prefix, path } = getPrefixAndPath(resolvedKey) || {};
-  if (!prefix || !path) {
-    throw new Error(`Invalid key format: ${key}`);
-  }
+  const ref = getPrefixAndPath(resolvedKey);
+  if (!ref) throw new Error(`Invalid key format: ${key}`);
 
-  switch (prefix) {
-    case '$': {
-      return getPath(path, screenData ?? {});
-    }
-    case '$$': {
-      return getPath(path, data);
-    }
-    case '@': {
-      return getPath(path, loopData);
-    }
-    case '#': {
-      return getPath(path, screenData?.foreachData || {});
-    }
+  switch (ref.prefix) {
+    case PREFIX.SCREEN:  return getPath(ref.path, screenData ?? {});
+    case PREFIX.DATA:    return getPath(ref.path, data);
+    case PREFIX.LOOP:    return getPath(ref.path, loopData);
+    case PREFIX.FOREACH: return getPath(ref.path, screenData?.foreachData || {});
   }
-
-  throw new Error(`Invalid prefix: ${prefix}`);
 }
