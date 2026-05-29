@@ -183,27 +183,32 @@ async function enterStep(step: FlowStep): Promise<FlowStep> {
   if (shouldAutoTraverse(step)) return await traverse(step);
 
   if (step.state.type === 'in-node' && step.state.node.type === 'screen') {
+    // computeScreenShuffles reads the *incoming* context.screenData to preserve
+    // orders across loop iterations (reshuffleInLoop:false), so it must run
+    // before we rebuild screenData below.
     const { shuffledOptions, shuffledForeachOrders } = computeScreenShuffles(
       step.experiment,
       step.context,
       step.state.node.props.slug,
     );
-    const screenData: {
-      shuffledOptions?: typeof shuffledOptions;
-      shuffledForeachOrders?: typeof shuffledForeachOrders;
-    } = {};
+
+    // These maps are per-screen snapshots, not accumulated state. Deep-merging
+    // them (via mergeContext) would let a previous screen's orders persist into
+    // this screen and leak into its submitted <id>:order data. Overwrite each
+    // map wholesale, and clear it entirely when this screen produces none.
+    const screenData = { ...step.context.screenData };
     if (Object.keys(shuffledOptions).length > 0) {
       screenData.shuffledOptions = shuffledOptions;
+    } else {
+      delete screenData.shuffledOptions;
     }
     if (Object.keys(shuffledForeachOrders).length > 0) {
       screenData.shuffledForeachOrders = shuffledForeachOrders;
+    } else {
+      delete screenData.shuffledForeachOrders;
     }
-    if (Object.keys(screenData).length > 0) {
-      return {
-        ...step,
-        context: mergeContext(step.context, { screenData }),
-      };
-    }
+
+    return { ...step, context: { ...step.context, screenData } };
   }
 
   return step;

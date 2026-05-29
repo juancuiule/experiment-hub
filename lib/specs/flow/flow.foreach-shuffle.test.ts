@@ -126,4 +126,39 @@ describe('randomized for-each presentation order', () => {
     expect(order2).not.toBe(order1);
     expect(order2).toEqual(expect.arrayContaining(VALUES));
   });
+
+  it('clears a previous screen’s shuffled order when the next screen has none', async () => {
+    // s1 has a randomized for-each; s2 has none. Because screenData is
+    // deep-merged across the flow, s1's order must not leak into s2 (it would
+    // otherwise be written as a stale <id>:order on s2's submission).
+    const flow: ExperimentFlow = {
+      nodes: [
+        { id: 'start', type: 'start' },
+        { id: 's1', type: 'screen', props: { slug: 'first' } },
+        { id: 's2', type: 'screen', props: { slug: 'second' } },
+      ],
+      edges: [seq('start', 's1'), seq('s1', 's2')],
+      screens: [
+        { slug: 'first', components: [foreach({ randomized: true })] },
+        {
+          slug: 'second',
+          components: [
+            {
+              componentFamily: 'content',
+              template: 'rich-text',
+              props: { content: 'plain screen' },
+            },
+          ],
+        },
+      ],
+    };
+
+    const step1 = await startExperiment(flow, 'start');
+    expect(
+      step1.context.screenData?.shuffledForeachOrders?.['sport-items'],
+    ).toHaveLength(3);
+
+    const step2 = await traverse(step1, {});
+    expect(step2.context.screenData?.shuffledForeachOrders).toBeUndefined();
+  });
 });
