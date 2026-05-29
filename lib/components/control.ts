@@ -25,7 +25,12 @@ export type ForEachComponent = BaseControlComponent<
         type: 'dynamic';
         dataKey: `$$${string}` | `$${string}` | `@${string}` | `#${string}`;
       }
-  ) & { id: string; component: ScreenComponent }
+  ) & {
+    id: string;
+    component: ScreenComponent;
+    randomized?: boolean;
+    reshuffleInLoop?: boolean;
+  }
 >;
 
 export type ControlComponent = ConditionalComponent | ForEachComponent;

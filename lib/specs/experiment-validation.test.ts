@@ -2862,3 +2862,89 @@ describe('loop itemKey', () => {
     expect(codes(flow)).not.toContain('loop-item-key-missing');
   });
 });
+
+describe('randomized for-each validation', () => {
+  function flowWithForeach(props: Record<string, unknown>): ExperimentFlow {
+    return {
+      nodes: [start, makeScreen('s1', 'test'), end],
+      edges: [seq('start', 's1'), seq('s1', 'end')],
+      screens: [
+        {
+          slug: 'test',
+          components: [
+            {
+              componentFamily: 'control',
+              template: 'for-each',
+              props: {
+                id: 'items',
+                component: {
+                  componentFamily: 'content',
+                  template: 'rich-text',
+                  props: { content: '{{#items.value}}' },
+                },
+                ...props,
+              },
+            },
+          ],
+        },
+      ],
+    } as ExperimentFlow;
+  }
+
+  it('flags randomized:true on a $-prefixed dynamic for-each', () => {
+    const flow = flowWithForeach({
+      type: 'dynamic',
+      dataKey: '$liveValues',
+      randomized: true,
+    });
+    expect(codes(flow)).toContain('invalid-randomized-foreach');
+    expect(categories(flow)).toContain('component');
+  });
+
+  it('allows randomized:true on a $$-prefixed dynamic for-each', () => {
+    const flow = flowWithForeach({
+      type: 'dynamic',
+      dataKey: '$$items',
+      randomized: true,
+    });
+    expect(codes(flow)).not.toContain('invalid-randomized-foreach');
+  });
+
+  it('allows randomized:true on @ and # prefixed dynamic for-each', () => {
+    expect(
+      codes(
+        flowWithForeach({
+          type: 'dynamic',
+          dataKey: '@loopId',
+          randomized: true,
+        }),
+      ),
+    ).not.toContain('invalid-randomized-foreach');
+    expect(
+      codes(
+        flowWithForeach({
+          type: 'dynamic',
+          dataKey: '#outerForeach',
+          randomized: true,
+        }),
+      ),
+    ).not.toContain('invalid-randomized-foreach');
+  });
+
+  it('allows randomized:true on a static for-each', () => {
+    const flow = flowWithForeach({
+      type: 'static',
+      values: ['a', 'b'],
+      randomized: true,
+    });
+    expect(codes(flow)).not.toContain('invalid-randomized-foreach');
+  });
+
+  it('does not flag a $-prefixed dynamic for-each that is not randomized', () => {
+    const flow = flowWithForeach({
+      type: 'dynamic',
+      dataKey: '$liveValues',
+    });
+    expect(codes(flow)).not.toContain('invalid-randomized-foreach');
+  });
+});

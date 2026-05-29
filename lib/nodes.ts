@@ -89,6 +89,7 @@ export interface LoopNode extends BaseNode {
     | { type: 'dynamic'; dataKey: `$$${string}` }
   ) & {
     stepper?: StepperConfig;
+    randomized?: boolean;
     /**
      * Property name to use as the iteration key for object-valued items.
      * When set and an item is an object, data lands at

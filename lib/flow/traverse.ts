@@ -23,7 +23,7 @@ import {
   getWinnerFork,
   getWinnerNode,
 } from './graph';
-import { computeShuffledOptions } from './shuffles';
+import { computeScreenShuffles } from './shuffles';
 import { computePathVisibility, countChainFromNode } from './visibility';
 
 export type { FlowHandlers };
@@ -147,12 +147,21 @@ async function enterStep(step: FlowStep): Promise<FlowStep> {
     // Recompute values using the current context — critical for nested loops
     // where the dataKey references a parent loop's item via @, since the parent's
     // loopData is only available in context at enterStep time, not at initialState time.
-    const values =
+    const resolvedValues =
       node.props.type === 'static'
         ? node.props.values
         : ((getValue(node.props.dataKey, step.context) as
             | (string | Record<string, unknown>)[]
             | undefined) ?? []);
+
+    // When randomized, shuffle once on first entry (index === 0). The shuffled
+    // order is then persisted in state.values and reused for every iteration,
+    // so the presentation order is stable across the whole run. Subsequent
+    // iterations advance via traverseInLoop, which reads state.values directly.
+    const values =
+      index === 0 && node.props.randomized
+        ? shuffle(resolvedValues)
+        : resolvedValues;
 
     // Skip the loop entirely when there are no values to iterate
     if (values.length === 0) {
@@ -215,19 +224,32 @@ async function enterStep(step: FlowStep): Promise<FlowStep> {
   if (shouldAutoTraverse(step)) return await traverse(step);
 
   if (step.state.type === 'in-node' && step.state.node.type === 'screen') {
-    const shuffledOptions = computeShuffledOptions(
+    // computeScreenShuffles reads the *incoming* context.screenData to preserve
+    // orders across loop iterations (reshuffleInLoop:false), so it must run
+    // before we rebuild screenData below.
+    const { shuffledOptions, shuffledForeachOrders } = computeScreenShuffles(
       step.experiment,
       step.context,
       step.state.node.props.slug,
     );
+
+    // These maps are per-screen snapshots, not accumulated state. Deep-merging
+    // them (via mergeContext) would let a previous screen's orders persist into
+    // this screen and leak into its submitted <id>:order data. Overwrite each
+    // map wholesale, and clear it entirely when this screen produces none.
+    const screenData = { ...step.context.screenData };
     if (Object.keys(shuffledOptions).length > 0) {
-      return {
-        ...step,
-        context: mergeContext(step.context, {
-          screenData: { shuffledOptions },
-        }),
-      };
+      screenData.shuffledOptions = shuffledOptions;
+    } else {
+      delete screenData.shuffledOptions;
     }
+    if (Object.keys(shuffledForeachOrders).length > 0) {
+      screenData.shuffledForeachOrders = shuffledForeachOrders;
+    } else {
+      delete screenData.shuffledForeachOrders;
+    }
+
+    return { ...step, context: { ...step.context, screenData } };
   }
 
   return step;

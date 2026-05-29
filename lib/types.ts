@@ -14,6 +14,7 @@ type IterativeItem = { value: any; index: number };
 type ScreenData = Record<string, any> & {
   foreachData?: { [foreachId: string]: IterativeItem };
   shuffledOptions?: { [dataKey: string]: Array<Option> };
+  shuffledForeachOrders?: { [foreachId: string]: string[] };
 };
 
 export type TimingEntry = { enteredAt: string; submittedAt: string };

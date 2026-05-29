@@ -165,6 +165,12 @@ An `@value` or `@index` token is only valid when the screen is a direct or indir
 
 - **Code:** `invalid-reference`
 
+### 5.3 `randomized` for-each must not use a `$`-prefixed `dataKey`
+
+A `for-each` component with `randomized: true` is shuffled once at screen entry, before render. A `dynamic` for-each whose `dataKey` uses the `$` prefix references live form state, which only exists inside React at render time — there is no stable list to shuffle at enter-step time. The `$$`, `@`, and `#` prefixes (and any `static` for-each) are resolvable at enter-step time and are supported.
+
+- **Code:** `invalid-randomized-foreach`
+
 ---
 
 ## 6. Condition `$$` reference availability
@@ -235,3 +241,4 @@ Every node (other than `start` nodes themselves) must be reachable by following 
 | `unwrapped-token`         | A `$$key` token appears without `{{ }}` wrapping and will not be interpolated at runtime |
 | `cyclic-flow`             | A node is part of a cycle in the flow graph                                             |
 | `unreachable-node`        | A node is not reachable from any start node                                             |
+| `invalid-randomized-foreach` | A `for-each` sets `randomized: true` with a `$`-prefixed (live form state) `dataKey`, which cannot be shuffled at screen entry |

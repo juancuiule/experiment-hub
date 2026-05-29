@@ -72,6 +72,8 @@ The `dynamic` loop node has a `dataKey` prop (must be `$$`-prefixed, e.g. `$$scr
 
 Both types of loop have a `stepper?` prop that allows to configure an optional stepper to be shown at the top of the screen to indicate the progress of the participant in that loop. This stepper is exactly the same as the one used in the `path` node, with the same `StepperConfig` type.
 
+Both types also accept an optional `randomized?` (boolean) prop. When `true`, the values are shuffled once at the moment the loop is first entered, producing a presentation order that is stable across all iterations of that run (it is not re-shuffled per iteration). For `dynamic` loops the values are resolved from context first, then shuffled. The resulting order is written to `context.loops[loopId].order`. When `randomized` is omitted or `false`, the loop iterates in its defined/resolved order. This mirrors the `randomized` flag on the `path` node.
+
 ### `itemKey` — iteration key for object values
 
 Both loop types also accept an optional `itemKey?: string` prop. By default an object-valued iteration is keyed by its 1-based index, so its data lands at `context.data.<loopId>["1"]`, `["2"]`, etc. Setting `itemKey` to a property name keys each object iteration by `String(item[itemKey])` instead — e.g. with `itemKey: "id"` and items `[{ id: "cat" }, { id: "dog" }]`, data lands at `context.data.<loopId>.cat` and `context.data.<loopId>.dog`.
