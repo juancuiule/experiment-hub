@@ -23,7 +23,7 @@ import {
   getWinnerFork,
   getWinnerNode,
 } from './graph';
-import { computeShuffledOptions } from './shuffles';
+import { computeScreenShuffles } from './shuffles';
 import { computePathVisibility, countChainFromNode } from './visibility';
 
 export type { FlowHandlers };
@@ -183,17 +183,25 @@ async function enterStep(step: FlowStep): Promise<FlowStep> {
   if (shouldAutoTraverse(step)) return await traverse(step);
 
   if (step.state.type === 'in-node' && step.state.node.type === 'screen') {
-    const shuffledOptions = computeShuffledOptions(
+    const { shuffledOptions, shuffledForeachOrders } = computeScreenShuffles(
       step.experiment,
       step.context,
       step.state.node.props.slug,
     );
+    const screenData: {
+      shuffledOptions?: typeof shuffledOptions;
+      shuffledForeachOrders?: typeof shuffledForeachOrders;
+    } = {};
     if (Object.keys(shuffledOptions).length > 0) {
+      screenData.shuffledOptions = shuffledOptions;
+    }
+    if (Object.keys(shuffledForeachOrders).length > 0) {
+      screenData.shuffledForeachOrders = shuffledForeachOrders;
+    }
+    if (Object.keys(screenData).length > 0) {
       return {
         ...step,
-        context: mergeContext(step.context, {
-          screenData: { shuffledOptions },
-        }),
+        context: mergeContext(step.context, { screenData }),
       };
     }
   }

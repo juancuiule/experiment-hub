@@ -7,6 +7,7 @@ import { checkEdgeWiring } from './check-edge-wiring';
 import { checkUnreachableNodes } from './check-unreachable-nodes';
 import { checkReferences } from './check-references';
 import { checkSharedOptionReferences } from './check-shared-option-references';
+import { checkForeachRandomization } from './check-foreach-randomization';
 import { ValidationError } from './types';
 
 export type { ErrorCategory, ValidationError } from './types';
@@ -21,5 +22,6 @@ export function validateExperiment(flow: ExperimentFlow): ValidationError[] {
     ...checkUnreachableNodes(flow),
     ...checkReferences(flow),
     ...checkSharedOptionReferences(flow),
+    ...checkForeachRandomization(flow),
   ];
 }

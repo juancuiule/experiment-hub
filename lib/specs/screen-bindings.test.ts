@@ -85,4 +85,55 @@ describe('augmentSubmitData', () => {
     augmentSubmitData(data, context);
     expect(data).toEqual({ rating: '1' });
   });
+
+  it('appends <foreachId>:order for randomized for-each presentation orders', () => {
+    const data = {
+      'recommend-tennis': 'yes',
+      'recommend-golf': 'no',
+      'recommend-squash': 'yes',
+    };
+    const context: Context = {
+      screenData: {
+        shuffledForeachOrders: {
+          'sport-items': ['golf', 'squash', 'tennis'],
+        },
+      },
+    };
+    expect(augmentSubmitData(data, context)).toEqual({
+      ...data,
+      'sport-items:order': ['golf', 'squash', 'tennis'],
+    });
+  });
+
+  it('records for-each order even though the id is not a data key', () => {
+    const data = {};
+    const context: Context = {
+      screenData: {
+        shuffledForeachOrders: { items: ['b', 'a'] },
+      },
+    };
+    expect(augmentSubmitData(data, context)).toEqual({
+      'items:order': ['b', 'a'],
+    });
+  });
+
+  it('appends both option and for-each orders together', () => {
+    const data = { q1: 'a' };
+    const context: Context = {
+      screenData: {
+        shuffledOptions: {
+          q1: [
+            { label: 'A', value: 'a' },
+            { label: 'B', value: 'b' },
+          ],
+        },
+        shuffledForeachOrders: { items: ['y', 'x'] },
+      },
+    };
+    expect(augmentSubmitData(data, context)).toEqual({
+      q1: 'a',
+      'q1:order': ['a', 'b'],
+      'items:order': ['y', 'x'],
+    });
+  });
 });

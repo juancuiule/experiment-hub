@@ -249,6 +249,8 @@ Renders a component template once per item in a list. Mirrors the `loop` node bu
 - For `static`: `values: string[]` — explicit list of values to iterate over
 - For `dynamic`: `dataKey` — a `$$` or `$` reference to a collected array to iterate over
 - `component: ScreenComponent` — the template component rendered for each item. Inside this template, use `{{#foreachId.value}}` and `{{#foreachId.index}}` (with the `#` prefix) to access the current iteration's value and index. The `dataKey` of response components inside a for-each template typically contains `{{#id.value}}` to produce a unique key per item (e.g. `"rating-{{#fe.value}}"`).
+- `randomized?: boolean` — when `true`, the values are shuffled once at screen entry and rendered in that order. The presentation order is recorded in submitted form data as `<id>:order` (an array of the displayed values), mirroring the `<dataKey>:order` mechanism for randomized response options. All iterations still render simultaneously on the same screen — this only affects visual order. Invalid on a `dynamic` for-each whose `dataKey` uses the `$` prefix (live form state is not resolvable at screen entry); `$$`, `@`, and `#` prefixes are supported.
+- `reshuffleInLoop?: boolean` — when the for-each is inside a loop and `randomized: true`, controls whether the order is reshuffled on each loop iteration (`true`) or kept stable across iterations (`false`, default).
 
 Example:
 ```ts
