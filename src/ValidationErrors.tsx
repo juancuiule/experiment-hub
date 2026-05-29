@@ -6,7 +6,7 @@ import {
   BADGE_ICONS,
   DEfAULT_BADGE_CLASS,
   NodeTypeBadge,
-} from './nodeConfig';
+} from './debug/nodeConfig';
 
 function ErrorCategoryBadge({ category }: { category: ErrorCategory }) {
   const categoryClass = BADGE_CLASSES[category] ?? DEfAULT_BADGE_CLASS;

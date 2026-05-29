@@ -5,7 +5,7 @@ import { FrameworkNode, LoopNode } from '@/lib/nodes';
 import { InLoopState, State } from '@/lib/types';
 import { DataSection } from './DataTree';
 import { useExperimentStore } from '../data/store';
-import { NodeTypeBadge } from '../nodeConfig';
+import { NodeTypeBadge } from './nodeConfig';
 
 function findLoopState(state: State, nodeId: string): InLoopState | null {
   if (state.type === 'in-loop') {

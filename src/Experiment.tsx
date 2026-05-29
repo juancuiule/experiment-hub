@@ -22,7 +22,7 @@ export default function Experiment(props: Props) {
   }, [step, startingNode, experiment]);
 
   if (!step) {
-    return <></>;
+    return <div className="flex-1"></div>;
   }
 
   if (isEnded(step)) {
