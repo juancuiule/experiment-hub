@@ -121,10 +121,14 @@ function isAvailable(reference: string, available: Available): boolean {
   const ref = parseRef(reference);
   if (!ref) return false;
   switch (ref.prefix) {
-    case PREFIX.DATA:    return hasKeyOrAncestor(ref.path, available.dataKeys);
-    case PREFIX.SCREEN:  return hasKeyOrAncestor(ref.path, available.screenKeys);
-    case PREFIX.LOOP:    return available.loops.has(ref.path.split('.')[0]);
-    case PREFIX.FOREACH: return available.forEach.has(ref.path.split('.')[0]);
+    case PREFIX.DATA:
+      return hasKeyOrAncestor(ref.path, available.dataKeys);
+    case PREFIX.SCREEN:
+      return hasKeyOrAncestor(ref.path, available.screenKeys);
+    case PREFIX.LOOP:
+      return available.loops.has(ref.path.split('.')[0]);
+    case PREFIX.FOREACH:
+      return available.forEach.has(ref.path.split('.')[0]);
   }
 }
 

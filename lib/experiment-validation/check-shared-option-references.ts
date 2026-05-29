@@ -7,7 +7,6 @@ export function checkSharedOptionReferences(
   flow: ExperimentFlow,
 ): ValidationError[] {
   const definedOptions = new Set(Object.keys(flow.options ?? {}));
-  const hasSupportedTemplatePlaceholder = HAS_WRAPPED_TOKEN_RE;
 
   // State = screen slug, threaded through for use in error messages.
   const handlers: Handlers<ValidationError, string> = [
@@ -16,7 +15,7 @@ export function checkSharedOptionReferences(
       if (typeof props.options !== 'string' || !props.options.startsWith('%'))
         return [];
       const name = props.options.slice(1);
-      if (definedOptions.has(name) || hasSupportedTemplatePlaceholder.test(name))
+      if (definedOptions.has(name) || HAS_WRAPPED_TOKEN_RE.test(name))
         return [];
       return [
         {
@@ -39,8 +38,7 @@ export function checkSharedOptionReferences(
     ),
     on(
       { componentFamily: 'control', template: 'for-each' },
-      (c, slug, recur): ValidationError[] =>
-        recur([c.props.component], slug),
+      (c, slug, recur): ValidationError[] => recur([c.props.component], slug),
     ),
   ];
 

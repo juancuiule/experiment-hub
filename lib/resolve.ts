@@ -32,10 +32,13 @@ export function resolveValuesInString(
   _depth = 0,
 ): string {
   if (_depth > 10) return text;
-  return text.replace(TEMPLATE_TOKEN_RE, (match, prefix: RefPrefix, path: string) => {
-    const resolved = getValue(`${prefix}${path}`, context, _depth + 1);
-    return resolved != null ? String(resolved) : match;
-  });
+  return text.replace(
+    TEMPLATE_TOKEN_RE,
+    (match, prefix: RefPrefix, path: string) => {
+      const resolved = getValue(`${prefix}${path}`, context, _depth + 1);
+      return resolved != null ? String(resolved) : match;
+    },
+  );
 }
 
 export function getPrefixAndPath(text: string): ParsedRef | null {
@@ -121,9 +124,13 @@ export function getValue(key: string, context: Context, _depth = 0) {
   if (!ref) throw new Error(`Invalid key format: ${key}`);
 
   switch (ref.prefix) {
-    case PREFIX.SCREEN:  return getPath(ref.path, screenData ?? {});
-    case PREFIX.DATA:    return getPath(ref.path, data);
-    case PREFIX.LOOP:    return getPath(ref.path, loopData);
-    case PREFIX.FOREACH: return getPath(ref.path, screenData?.foreachData || {});
+    case PREFIX.SCREEN:
+      return getPath(ref.path, screenData ?? {});
+    case PREFIX.DATA:
+      return getPath(ref.path, data);
+    case PREFIX.LOOP:
+      return getPath(ref.path, loopData);
+    case PREFIX.FOREACH:
+      return getPath(ref.path, screenData?.foreachData || {});
   }
 }
