@@ -265,6 +265,69 @@ describe("loop (itemKey edge cases)", () => {
     });
     expect(step.context.loops?.["loop-str"]?.order).toEqual(["red", "blue"]);
   });
+
+  it("falls back to the index when the itemKey resolves to a reserved key (no prototype pollution)", async () => {
+    const flow: ExperimentFlow = {
+      nodes: [
+        { id: "start", type: "start" },
+        makeScreen("screen-setup", "setup"),
+        {
+          id: "loop-proto",
+          type: "loop",
+          props: { type: "dynamic", dataKey: "$$setup.items", itemKey: "id" },
+        },
+        makeScreen("screen-item", "item"),
+        makeScreen("screen-end", "end"),
+      ],
+      edges: [
+        seq("start", "screen-setup"),
+        seq("screen-setup", "loop-proto"),
+        { type: "loop-template", from: "loop-proto", to: "screen-item" },
+        seq("loop-proto", "screen-end"),
+      ],
+    };
+
+    let step = await startExperiment(flow, "start");
+    step = await traverse(step, { items: [{ id: "__proto__", v: 1 }] });
+    step = await traverse(step, { picked: "a" }); // single item → exit
+
+    // Keyed by the index fallback, not "__proto__"
+    expect(step.context.data?.["loop-proto"]?.["1"]?.["item"]).toEqual({
+      picked: "a",
+    });
+    expect(step.context.loops?.["loop-proto"]?.order).toEqual(["1"]);
+    // The prototype was not polluted
+    expect(({} as Record<string, unknown>).v).toBeUndefined();
+  });
+
+  it("skips a dynamic loop whose dataKey resolves to a non-array value", async () => {
+    const flow: ExperimentFlow = {
+      nodes: [
+        { id: "start", type: "start" },
+        makeScreen("screen-setup", "setup"),
+        {
+          id: "loop-bad",
+          type: "loop",
+          props: { type: "dynamic", dataKey: "$$setup.items" },
+        },
+        makeScreen("screen-item", "item"),
+        makeScreen("screen-end", "end"),
+      ],
+      edges: [
+        seq("start", "screen-setup"),
+        seq("screen-setup", "loop-bad"),
+        { type: "loop-template", from: "loop-bad", to: "screen-item" },
+        seq("loop-bad", "screen-end"),
+      ],
+    };
+
+    let step = await startExperiment(flow, "start");
+    // items is an object, not an array — must not crash, loop is skipped
+    step = await traverse(step, { items: { not: "an array" } });
+    expect(step.state.type).toBe("in-node");
+    expect((step.state as any).node.id).toBe("screen-end");
+    expect(step.context.loops?.["loop-bad"]?.order).toEqual([]);
+  });
 });
 
 describe("loop tracking (context.loops)", () => {

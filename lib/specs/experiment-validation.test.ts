@@ -2836,6 +2836,29 @@ describe('loop itemKey', () => {
     expect(codes(flow)).toContain('loop-item-key-missing');
   });
 
+  it('flags a static loop whose itemKey property value is null or undefined', () => {
+    // Present-but-nullish values fall back to the index at runtime, so they are
+    // flagged the same as a fully missing property.
+    expect(
+      codes(
+        loopFlow({
+          type: 'static',
+          values: [{ id: 'cat' }, { id: null }],
+          itemKey: 'id',
+        }),
+      ),
+    ).toContain('loop-item-key-missing');
+    expect(
+      codes(
+        loopFlow({
+          type: 'static',
+          values: [{ id: undefined }],
+          itemKey: 'id',
+        }),
+      ),
+    ).toContain('loop-item-key-missing');
+  });
+
   it('does not flag a static loop where every object has the itemKey property', () => {
     const flow = loopFlow({
       type: 'static',

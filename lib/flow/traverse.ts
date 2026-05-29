@@ -1,4 +1,9 @@
-import { FrameworkNode, isAutoTraverseNode, StepperConfig } from '../nodes';
+import {
+  FrameworkNode,
+  isAutoTraverseNode,
+  LoopNode,
+  StepperConfig,
+} from '../nodes';
 import { getValue } from '../resolve';
 import {
   Context,
@@ -28,6 +33,12 @@ import { computePathVisibility, countChainFromNode } from './visibility';
 
 export type { FlowHandlers };
 
+// Keys that would mutate the prototype chain rather than set an own property
+// when used as object keys in deepMerge (see nestData → mergeContext). An
+// iteration key resolving to one of these would cause prototype pollution, so
+// we reject it and fall back to the 1-based index instead.
+const RESERVED_ITER_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+
 /**
  * Resolve the iteration key used as the data-path segment and in
  * `context.loops[loopId].order` for a single loop value.
@@ -35,20 +46,43 @@ export type { FlowHandlers };
  * - Plain-string values use the string itself (unchanged behavior).
  * - Object values use `String(value[itemKey])` when `itemKey` is set and the
  *   property is present; otherwise they fall back to the 1-based index.
+ * - A resolved key that collides with a reserved object-prototype key falls
+ *   back to the 1-based index to avoid prototype pollution downstream.
  */
 export function resolveIterKey(
   value: string | Record<string, unknown>,
   index: number,
   itemKey?: string,
 ): string {
+  const fallback = String(index + 1);
+
+  let key = fallback;
   if (typeof value === 'object' && value !== null) {
     if (itemKey != null) {
       const keyValue = value[itemKey];
-      if (keyValue != null) return String(keyValue);
+      if (keyValue != null) key = String(keyValue);
     }
-    return String(index + 1);
+  } else {
+    key = String(value);
   }
-  return String(value);
+
+  return RESERVED_ITER_KEYS.has(key) ? fallback : key;
+}
+
+/**
+ * Resolve a loop node's iteration values. Static loops use their literal
+ * `values`; dynamic loops read `dataKey` from context. The dynamic source is
+ * runtime-checked: a non-array value (e.g. a participant submitted a string or
+ * object) resolves to an empty list so the loop is skipped rather than crashing
+ * on `.length` / `.map`.
+ */
+function resolveLoopValues(
+  props: LoopNode['props'],
+  context: Context,
+): (string | Record<string, unknown>)[] {
+  if (props.type === 'static') return props.values;
+  const resolved = getValue(props.dataKey, context);
+  return Array.isArray(resolved) ? resolved : [];
 }
 
 function nestData(
@@ -91,12 +125,7 @@ function initialState(
         throw new Error('Loop node must have a template node');
       }
 
-      const values =
-        node.props.type === 'static'
-          ? node.props.values
-          : ((getValue(node.props.dataKey, context) as
-              | (string | Record<string, unknown>)[]
-              | undefined) ?? []);
+      const values = resolveLoopValues(node.props, context);
 
       return {
         type: 'in-loop' as const,
@@ -147,12 +176,7 @@ async function enterStep(step: FlowStep): Promise<FlowStep> {
     // Recompute values using the current context — critical for nested loops
     // where the dataKey references a parent loop's item via @, since the parent's
     // loopData is only available in context at enterStep time, not at initialState time.
-    const resolvedValues =
-      node.props.type === 'static'
-        ? node.props.values
-        : ((getValue(node.props.dataKey, step.context) as
-            | (string | Record<string, unknown>)[]
-            | undefined) ?? []);
+    const resolvedValues = resolveLoopValues(node.props, step.context);
 
     // When randomized, shuffle once on first entry (index === 0). The shuffled
     // order is then persisted in state.values and reused for every iteration,

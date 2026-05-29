@@ -118,12 +118,15 @@ function checkLoopNodes(nodes: FrameworkNode[]): ValidationError[] {
 
       props.values.forEach((value, index) => {
         if (typeof value !== 'object' || value === null) return;
-        if (!Object.prototype.hasOwnProperty.call(value, itemKey)) {
+        // Mirror resolveIterKey: a missing OR null/undefined property value
+        // cannot produce a usable key and silently falls back to the index at
+        // runtime, so both cases are flagged here.
+        if ((value as Record<string, unknown>)[itemKey] == null) {
           errors.push({
             code: 'loop-item-key-missing',
             category: 'node',
             nodeType: 'loop',
-            message: `Loop "${node.id}" sets itemKey "${itemKey}" but value at index ${index} is missing that property: ${JSON.stringify(value)}`,
+            message: `Loop "${node.id}" sets itemKey "${itemKey}" but value at index ${index} is missing that property (or its value is null/undefined): ${JSON.stringify(value)}`,
           });
         }
       });
