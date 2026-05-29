@@ -1,5 +1,5 @@
 import { ErrorCategory, ValidationError } from '@/lib/experiment-validation';
-import { AlertOctagonIcon } from 'lucide-react';
+import { AlertOctagonIcon, OctagonX, TriangleAlert } from 'lucide-react';
 import { twMerge } from 'tailwind-merge';
 import {
   BADGE_CLASSES,
@@ -25,12 +25,32 @@ function ErrorCategoryBadge({ category }: { category: ErrorCategory }) {
   );
 }
 
-function ErrorCard({ error }: { error: ValidationError }) {
-  const { category, nodeType } = error;
+function SeverityBadge({ severity }: { severity: 'error' | 'warning' }) {
+  const severityClass =
+    severity === 'warning'
+      ? 'bg-amber-50 text-warning'
+      : 'bg-red-50 text-error';
+  const Icon = severity === 'warning' ? TriangleAlert : OctagonX;
 
+  return (
+    <span
+      className={twMerge(
+        'flex h-full items-center gap-1 rounded border px-1 py-0.5 font-semibold',
+        'aspect-square',
+        severityClass,
+      )}
+    >
+      <Icon size={12} />
+    </span>
+  );
+}
+
+function ErrorCard({ error }: { error: ValidationError }) {
+  const { category, nodeType, severity = 'error' } = error;
   return (
     <div className="flex flex-col gap-1 rounded border p-2 font-mono text-xs">
       <div className="flex items-center gap-2">
+        <SeverityBadge severity={severity} />
         <ErrorCategoryBadge category={category} />
         {nodeType && nodeType !== category && <NodeTypeBadge type={nodeType} />}
         <span className="text-content-primary truncate font-bold">

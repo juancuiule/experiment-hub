@@ -19,6 +19,13 @@ export const EXPERIMENTS: Record<string, ExperimentFlow> = {
         },
       },
       {
+        id: 'screen-blah',
+        type: 'screen',
+        props: {
+          slug: 'blah',
+        },
+      },
+      {
         id: 'screen-test',
         type: 'screen',
         props: {
@@ -41,6 +48,7 @@ export const EXPERIMENTS: Record<string, ExperimentFlow> = {
       },
     ],
     screens: [
+      { slug: 'agg', components: [] },
       {
         slug: 'test',
         components: [
