@@ -625,13 +625,6 @@ export async function startExperiment(
   );
 }
 
-// Resolves the innermost active state by unwrapping in-path / in-loop wrappers.
-export function getActiveState(state: State): State {
-  if (state.type === 'in-path') return getActiveState(state.innerState);
-  if (state.type === 'in-loop') return getActiveState(state.innerState);
-  return state;
-}
-
 export type ScreenView = {
   slug: string;
   screenKey: string;
@@ -639,11 +632,12 @@ export type ScreenView = {
 };
 
 export function isEnded(step: FlowStep): boolean {
-  return getActiveState(step.state).type === 'end';
+  const { leaf } = getLeafState(step.state);
+  return leaf.type === 'end';
 }
 
 export function getScreenView(step: FlowStep): ScreenView | null {
-  const active = getActiveState(step.state);
+  const { leaf: active } = getLeafState(step.state);
   if (active.type !== 'in-node' || active.node.type !== 'screen') return null;
 
   const slug = active.node.props.slug;
@@ -673,4 +667,34 @@ function stepperPropsFromState(
       total: state.values.length,
     };
   return null;
+}
+
+export function getLeafState(state: State): {
+  segments: string[];
+  leaf: State;
+} {
+  switch (state.type) {
+    case 'in-path': {
+      const { segments, leaf } = getLeafState(state.innerState);
+      return {
+        segments: [state.node.id, ...segments],
+        leaf,
+      };
+    }
+    case 'in-loop': {
+      const iterKey =
+        typeof state.values[state.index] === 'object' &&
+        state.values[state.index] !== null
+          ? String(state.index + 1)
+          : state.values[state.index];
+      const { segments, leaf } = getLeafState(state.innerState);
+      return {
+        segments: [state.node.id, iterKey, ...segments],
+        leaf,
+      };
+    }
+    default: {
+      return { segments: [], leaf: state };
+    }
+  }
 }

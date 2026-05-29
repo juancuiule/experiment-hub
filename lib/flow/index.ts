@@ -1,7 +1,7 @@
 export { deepMerge, mergeContext } from './context';
 export { buildTimingKey, recordEnteredAt, traverseWithTiming } from './timing';
 export {
-  getActiveState,
+  getLeafState,
   getScreenView,
   isEnded,
   next,

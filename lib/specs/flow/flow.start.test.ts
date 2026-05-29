@@ -1,4 +1,4 @@
-import { getActiveState, next, startExperiment, traverse } from '@/lib/flow';
+import { getLeafState, next, startExperiment, traverse } from '@/lib/flow';
 import { ExperimentFlow, InNodeState } from '@/lib/types';
 import { describe, expect, it } from 'vitest';
 import { makeScreen, seq } from '../test-helpers';
@@ -137,15 +137,16 @@ describe('next() — .then() chaining helper', () => {
   });
 });
 
-describe('getActiveState', () => {
+describe('getLeafState', () => {
   it('returns an in-node state unchanged', async () => {
     const flow: ExperimentFlow = {
       nodes: [{ id: 'start', type: 'start' }, makeScreen('s1', 's1')],
       edges: [seq('start', 's1')],
     };
     const step = await startExperiment(flow, 'start');
-    expect(getActiveState(step.state)).toBe(step.state);
-    expect(getActiveState(step.state).type).toBe('in-node');
+    const { leaf } = getLeafState(step.state);
+    expect(leaf).toBe(step.state);
+    expect(leaf.type).toBe('in-node');
   });
 
   it('unwraps in-path to the innermost screen state', async () => {
@@ -164,7 +165,7 @@ describe('getActiveState', () => {
     };
     const step = await startExperiment(flow, 'start');
     expect(step.state.type).toBe('in-path');
-    const active = getActiveState(step.state);
+    const { leaf: active } = getLeafState(step.state);
     expect(active.type).toBe('in-node');
     expect((active as InNodeState).node.id).toBe('s1');
   });
@@ -189,7 +190,7 @@ describe('getActiveState', () => {
     };
     const step = await startExperiment(flow, 'start');
     expect(step.state.type).toBe('in-loop');
-    const active = getActiveState(step.state);
+    const { leaf: active } = getLeafState(step.state);
     expect(active.type).toBe('in-node');
     expect((active as InNodeState).node.id).toBe('s-item');
   });
@@ -201,7 +202,9 @@ describe('getActiveState', () => {
     };
     let step = await startExperiment(flow, 'start');
     step = await traverse(step, {});
+    const { leaf } = getLeafState(step.state);
+
     expect(step.state.type).toBe('end');
-    expect(getActiveState(step.state)).toBe(step.state);
+    expect(leaf).toBe(step.state);
   });
 });
