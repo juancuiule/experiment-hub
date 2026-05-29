@@ -66,8 +66,20 @@ Fork nodes should not have sequential edges connecting them to other nodes, sinc
 
 The `loop` node is used to create a loop in the experiment flow. It can be one of two types: `static` or `dynamic`.
 
-The `static` loop node has a `values` prop (string[]) that is used to define the different values that will be iterated over in the loop.
+The `static` loop node has a `values` prop (`(string | Record<string, unknown>)[]`) that is used to define the different values that will be iterated over in the loop. Values may be plain strings or objects.
 
-The `dynamic` loop node has a `dataKey` prop (must be `$$`-prefixed, e.g. `$$screenSlug.myList`) that references an array of strings collected earlier in the experiment. Each element of that array becomes one loop iteration value.
+The `dynamic` loop node has a `dataKey` prop (must be `$$`-prefixed, e.g. `$$screenSlug.myList`) that references an array collected earlier in the experiment (e.g. via a `sample` formula). Each element of that array becomes one loop iteration value, and elements may be strings or objects.
 
 Both types of loop have a `stepper?` prop that allows to configure an optional stepper to be shown at the top of the screen to indicate the progress of the participant in that loop. This stepper is exactly the same as the one used in the `path` node, with the same `StepperConfig` type.
+
+### `itemKey` — iteration key for object values
+
+Both loop types also accept an optional `itemKey?: string` prop. By default an object-valued iteration is keyed by its 1-based index, so its data lands at `context.data.<loopId>["1"]`, `["2"]`, etc. Setting `itemKey` to a property name keys each object iteration by `String(item[itemKey])` instead — e.g. with `itemKey: "id"` and items `[{ id: "cat" }, { id: "dog" }]`, data lands at `context.data.<loopId>.cat` and `context.data.<loopId>.dog`.
+
+- `itemKey` is a **no-op for plain-string values** — the string itself is used as the key, as before.
+- `$$loops.<loopId>.order` stores the resolved **key strings** (`["cat", "dog"]` above; the string values themselves for string loops).
+- `@loopId.value` still exposes the **full object** during iteration — `itemKey` only affects the data-path key.
+- For `static` loops, every object value must contain the `itemKey` property; a missing property is caught by `validateExperiment()` (error code `loop-item-key-missing`).
+- For `dynamic` loops, a missing property at runtime **silently falls back** to the 1-based index for that iteration.
+
+When using a `count-correct` formula against an object loop that sets `itemKey`, the formula must set a matching `itemKey` so it can reconstruct the same iteration keys when looking up answers. A mismatch is not validated and will silently miscount.

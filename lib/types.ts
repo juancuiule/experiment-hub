@@ -55,7 +55,7 @@ export type InPathState = {
 export type InLoopState = {
   type: 'in-loop';
   node: LoopNode;
-  values: string[];
+  values: (string | Record<string, unknown>)[];
   template: FrameworkNode;
   index: number;
   innerState: State;

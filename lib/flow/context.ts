@@ -21,7 +21,7 @@ export function mergeContext(context: Context, toMerge: Context): Context {
 export function withCurrentItem(
   context: Context,
   loopId: string,
-  values: string[],
+  values: (string | Record<string, unknown>)[],
   index: number,
 ): Context {
   return mergeContext(context, {

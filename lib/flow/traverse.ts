@@ -28,6 +28,29 @@ import { computePathVisibility, countChainFromNode } from './visibility';
 
 export type { FlowHandlers };
 
+/**
+ * Resolve the iteration key used as the data-path segment and in
+ * `context.loops[loopId].order` for a single loop value.
+ *
+ * - Plain-string values use the string itself (unchanged behavior).
+ * - Object values use `String(value[itemKey])` when `itemKey` is set and the
+ *   property is present; otherwise they fall back to the 1-based index.
+ */
+export function resolveIterKey(
+  value: string | Record<string, unknown>,
+  index: number,
+  itemKey?: string,
+): string {
+  if (typeof value === 'object' && value !== null) {
+    if (itemKey != null) {
+      const keyValue = value[itemKey];
+      if (keyValue != null) return String(keyValue);
+    }
+    return String(index + 1);
+  }
+  return String(value);
+}
+
 function nestData(
   context: Context,
   dataPath: string[] | undefined,
@@ -71,7 +94,9 @@ function initialState(
       const values =
         node.props.type === 'static'
           ? node.props.values
-          : ((getValue(node.props.dataKey, context) as string[]) ?? []);
+          : ((getValue(node.props.dataKey, context) as
+              | (string | Record<string, unknown>)[]
+              | undefined) ?? []);
 
       return {
         type: 'in-loop' as const,
@@ -125,7 +150,9 @@ async function enterStep(step: FlowStep): Promise<FlowStep> {
     const values =
       node.props.type === 'static'
         ? node.props.values
-        : ((getValue(node.props.dataKey, step.context) as string[]) ?? []);
+        : ((getValue(node.props.dataKey, step.context) as
+            | (string | Record<string, unknown>)[]
+            | undefined) ?? []);
 
     // Skip the loop entirely when there are no values to iterate
     if (values.length === 0) {
@@ -141,9 +168,14 @@ async function enterStep(step: FlowStep): Promise<FlowStep> {
       );
     }
 
+    // order always holds key strings: the resolved iteration keys (string
+    // values themselves, or the itemKey-derived keys for object values).
+    const order = values.map((value, i) =>
+      resolveIterKey(value, i, node.props.itemKey),
+    );
     const contextWithItem = mergeContext(
       withCurrentItem(step.context, node.id, values, index),
-      { loops: { [node.id]: { order: values } } },
+      { loops: { [node.id]: { order } } },
     );
 
     // On first entry, reinitialize innerState with the updated context so nested
@@ -517,11 +549,11 @@ export async function traverseInLoop(
 
   // __currentItem is already in context, injected by autoTraverse on entry
   // and updated here whenever advancing to the next iteration
-  const iterKey =
-    typeof state.values[state.index] === 'object' &&
-    state.values[state.index] !== null
-      ? String(state.index + 1)
-      : state.values[state.index];
+  const iterKey = resolveIterKey(
+    state.values[state.index],
+    state.index,
+    state.node.props.itemKey,
+  );
   const { state: nInnerState, context: nContext } = await traverse(
     {
       state: state.innerState,
@@ -548,11 +580,11 @@ export async function traverseInLoop(
         contextWithNextItem,
         state.template,
       );
-      const nextIterKey =
-        typeof state.values[nextIteration] === 'object' &&
-        state.values[nextIteration] !== null
-          ? String(nextIteration + 1)
-          : state.values[nextIteration];
+      const nextIterKey = resolveIterKey(
+        state.values[nextIteration],
+        nextIteration,
+        state.node.props.itemKey,
+      );
       const innerStep = await enterStep({
         state: nextInnerState,
         experiment,
@@ -682,11 +714,11 @@ export function getLeafState(state: State): {
       };
     }
     case 'in-loop': {
-      const iterKey =
-        typeof state.values[state.index] === 'object' &&
-        state.values[state.index] !== null
-          ? String(state.index + 1)
-          : state.values[state.index];
+      const iterKey = resolveIterKey(
+        state.values[state.index],
+        state.index,
+        state.node.props.itemKey,
+      );
       const { segments, leaf } = getLeafState(state.innerState);
       return {
         segments: [state.node.id, iterKey, ...segments],

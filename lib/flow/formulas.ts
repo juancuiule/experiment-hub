@@ -88,7 +88,17 @@ export function evaluateFormula(
         | undefined;
       if (!loopIterations) return 0;
       return items.reduce((count: number, item: unknown, idx: number) => {
-        const iterKey = String(idx + 1);
+        // Reconstruct the loop's iteration key. When itemKey is set and present
+        // on the object, use String(item[itemKey]); otherwise fall back to the
+        // 1-based index. NOTE: a mismatch between this itemKey and the loop
+        // node's itemKey is not validated and will silently miscount — pending
+        // a future count-correct refactor.
+        const itemKeyValue =
+          formula.itemKey != null && item !== null && typeof item === 'object'
+            ? (item as Record<string, unknown>)[formula.itemKey]
+            : undefined;
+        const iterKey =
+          itemKeyValue != null ? String(itemKeyValue) : String(idx + 1);
         const answer =
           loopIterations[iterKey]?.[formula.screenSlug]?.[formula.answerKey];
         const correct =
