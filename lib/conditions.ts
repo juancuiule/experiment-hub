@@ -1,4 +1,5 @@
 import { getValue, resolveValuesInString } from './resolve';
+import { STARTS_WITH_PREFIX_RE } from './tokens';
 import { Context } from './types';
 
 export type BaseOperator = 'lt' | 'lte' | 'gt' | 'gte' | 'eq' | 'neq';
@@ -43,8 +44,7 @@ export function isBaseOperator(operator: Operator): operator is BaseOperator {
   return ['lt', 'lte', 'gt', 'gte', 'eq', 'neq'].includes(operator);
 }
 
-// regex to check if string starts with # $ @ or $$
-const dataKeyRegex = /^(\$\$|@|\$|#)/;
+const dataKeyRegex = STARTS_WITH_PREFIX_RE;
 
 // Resolves {{...}} interpolations in dataKeys within a condition tree before evaluation
 export function resolveCondition(

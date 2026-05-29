@@ -5,7 +5,8 @@ import { Context, ContextData } from '@/lib/types';
 import * as RadioGroupPrimitive from '@radix-ui/react-radio-group';
 import { Controller, UseFormReturn } from 'react-hook-form';
 import { Label } from '../Label';
-import { FieldError, OptionTooltip, resolveOptions } from '../primitives';
+import { resolveOptions } from '@/lib/resolve';
+import { FieldError, OptionTooltip } from '../primitives';
 
 type Props = {
   component: RadioComponent;

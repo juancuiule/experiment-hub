@@ -4,9 +4,14 @@ import {
   Option,
   OptionsSource,
 } from './components/response';
+import {
+  PREFIX,
+  ParsedRef,
+  RefPrefix,
+  TEMPLATE_TOKEN_RE,
+  parseRefWithNested,
+} from './tokens';
 import { Context } from './types';
-
-type Prefix = '$$' | '@' | '$' | '#';
 
 /*
 template syntax:
@@ -27,24 +32,17 @@ export function resolveValuesInString(
   _depth = 0,
 ): string {
   if (_depth > 10) return text;
-  const regex = /\{\{(\$\$|\$|@|#)([a-zA-Z0-9_.\-]+)\}\}/g;
-  return text.replace(regex, (match, prefix: Prefix, path: string) => {
-    const resolved = getValue(`${prefix}${path}`, context, _depth + 1);
-    return resolved != null ? String(resolved) : match;
-  });
+  return text.replace(
+    TEMPLATE_TOKEN_RE,
+    (match, prefix: RefPrefix, path: string) => {
+      const resolved = getValue(`${prefix}${path}`, context, _depth + 1);
+      return resolved != null ? String(resolved) : match;
+    },
+  );
 }
 
-export function getPrefixAndPath(
-  text: string,
-): { prefix: Prefix; path: string } | null {
-  const regex =
-    /^(\$\$|\$|@|#)((?:[a-zA-Z0-9_.\-]|\{\{(?:\$\$|\$|@|#)[a-zA-Z0-9_.\-]+\}\})+)$/;
-  const match = text.match(regex);
-  if (match) {
-    const [, prefix, path] = match;
-    return { prefix: prefix as Prefix, path };
-  }
-  return null;
+export function getPrefixAndPath(text: string): ParsedRef | null {
+  return parseRefWithNested(text);
 }
 
 export function getPath(text: string, record: Record<string, any>): any {
@@ -69,6 +67,21 @@ export function resolveOptionsSource(
   return value.map((item: unknown) =>
     typeof item === 'string' ? { label: item, value: item } : (item as Option),
   );
+}
+
+// Resolves the option list for a response component, preferring pre-shuffled
+// options stored in the screen context (keyed by dataKey) over re-resolving
+// from the source. This preserves shuffle order across re-renders.
+export function resolveOptions(
+  options: OptionsSource,
+  context: Context,
+  dataKey?: string,
+  sharedOptions?: Record<string, Option[]>,
+): Option[] {
+  if (dataKey && context.screenData?.shuffledOptions?.[dataKey]) {
+    return context.screenData.shuffledOptions[dataKey] as Option[];
+  }
+  return resolveOptionsSource(options, context, sharedOptions);
 }
 
 export function resolveLikertOptionsSource(
@@ -107,25 +120,17 @@ export function getValue(key: string, context: Context, _depth = 0) {
   const { data = {}, screenData, loopData = {} } = context;
 
   const resolvedKey = resolveValuesInString(key, context, _depth);
-  const { prefix, path } = getPrefixAndPath(resolvedKey) || {};
-  if (!prefix || !path) {
-    throw new Error(`Invalid key format: ${key}`);
-  }
+  const ref = getPrefixAndPath(resolvedKey);
+  if (!ref) throw new Error(`Invalid key format: ${key}`);
 
-  switch (prefix) {
-    case '$': {
-      return getPath(path, screenData ?? {});
-    }
-    case '$$': {
-      return getPath(path, data);
-    }
-    case '@': {
-      return getPath(path, loopData);
-    }
-    case '#': {
-      return getPath(path, screenData?.foreachData || {});
-    }
+  switch (ref.prefix) {
+    case PREFIX.SCREEN:
+      return getPath(ref.path, screenData ?? {});
+    case PREFIX.DATA:
+      return getPath(ref.path, data);
+    case PREFIX.LOOP:
+      return getPath(ref.path, loopData);
+    case PREFIX.FOREACH:
+      return getPath(ref.path, screenData?.foreachData || {});
   }
-
-  throw new Error(`Invalid prefix: ${prefix}`);
 }

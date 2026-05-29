@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { resolveOptions } from "../components/primitives";
+import { resolveOptions } from "../../lib/resolve";
 
 describe("resolveOptions", () => {
   it("returns shuffledOptions from context when dataKey matches", () => {

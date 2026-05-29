@@ -193,6 +193,48 @@ describe("resolveValuesInString", () => {
     });
   });
 
+  describe("nested templates", () => {
+    it("resolves a # index nested inside a $$ path", () => {
+      const ctx = {
+        screenData: { foreachData: { "for-each-mirada": { index: 0, value: "mirada-a" } } },
+        data: { "loop-miradas": { "0": { mirada: { answer: "ashamed" } } } },
+      };
+      expect(
+        resolveValuesInString(
+          "Tu respuesta: {{$$loop-miradas.{{#for-each-mirada.index}}.mirada.answer}}",
+          ctx,
+        ),
+      ).toBe("Tu respuesta: ashamed");
+    });
+
+    it("resolves a @ index nested inside a $$ path", () => {
+      const ctx = {
+        loopData: { "loop-items": { value: "sports", index: 1 } },
+        data: { answers: { "1": { value: "football" } } },
+      };
+      expect(
+        resolveValuesInString("{{$$answers.{{@loop-items.index}}.value}}", ctx),
+      ).toBe("football");
+    });
+
+    it("leaves the outer token as-is when the inner token does not resolve", () => {
+      const ctx = { data: { answers: { "0": { value: "x" } } } };
+      expect(
+        resolveValuesInString("{{$$answers.{{#foreach.index}}.value}}", ctx),
+      ).toBe("{{$$answers.{{#foreach.index}}.value}}");
+    });
+
+    it("handles a nested token alongside a simple token in the same string", () => {
+      const ctx = {
+        screenData: { foreachData: { fe: { index: 2, value: "c" } } },
+        data: { rows: { "2": { label: "row-c" } }, title: "Results" },
+      };
+      expect(
+        resolveValuesInString("{{$$title}}: {{$$rows.{{#fe.index}}.label}}", ctx),
+      ).toBe("Results: row-c");
+    });
+  });
+
   describe("edge cases", () => {
     it("returns the string unchanged when there are no tokens", () => {
       expect(resolveValuesInString("No tokens here", {})).toBe("No tokens here");

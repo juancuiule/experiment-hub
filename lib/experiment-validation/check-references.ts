@@ -1,6 +1,14 @@
 import { flatMap, Handlers, on } from '../component-walker';
 import { Condition } from '../conditions';
 import {
+  BARE_DOUBLE_DOLLAR_RE,
+  HAS_WRAPPED_TOKEN_RE,
+  IS_BARE_REF_RE,
+  PREFIX,
+  TEMPLATE_TOKEN_RE,
+  parseRef,
+} from '../tokens';
+import {
   isBranchConditionEdge,
   isBranchDefaultEdge,
   isForkEdge,
@@ -73,16 +81,21 @@ function referencesInFormula(formula: Formula): string[] {
   }
 }
 
-// $$ must come before $ in the alternation so "$$foo" matches as a $$ token
-// rather than a $ token followed by "$foo". Matches the prefix precedence used
-// by resolveValuesInString and getPrefixAndPath in resolve.ts.
+// Extracts all static references from a text prop. For simple tokens like
+// {{$$foo.bar}} the full reference is returned. For tokens with a nested
+// template in the path (e.g. {{$$loop.{{#id.index}}.val}}) the outer path is
+// dynamic, so only the inner references are extracted for static validation.
 function extractRefs(text: string): string[] {
-  const wrapped = [...text.matchAll(/\{\{((?:\$\$|\$|@|#)[\w.\-]+)\}\}/g)].map(
-    (m) => m[1],
-  );
-  if (wrapped.length > 0) return wrapped;
-  const m = text.match(/^(\$\$|\$|@|#)([\w.\-]+)$/);
-  return m ? [`${m[1]}${m[2]}`] : [];
+  const allMatches = [...text.matchAll(TEMPLATE_TOKEN_RE)];
+  if (allMatches.length > 0) {
+    return allMatches.flatMap((m) => {
+      const path = m[2];
+      if (/\{\{/.test(path)) return extractRefs(path);
+      return [`${m[1]}${path}`];
+    });
+  }
+  const ref = parseRef(text);
+  return ref ? [`${ref.prefix}${ref.path}`] : [];
 }
 
 type Available = {
@@ -105,28 +118,25 @@ function hasKeyOrAncestor(path: string, keys: Set<string>): boolean {
 }
 
 function isAvailable(reference: string, available: Available): boolean {
-  if (reference.startsWith('$$')) {
-    return hasKeyOrAncestor(reference.slice(2), available.dataKeys);
+  const ref = parseRef(reference);
+  if (!ref) return false;
+  switch (ref.prefix) {
+    case PREFIX.DATA:
+      return hasKeyOrAncestor(ref.path, available.dataKeys);
+    case PREFIX.SCREEN:
+      return hasKeyOrAncestor(ref.path, available.screenKeys);
+    case PREFIX.LOOP:
+      return available.loops.has(ref.path.split('.')[0]);
+    case PREFIX.FOREACH:
+      return available.forEach.has(ref.path.split('.')[0]);
   }
-  if (reference.startsWith('$')) {
-    return hasKeyOrAncestor(reference.slice(1), available.screenKeys);
-  }
-  if (reference.startsWith('@')) {
-    const [loopId] = reference.slice(1).split('.');
-    return available.loops.has(loopId);
-  }
-  if (reference.startsWith('#')) {
-    const [forEachId] = reference.slice(1).split('.');
-    return available.forEach.has(forEachId);
-  }
-  return false;
 }
 
 // Maps an unavailable reference to a ValidationError. An @ reference that is not
 // in scope means it is used outside the loop it belongs to; anything else is data
 // that is not guaranteed to have been written at this point in the flow.
 function unavailableRefError(ref: string, context: string): ValidationError {
-  if (ref.startsWith('@')) {
+  if (ref.startsWith(PREFIX.LOOP)) {
     return {
       code: 'invalid-reference',
       category: 'reference',
@@ -145,10 +155,8 @@ function unavailableRefError(ref: string, context: string): ValidationError {
 // to the participant verbatim. We scan only for $$ — flagging bare $, @ or #
 // would false-positive on currency ("$5"), handles ("@you") and counts ("#1").
 function unwrappedRefErrors(text: string, context: string): ValidationError[] {
-  const hasWrapped = /\{\{(?:\$\$|\$|@|#)[\w.\-]+\}\}/.test(text);
-  const isWholeBare = /^(?:\$\$|\$|@|#)[\w.\-]+$/.test(text);
-  if (hasWrapped || isWholeBare) return [];
-  return [...text.matchAll(/\$\$([\w.\-]+)/g)].map((m) => ({
+  if (HAS_WRAPPED_TOKEN_RE.test(text) || IS_BARE_REF_RE.test(text)) return [];
+  return [...text.matchAll(BARE_DOUBLE_DOLLAR_RE)].map((m) => ({
     code: 'unwrapped-token',
     category: 'reference' as const,
     message: `${context} contains "$$${m[1]}" without {{…}} — it will not be interpolated at runtime`,

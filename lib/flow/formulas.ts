@@ -1,6 +1,7 @@
 import { evaluateCondition } from '../conditions';
 import { Formula } from '../nodes';
 import { getValue } from '../resolve';
+import { PREFIX, parseRef } from '../tokens';
 import { Context, ContextData } from '../types';
 import { shuffle } from '../utils';
 import { mergeContext } from './context';
@@ -10,9 +11,8 @@ function getFormulaInputValue(
   context: Context,
   nodeOutputs: ContextData,
 ): any {
-  if (input.startsWith('$') && !input.startsWith('$$')) {
-    return nodeOutputs[input.slice(1)];
-  }
+  const ref = parseRef(input);
+  if (ref?.prefix === PREFIX.SCREEN) return nodeOutputs[ref.path];
   return getValue(input, context);
 }
 
