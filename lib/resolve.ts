@@ -4,6 +4,10 @@ import {
   Option,
   OptionsSource,
 } from './components/response';
+import {
+  FULL_REF_WITH_NESTED_RE,
+  TEMPLATE_TOKEN_RE,
+} from './tokens';
 import { Context } from './types';
 
 type Prefix = '$$' | '@' | '$' | '#';
@@ -27,8 +31,7 @@ export function resolveValuesInString(
   _depth = 0,
 ): string {
   if (_depth > 10) return text;
-  const regex = /\{\{(\$\$|\$|@|#)([a-zA-Z0-9_.\-]+)\}\}/g;
-  return text.replace(regex, (match, prefix: Prefix, path: string) => {
+  return text.replace(TEMPLATE_TOKEN_RE, (match, prefix: Prefix, path: string) => {
     const resolved = getValue(`${prefix}${path}`, context, _depth + 1);
     return resolved != null ? String(resolved) : match;
   });
@@ -37,9 +40,7 @@ export function resolveValuesInString(
 export function getPrefixAndPath(
   text: string,
 ): { prefix: Prefix; path: string } | null {
-  const regex =
-    /^(\$\$|\$|@|#)((?:[a-zA-Z0-9_.\-]|\{\{(?:\$\$|\$|@|#)[a-zA-Z0-9_.\-]+\}\})+)$/;
-  const match = text.match(regex);
+  const match = text.match(FULL_REF_WITH_NESTED_RE);
   if (match) {
     const [, prefix, path] = match;
     return { prefix: prefix as Prefix, path };

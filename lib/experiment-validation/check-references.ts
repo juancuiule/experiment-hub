@@ -1,6 +1,13 @@
 import { flatMap, Handlers, on } from '../component-walker';
 import { Condition } from '../conditions';
 import {
+  BARE_DOUBLE_DOLLAR_RE,
+  BARE_REF_RE,
+  HAS_WRAPPED_TOKEN_RE,
+  IS_BARE_REF_RE,
+  TEMPLATE_TOKEN_RE,
+} from '../tokens';
+import {
   isBranchConditionEdge,
   isBranchDefaultEdge,
   isForkEdge,
@@ -73,15 +80,20 @@ function referencesInFormula(formula: Formula): string[] {
   }
 }
 
-// $$ must come before $ in the alternation so "$$foo" matches as a $$ token
-// rather than a $ token followed by "$foo". Matches the prefix precedence used
-// by resolveValuesInString and getPrefixAndPath in resolve.ts.
+// Extracts all static references from a text prop. For simple tokens like
+// {{$$foo.bar}} the full reference is returned. For tokens with a nested
+// template in the path (e.g. {{$$loop.{{#id.index}}.val}}) the outer path is
+// dynamic, so only the inner references are extracted for static validation.
 function extractRefs(text: string): string[] {
-  const wrapped = [...text.matchAll(/\{\{((?:\$\$|\$|@|#)[\w.\-]+)\}\}/g)].map(
-    (m) => m[1],
-  );
-  if (wrapped.length > 0) return wrapped;
-  const m = text.match(/^(\$\$|\$|@|#)([\w.\-]+)$/);
+  const allMatches = [...text.matchAll(TEMPLATE_TOKEN_RE)];
+  if (allMatches.length > 0) {
+    return allMatches.flatMap((m) => {
+      const path = m[2];
+      if (/\{\{/.test(path)) return extractRefs(path);
+      return [`${m[1]}${path}`];
+    });
+  }
+  const m = text.match(BARE_REF_RE);
   return m ? [`${m[1]}${m[2]}`] : [];
 }
 
@@ -145,10 +157,8 @@ function unavailableRefError(ref: string, context: string): ValidationError {
 // to the participant verbatim. We scan only for $$ — flagging bare $, @ or #
 // would false-positive on currency ("$5"), handles ("@you") and counts ("#1").
 function unwrappedRefErrors(text: string, context: string): ValidationError[] {
-  const hasWrapped = /\{\{(?:\$\$|\$|@|#)[\w.\-]+\}\}/.test(text);
-  const isWholeBare = /^(?:\$\$|\$|@|#)[\w.\-]+$/.test(text);
-  if (hasWrapped || isWholeBare) return [];
-  return [...text.matchAll(/\$\$([\w.\-]+)/g)].map((m) => ({
+  if (HAS_WRAPPED_TOKEN_RE.test(text) || IS_BARE_REF_RE.test(text)) return [];
+  return [...text.matchAll(BARE_DOUBLE_DOLLAR_RE)].map((m) => ({
     code: 'unwrapped-token',
     category: 'reference' as const,
     message: `${context} contains "$$${m[1]}" without {{…}} — it will not be interpolated at runtime`,

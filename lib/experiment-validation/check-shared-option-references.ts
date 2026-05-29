@@ -1,4 +1,5 @@
 import { flatMap, Handlers, on } from '../component-walker';
+import { HAS_WRAPPED_TOKEN_RE } from '../tokens';
 import { ExperimentFlow } from '../types';
 import { ValidationError } from './types';
 
@@ -6,8 +7,7 @@ export function checkSharedOptionReferences(
   flow: ExperimentFlow,
 ): ValidationError[] {
   const definedOptions = new Set(Object.keys(flow.options ?? {}));
-  const hasSupportedTemplatePlaceholder =
-    /\{\{(?:\$\$|\$|@|#)[a-zA-Z0-9_.\-]+\}\}/;
+  const hasSupportedTemplatePlaceholder = HAS_WRAPPED_TOKEN_RE;
 
   // State = screen slug, threaded through for use in error messages.
   const handlers: Handlers<ValidationError, string> = [
