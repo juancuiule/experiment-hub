@@ -122,10 +122,19 @@ async function enterStep(step: FlowStep): Promise<FlowStep> {
     // Recompute values using the current context — critical for nested loops
     // where the dataKey references a parent loop's item via @, since the parent's
     // loopData is only available in context at enterStep time, not at initialState time.
-    const values =
+    const resolvedValues =
       node.props.type === 'static'
         ? node.props.values
         : ((getValue(node.props.dataKey, step.context) as string[]) ?? []);
+
+    // When randomized, shuffle once on first entry (index === 0). The shuffled
+    // order is then persisted in state.values and reused for every iteration,
+    // so the presentation order is stable across the whole run. Subsequent
+    // iterations advance via traverseInLoop, which reads state.values directly.
+    const values =
+      index === 0 && node.props.randomized
+        ? shuffle(resolvedValues)
+        : resolvedValues;
 
     // Skip the loop entirely when there are no values to iterate
     if (values.length === 0) {

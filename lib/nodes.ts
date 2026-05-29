@@ -87,7 +87,7 @@ export interface LoopNode extends BaseNode {
   props: (
     | { type: 'static'; values: string[] }
     | { type: 'dynamic'; dataKey: `$$${string}` }
-  ) & { stepper?: StepperConfig };
+  ) & { stepper?: StepperConfig; randomized?: boolean };
 }
 
 export type FormulaInput = `$$${string}` | `$${string}`;
