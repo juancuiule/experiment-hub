@@ -162,24 +162,36 @@ export type SampleFormula = {
  * Subsumes the former `count-correct`: scoring is `op: 'count'` with
  *   `where: @<loopId>.<screen>.answer == @<loopId>.value.correctAnswer`.
  */
-export type LoopAggregateFormula = {
-  type: 'loop-aggregate';
-  /** ID of the loop node whose iteration data is aggregated */
-  loopId: string;
-  /** Aggregation operation */
-  op: 'count' | 'sum' | 'mean' | 'min' | 'max';
-  /**
-   * Reference to the per-iteration numeric value to aggregate, e.g.
-   * '@loopId.trial.rating'. Required for sum/mean/min/max; ignored by count
-   * (which counts iterations, optionally filtered by `where`).
-   */
-  field?: string;
-  /**
-   * Optional per-iteration predicate. Counts/aggregates only iterations that
-   * satisfy it. Both sides may be `@<loopId>` references resolved per iteration.
-   */
-  where?: Condition;
-};
+export type LoopAggregateFormula =
+  | {
+      type: 'loop-aggregate';
+      /** ID of the loop node whose iteration data is aggregated */
+      loopId: string;
+      /** Aggregation operation */
+      op: 'count';
+      /**
+       * Optional per-iteration predicate. Counts/aggregates only iterations that
+       * satisfy it. Both sides may be `@<loopId>` references resolved per iteration.
+       */
+      where?: Condition;
+    }
+  | {
+      type: 'loop-aggregate';
+      /** ID of the loop node whose iteration data is aggregated */
+      loopId: string;
+      /** Aggregation operation */
+      op: 'sum' | 'mean' | 'min' | 'max';
+      /**
+       * Reference to the per-iteration numeric value to aggregate, e.g.
+       * '@loopId.trial.rating'. Required for sum/mean/min/max.
+       */
+      field: string;
+      /**
+       * Optional per-iteration predicate. Counts/aggregates only iterations that
+       * satisfy it. Both sides may be `@<loopId>` references resolved per iteration.
+       */
+      where?: Condition;
+    };
 
 export type Formula =
   | SumFormula
