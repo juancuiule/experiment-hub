@@ -94,7 +94,7 @@ const questions: Question[] = [
     id: '44',
     text: 'Que tiene gustos sofisticados en arte, música o literatura',
   },
-].slice(0, 10);
+];
 
 const ocean: ExperimentFlow = {
   nodes: [

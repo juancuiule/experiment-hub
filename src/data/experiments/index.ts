@@ -3,11 +3,16 @@ import ejercicio1 from './ejercicio-1';
 import emociones from './emociones';
 import ocean from './ocean';
 import pandemic from './pandemic';
+import tribalismo from './tribalismo';
+import pecados from './pecados';
 
 export const EXPERIMENTS: Record<string, ExperimentFlow> = {
   experiment: pandemic,
   'ejercicio-1': ejercicio1,
   emociones,
+  ocean,
+  pecados,
+  tribalismo,
   test: {
     nodes: [
       { id: 'start', type: 'start' },
@@ -189,5 +194,4 @@ export const EXPERIMENTS: Record<string, ExperimentFlow> = {
       },
     ],
   },
-  ocean: ocean,
 };

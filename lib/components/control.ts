@@ -20,7 +20,7 @@ export type ConditionalComponent = BaseControlComponent<
 export type ForEachComponent = BaseControlComponent<
   'for-each',
   (
-    | { type: 'static'; values: string[] }
+    | { type: 'static'; values: any[] }
     | {
         type: 'dynamic';
         dataKey: `$$${string}` | `$${string}` | `@${string}` | `#${string}`;

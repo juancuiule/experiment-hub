@@ -131,7 +131,7 @@ export type LookupFormula = {
 
 export type SampleFormula = {
   type: 'sample';
-  input: FormulaInput | (string | Record<string, unknown>)[];
+  input: FormulaInput | any[];
   n: number;
 };
 
@@ -151,7 +151,7 @@ export type SampleFormula = {
  */
 export type SplitFormula = {
   type: 'split';
-  input: FormulaInput | (string | Record<string, unknown>)[];
+  input: FormulaInput | any[];
   mode: 'into' | 'size';
   n: number;
 };
