@@ -138,8 +138,8 @@ export type SampleFormula = {
 /**
  * Splits a list into bins, so a dynamic loop can present a questionnaire across
  * several screens (one bin per screen). The output is an array of bins (each bin
- * an array of the original items), stored at `data[outputKey]` and readable as
- * `$$outputKey`. Order is preserved — compose `sample` upstream to randomize.
+ * an array of the original items), stored under the compute node id (for example,
+ * `data.pages.bins`) and readable as `$$pages.bins`. Order is preserved — compose `sample` upstream to randomize.
  *
  * Two modes, discriminated:
  *   - `into: N`  — exactly N bins. base = floor(len/N) per bin; the LAST bin

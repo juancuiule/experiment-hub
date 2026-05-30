@@ -108,6 +108,7 @@ function checkComputeNodes(nodes: FrameworkNode[]): ValidationError[] {
               message: `Compute "${node.id}" output "${outputKey}" has split ${label}="${param}", but it must be a positive integer`,
             });
           } else if (
+            !('size' in formula) &&
             'into' in formula &&
             Array.isArray(formula.input) &&
             formula.into > formula.input.length

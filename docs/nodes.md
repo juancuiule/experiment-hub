@@ -88,7 +88,7 @@ A `loop-aggregate` formula reads `context.loops[loopId].order` directly to find 
 
 ### `split` formula — paginate a list across loop screens
 
-A compute `split` formula chops a list into bins so a dynamic loop can present a long questionnaire across several screens (one bin per screen). Its output — an **array of bins** (each bin an array of the original items) — is stored at `data[outputKey]` and read by a dynamic loop via `$$outputKey`.
+A compute `split` formula chops a list into bins so a dynamic loop can present a long questionnaire across several screens (one bin per screen). Its output — an **array of bins** (each bin an array of the original items) — is stored under the compute node id (for example, `data.pages.bins`) and read by a dynamic loop via a reference such as `$$pages.bins`.
 
 ```ts
 { outputKey: 'bins', formula: { type: 'split', input: '$$intro.questions', size: 5 } }
