@@ -85,9 +85,20 @@ export interface ForkNode extends BaseNode {
 export interface LoopNode extends BaseNode {
   type: 'loop';
   props: (
-    | { type: 'static'; values: string[] }
+    | { type: 'static'; values: (string | Record<string, unknown>)[] }
     | { type: 'dynamic'; dataKey: `$$${string}` }
-  ) & { stepper?: StepperConfig; randomized?: boolean };
+  ) & {
+    stepper?: StepperConfig;
+    randomized?: boolean;
+    /**
+     * Property name to use as the iteration key for object-valued items.
+     * When set and an item is an object, data lands at
+     * context.data.<loopId>.<String(item[itemKey])> instead of the 1-based index.
+     * No-op for plain-string items. Falls back to the 1-based index when the
+     * property is missing at runtime (dynamic loops) — static loops are validated.
+     */
+    itemKey?: string;
+  };
 }
 
 export type FormulaInput = `$$${string}` | `$${string}`;
@@ -141,6 +152,13 @@ export type CountCorrectFormula = {
   answerKey: string;
   /** Property name on each item object that holds the correct answer */
   correctKey: string;
+  /**
+   * Property name used to reconstruct the loop's iteration key.
+   * Must match the loop node's itemKey when that loop sets one. A mismatch is
+   * NOT validated and will silently return wrong results — pending a future
+   * count-correct refactor.
+   */
+  itemKey?: string;
 };
 
 export type Formula =

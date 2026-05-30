@@ -2804,6 +2804,88 @@ describe('severity', () => {
   });
 });
 
+describe('loop itemKey', () => {
+  function loopFlow(
+    props: Extract<
+      ExperimentFlow['nodes'][number],
+      { type: 'loop' }
+    >['props'],
+  ): ExperimentFlow {
+    return {
+      nodes: [
+        start,
+        { id: 'loop', type: 'loop', props },
+        makeScreen('item', 'item'),
+        end,
+      ],
+      edges: [
+        seq('start', 'loop'),
+        { type: 'loop-template', from: 'loop', to: 'item' },
+        seq('loop', 'end'),
+      ],
+      screens: [{ slug: 'item', components: [] }],
+    };
+  }
+
+  it('flags a static loop whose object value is missing the itemKey property', () => {
+    const flow = loopFlow({
+      type: 'static',
+      values: [{ id: 'cat' }, { label: 'no-id-here' }],
+      itemKey: 'id',
+    });
+    expect(codes(flow)).toContain('loop-item-key-missing');
+  });
+
+  it('flags a static loop whose itemKey property value is null or undefined', () => {
+    // Present-but-nullish values fall back to the index at runtime, so they are
+    // flagged the same as a fully missing property.
+    expect(
+      codes(
+        loopFlow({
+          type: 'static',
+          values: [{ id: 'cat' }, { id: null }],
+          itemKey: 'id',
+        }),
+      ),
+    ).toContain('loop-item-key-missing');
+    expect(
+      codes(
+        loopFlow({
+          type: 'static',
+          values: [{ id: undefined }],
+          itemKey: 'id',
+        }),
+      ),
+    ).toContain('loop-item-key-missing');
+  });
+
+  it('does not flag a static loop where every object has the itemKey property', () => {
+    const flow = loopFlow({
+      type: 'static',
+      values: [{ id: 'cat' }, { id: 'dog' }],
+      itemKey: 'id',
+    });
+    expect(codes(flow)).not.toContain('loop-item-key-missing');
+  });
+
+  it('does not flag string values when itemKey is set (no-op for strings)', () => {
+    const flow = loopFlow({
+      type: 'static',
+      values: ['red', 'blue'],
+      itemKey: 'id',
+    });
+    expect(codes(flow)).not.toContain('loop-item-key-missing');
+  });
+
+  it('does not flag object loops without an itemKey', () => {
+    const flow = loopFlow({
+      type: 'static',
+      values: [{ label: 'a' }, { label: 'b' }],
+    });
+    expect(codes(flow)).not.toContain('loop-item-key-missing');
+  });
+});
+
 describe('randomized for-each validation', () => {
   function flowWithForeach(props: Record<string, unknown>): ExperimentFlow {
     return {

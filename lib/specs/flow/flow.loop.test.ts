@@ -134,6 +134,202 @@ describe("loop (dynamic values from context)", () => {
   });
 });
 
+describe("loop (object values with itemKey)", () => {
+  const stimuli = [
+    { id: "cat", label: "Cat", correct: "meow" },
+    { id: "dog", label: "Dog", correct: "woof" },
+  ];
+
+  const flow: ExperimentFlow = {
+    nodes: [
+      { id: "start", type: "start" },
+      {
+        id: "stimuli-loop",
+        type: "loop",
+        props: { type: "static", values: stimuli, itemKey: "id" },
+      },
+      makeScreen("screen-stimulus", "stimulus"),
+      makeScreen("screen-end", "end"),
+    ],
+    edges: [
+      seq("start", "stimuli-loop"),
+      { type: "loop-template", from: "stimuli-loop", to: "screen-stimulus" },
+      seq("stimuli-loop", "screen-end"),
+    ],
+  };
+
+  it("writes per-iteration data keyed by the itemKey property, not the index", async () => {
+    let step = await startExperiment(flow, "start");
+    step = await traverse(step, { answer: "meow" }); // cat
+    step = await traverse(step, { answer: "bark" }); // dog → exit
+    expect(
+      step.context.data?.["stimuli-loop"]?.["cat"]?.["stimulus"],
+    ).toEqual({ answer: "meow" });
+    expect(
+      step.context.data?.["stimuli-loop"]?.["dog"]?.["stimulus"],
+    ).toEqual({ answer: "bark" });
+    // No 1-based index keys should be present
+    expect(step.context.data?.["stimuli-loop"]?.["1"]).toBeUndefined();
+    expect(step.context.data?.["stimuli-loop"]?.["2"]).toBeUndefined();
+  });
+
+  it("stores resolved key strings in context.loops.<id>.order", async () => {
+    const step = await startExperiment(flow, "start");
+    expect(step.context.loops?.["stimuli-loop"]?.order).toEqual(["cat", "dog"]);
+  });
+
+  it("exposes the full object as @loopId.value inside the loop", async () => {
+    let step = await startExperiment(flow, "start");
+    expect(step.context.loopData?.["stimuli-loop"]).toEqual({
+      value: stimuli[0],
+      index: 0,
+    });
+    step = await traverse(step, { answer: "meow" });
+    expect(step.context.loopData?.["stimuli-loop"]).toEqual({
+      value: stimuli[1],
+      index: 1,
+    });
+  });
+});
+
+describe("loop (itemKey edge cases)", () => {
+  it("falls back to the 1-based index when an object lacks the itemKey at runtime", async () => {
+    // Dynamic loop: missing property cannot be caught statically, so the engine
+    // silently falls back to String(index + 1) for that iteration.
+    const flow: ExperimentFlow = {
+      nodes: [
+        { id: "start", type: "start" },
+        makeScreen("screen-setup", "setup"),
+        {
+          id: "loop-dyn",
+          type: "loop",
+          props: { type: "dynamic", dataKey: "$$setup.items", itemKey: "id" },
+        },
+        makeScreen("screen-item", "item"),
+        makeScreen("screen-end", "end"),
+      ],
+      edges: [
+        seq("start", "screen-setup"),
+        seq("screen-setup", "loop-dyn"),
+        { type: "loop-template", from: "loop-dyn", to: "screen-item" },
+        seq("loop-dyn", "screen-end"),
+      ],
+    };
+
+    let step = await startExperiment(flow, "start");
+    step = await traverse(step, {
+      items: [{ id: "x", v: 1 }, { v: 2 }], // second object has no `id`
+    });
+    step = await traverse(step, { picked: "a" }); // first item → keyed by "x"
+    step = await traverse(step, { picked: "b" }); // second item → falls back to "2"
+    expect(step.context.data?.["loop-dyn"]?.["x"]?.["item"]).toEqual({
+      picked: "a",
+    });
+    expect(step.context.data?.["loop-dyn"]?.["2"]?.["item"]).toEqual({
+      picked: "b",
+    });
+    expect(step.context.loops?.["loop-dyn"]?.order).toEqual(["x", "2"]);
+  });
+
+  it("is a no-op for string-valued loops — string value is used as the key", async () => {
+    const flow: ExperimentFlow = {
+      nodes: [
+        { id: "start", type: "start" },
+        {
+          id: "loop-str",
+          type: "loop",
+          props: {
+            type: "static",
+            values: ["red", "blue"],
+            itemKey: "id",
+          },
+        },
+        makeScreen("screen-color", "color"),
+        makeScreen("screen-end", "end"),
+      ],
+      edges: [
+        seq("start", "loop-str"),
+        { type: "loop-template", from: "loop-str", to: "screen-color" },
+        seq("loop-str", "screen-end"),
+      ],
+    };
+
+    let step = await startExperiment(flow, "start");
+    step = await traverse(step, { liked: true }); // red
+    step = await traverse(step, { liked: false }); // blue → exit
+    expect(step.context.data?.["loop-str"]?.["red"]?.["color"]).toEqual({
+      liked: true,
+    });
+    expect(step.context.data?.["loop-str"]?.["blue"]?.["color"]).toEqual({
+      liked: false,
+    });
+    expect(step.context.loops?.["loop-str"]?.order).toEqual(["red", "blue"]);
+  });
+
+  it("falls back to the index when the itemKey resolves to a reserved key (no prototype pollution)", async () => {
+    const flow: ExperimentFlow = {
+      nodes: [
+        { id: "start", type: "start" },
+        makeScreen("screen-setup", "setup"),
+        {
+          id: "loop-proto",
+          type: "loop",
+          props: { type: "dynamic", dataKey: "$$setup.items", itemKey: "id" },
+        },
+        makeScreen("screen-item", "item"),
+        makeScreen("screen-end", "end"),
+      ],
+      edges: [
+        seq("start", "screen-setup"),
+        seq("screen-setup", "loop-proto"),
+        { type: "loop-template", from: "loop-proto", to: "screen-item" },
+        seq("loop-proto", "screen-end"),
+      ],
+    };
+
+    let step = await startExperiment(flow, "start");
+    step = await traverse(step, { items: [{ id: "__proto__", v: 1 }] });
+    step = await traverse(step, { picked: "a" }); // single item → exit
+
+    // Keyed by the index fallback, not "__proto__"
+    expect(step.context.data?.["loop-proto"]?.["1"]?.["item"]).toEqual({
+      picked: "a",
+    });
+    expect(step.context.loops?.["loop-proto"]?.order).toEqual(["1"]);
+    // The prototype was not polluted
+    expect(({} as Record<string, unknown>).v).toBeUndefined();
+  });
+
+  it("skips a dynamic loop whose dataKey resolves to a non-array value", async () => {
+    const flow: ExperimentFlow = {
+      nodes: [
+        { id: "start", type: "start" },
+        makeScreen("screen-setup", "setup"),
+        {
+          id: "loop-bad",
+          type: "loop",
+          props: { type: "dynamic", dataKey: "$$setup.items" },
+        },
+        makeScreen("screen-item", "item"),
+        makeScreen("screen-end", "end"),
+      ],
+      edges: [
+        seq("start", "screen-setup"),
+        seq("screen-setup", "loop-bad"),
+        { type: "loop-template", from: "loop-bad", to: "screen-item" },
+        seq("loop-bad", "screen-end"),
+      ],
+    };
+
+    let step = await startExperiment(flow, "start");
+    // items is an object, not an array — must not crash, loop is skipped
+    step = await traverse(step, { items: { not: "an array" } });
+    expect(step.state.type).toBe("in-node");
+    expect((step.state as any).node.id).toBe("screen-end");
+    expect(step.context.loops?.["loop-bad"]?.order).toEqual([]);
+  });
+});
+
 describe("loop tracking (context.loops)", () => {
   const flow: ExperimentFlow = {
     nodes: [

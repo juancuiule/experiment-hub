@@ -531,3 +531,79 @@ describe("compute node — count-correct formula", () => {
     expect(total).toBe(1);
   });
 });
+
+describe("compute node — count-correct formula (with itemKey)", () => {
+  // When the loop keys iterations by an item property, the count-correct
+  // formula must reconstruct the same key via its own itemKey to find answers.
+  const items = [
+    { id: "cat", correctAnswer: "meow" },
+    { id: "dog", correctAnswer: "woof" },
+    { id: "cow", correctAnswer: "moo" },
+  ];
+
+  const flow: ExperimentFlow = {
+    nodes: [
+      { id: "start", type: "start" },
+      makeCompute("pick", [
+        { outputKey: "items", formula: { type: "sample", input: items, n: 3 } },
+      ]),
+      {
+        id: "loop",
+        type: "loop",
+        props: { type: "dynamic", dataKey: "$$pick.items", itemKey: "id" },
+      },
+      makeScreen("trial", "trial"),
+      makeCompute("score", [
+        {
+          outputKey: "total",
+          formula: {
+            type: "count-correct",
+            itemsKey: "$$pick.items",
+            loopId: "loop",
+            screenSlug: "trial",
+            answerKey: "answer",
+            correctKey: "correctAnswer",
+            itemKey: "id",
+          },
+        },
+      ]),
+      makeScreen("end", "end"),
+    ],
+    edges: [
+      seq("start", "pick"),
+      seq("pick", "loop"),
+      { type: "loop-template", from: "loop", to: "trial" },
+      seq("loop", "score"),
+      seq("score", "end"),
+    ],
+    screens: [
+      { slug: "trial", components: [] },
+      { slug: "end", components: [] },
+    ],
+  };
+
+  async function runLoop(
+    getAnswer: (item: (typeof items)[0]) => string,
+  ): Promise<number> {
+    let step = await startExperiment(flow, "start");
+    while (step.state.type === "in-loop") {
+      const currentItem = (step.context.loopData as any)?.["loop"]?.value;
+      step = await traverse(step, { answer: getAnswer(currentItem) });
+    }
+    return step.context.data?.["score"]?.["total"] as number;
+  }
+
+  it("counts correctly when answers are keyed by the item property", async () => {
+    // Data lands under context.data.loop.cat / .dog / .cow — count-correct
+    // must resolve those keys, not 1/2/3.
+    const total = await runLoop((item) => item.correctAnswer);
+    expect(total).toBe(3);
+  });
+
+  it("returns 1 when only one answer is correct", async () => {
+    const total = await runLoop((item) =>
+      item.id === "dog" ? item.correctAnswer : "wrong",
+    );
+    expect(total).toBe(1);
+  });
+});

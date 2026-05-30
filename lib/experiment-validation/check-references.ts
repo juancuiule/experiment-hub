@@ -1,5 +1,6 @@
 import { flatMap, Handlers, on } from '../component-walker';
 import { Condition } from '../conditions';
+import { resolveIterKey } from '../flow';
 import {
   BARE_DOUBLE_DOLLAR_RE,
   HAS_WRAPPED_TOKEN_RE,
@@ -539,14 +540,14 @@ export function checkReferences(experiment: ExperimentFlow): ValidationError[] {
             // Walk once per value — the runtime data path is [loopId, value],
             // so each iteration produces distinct $$ keys downstream.
             const allKeys = new Set(available.dataKeys);
-            for (const value of node.props.values) {
+            node.props.values.forEach((value, index) => {
               const iterResult = walkFrom(templateEdge.to, loopAvailable, [
                 ...dataPath,
                 node.id,
-                value,
+                resolveIterKey(value, index, node.props.itemKey),
               ]);
               iterResult.dataKeys.forEach((k) => allKeys.add(k));
-            }
+            });
             afterLoop = { ...available, dataKeys: allKeys };
           } else {
             // Dynamic loop: source array unknown at validation time — validate

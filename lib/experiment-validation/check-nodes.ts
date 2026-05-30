@@ -1,4 +1,10 @@
-import { BranchNode, ComputeNode, ForkNode, FrameworkNode } from '../nodes';
+import {
+  BranchNode,
+  ComputeNode,
+  ForkNode,
+  FrameworkNode,
+  LoopNode,
+} from '../nodes';
 import { ExperimentFlow } from '../types';
 import { ValidationError } from './types';
 import { validateConditionStructure } from './validate-condition-structure';
@@ -96,6 +102,39 @@ function checkComputeNodes(nodes: FrameworkNode[]): ValidationError[] {
   return errors;
 }
 
+// For static loops that set an itemKey, every object value must carry that
+// property — otherwise the iteration key cannot be resolved and data would
+// silently land under a 1-based index. Caught statically at startup.
+// (Dynamic loops are validated at runtime via a silent index fallback.)
+function checkLoopNodes(nodes: FrameworkNode[]): ValidationError[] {
+  const errors: ValidationError[] = [];
+
+  nodes
+    .filter((n): n is LoopNode => n.type === 'loop')
+    .forEach((node) => {
+      const { props } = node;
+      if (props.type !== 'static' || props.itemKey == null) return;
+      const itemKey = props.itemKey;
+
+      props.values.forEach((value, index) => {
+        if (typeof value !== 'object' || value === null) return;
+        // Mirror resolveIterKey: a missing OR null/undefined property value
+        // cannot produce a usable key and silently falls back to the index at
+        // runtime, so both cases are flagged here.
+        if ((value as Record<string, unknown>)[itemKey] == null) {
+          errors.push({
+            code: 'loop-item-key-missing',
+            category: 'node',
+            nodeType: 'loop',
+            message: `Loop "${node.id}" sets itemKey "${itemKey}" but value at index ${index} is missing that property (or its value is null/undefined): ${JSON.stringify(value)}`,
+          });
+        }
+      });
+    });
+
+  return errors;
+}
+
 const REQUIRE_AT_LEAST_ONE: FrameworkNode['type'][] = ['start', 'end'];
 
 export function checkNodes({ nodes }: ExperimentFlow): ValidationError[] {
@@ -151,7 +190,12 @@ export function checkNodes({ nodes }: ExperimentFlow): ValidationError[] {
     'forks',
   );
 
-  errors.push(...branchErrors, ...forkErrors, ...checkComputeNodes(nodes));
+  errors.push(
+    ...branchErrors,
+    ...forkErrors,
+    ...checkComputeNodes(nodes),
+    ...checkLoopNodes(nodes),
+  );
 
   return errors;
 }
