@@ -142,6 +142,13 @@ export function evaluateFormula(
             : iterationData;
         Object.assign(collected, scope);
       }
+
+      if (formula.omitKeys != null) {
+        for (const key of formula.omitKeys) {
+          delete collected[key];
+        }
+      }
+
       return collected;
     }
     case 'loop-aggregate': {

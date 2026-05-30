@@ -167,6 +167,7 @@ const ocean: ExperimentFlow = {
               type: 'collect-loop',
               loopId: 'loops',
               screen: 'questions',
+              omitKeys: ['for-each-question:order'],
             },
           },
         ],

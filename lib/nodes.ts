@@ -240,6 +240,10 @@ export type CollectLoopFormula = {
   loopId: string;
   /** Screen slug to scope to; omit to merge each iteration's whole data object */
   screen?: string;
+  /** Optional list of field keys to omit from the collected output
+   * (e.g. to exclude non-response fields like timestamps or
+   * iteration-specific metadata) */
+  omitKeys?: string[];
 };
 
 export type Formula =
