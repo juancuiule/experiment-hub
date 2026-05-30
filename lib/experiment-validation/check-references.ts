@@ -58,6 +58,20 @@ function referencesInCondition(condition: Condition): string[] {
   }
 }
 
+function valueReferencesInCondition(condition: Condition): string[] {
+  switch (condition.type) {
+    case 'simple':
+      return typeof condition.value === 'string' && parseRef(condition.value)
+        ? [condition.value]
+        : [];
+    case 'and':
+    case 'or':
+      return condition.conditions.flatMap(valueReferencesInCondition);
+    case 'not':
+      return valueReferencesInCondition(condition.condition);
+  }
+}
+
 function referencesInFormula(formula: Formula): string[] {
   switch (formula.type) {
     case 'sum':
@@ -503,6 +517,23 @@ export function checkReferences(experiment: ExperimentFlow): ValidationError[] {
                 message: `Compute "${node.id}" output "${outputKey}" loop-aggregate references loop "${formula.loopId}" which is not a loop node in this experiment`,
               });
             }
+
+            const loopRefs = [
+              ...(formula.where ? referencesInCondition(formula.where) : []),
+              ...(formula.where ? valueReferencesInCondition(formula.where) : []),
+              ...(formula.op === 'count' ? [] : [formula.field]),
+            ].filter((ref) => ref.startsWith(PREFIX.LOOP));
+
+            loopRefs.forEach((ref) => {
+              const refLoopId = parseRef(ref)?.path.split('.')[0];
+              if (refLoopId !== formula.loopId) {
+                rawErrors.push({
+                  code: 'invalid-reference',
+                  category: 'reference',
+                  message: `Compute "${node.id}" output "${outputKey}" loop-aggregate uses "${ref}" but loopId is "${formula.loopId}"`,
+                });
+              }
+            });
           }
 
           computeAvailable = {
