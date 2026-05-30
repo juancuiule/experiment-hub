@@ -151,6 +151,13 @@ const ocean: ExperimentFlow = {
         slug: 'questions',
       },
     },
+    {
+      id: 'screen-regressors',
+      type: 'screen',
+      props: {
+        slug: 'regressors',
+      },
+    },
     { id: 'end', type: 'end' },
   ],
   edges: [
@@ -159,7 +166,8 @@ const ocean: ExperimentFlow = {
     { from: 'screen-instructions', to: 'compute-split', type: 'sequential' },
     { from: 'compute-split', to: 'loops', type: 'sequential' },
     { from: 'loops', to: 'screen-questionnaire', type: 'loop-template' },
-    { from: 'loops', to: 'end', type: 'sequential' },
+    { from: 'loops', to: 'screen-regressors', type: 'sequential' },
+    { from: 'screen-regressors', to: 'end', type: 'sequential' },
   ],
   screens: [
     {
@@ -260,6 +268,52 @@ const ocean: ExperimentFlow = {
         },
       ],
     },
+    {
+      slug: 'regressors',
+      components: [
+        {
+          componentFamily: 'content',
+          template: 'rich-text',
+          props: {
+            content: `### ¡Esto último y terminamos!`,
+          },
+        },
+        {
+          componentFamily: 'response',
+          template: 'numeric-input',
+          props: {
+            label: 'Edad',
+            dataKey: 'age',
+            min: 18,
+            max: 120,
+          },
+        },
+        {
+          componentFamily: 'response',
+          template: 'dropdown',
+          props: {
+            label: 'Género',
+            dataKey: 'gender',
+            options: '%gender',
+          },
+        },
+        {
+          componentFamily: 'response',
+          template: 'text-input',
+          props: {
+            label: 'Nacionalidad',
+            dataKey: 'nationality',
+          },
+        },
+        {
+          componentFamily: 'layout',
+          template: 'button',
+          props: {
+            text: 'Terminar',
+          },
+        },
+      ],
+    },
   ],
   options: {
     // acuerdo
@@ -269,6 +323,18 @@ const ocean: ExperimentFlow = {
       { label: 'Ni de acuerdo ni en desacuerdo', value: '3' },
       { label: '', value: '4' },
       { label: 'Estoy de acuerdo', value: '5' },
+    ],
+    // género
+    gender: [
+      { label: 'Mujer', value: 'woman' },
+      { label: 'Varón', value: 'man' },
+      { label: 'No binarie', value: 'non-binary' },
+      { label: 'Género fluido', value: 'gender-fluid' },
+      {
+        label: 'Ninguna de estas opciones me identifica',
+        value: 'none-of-these',
+      },
+      { label: 'Prefiero no decirlo', value: 'prefer-not-to-say' },
     ],
   },
 };
