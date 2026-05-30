@@ -81,6 +81,76 @@ export function evaluateFormula(
       if (!Array.isArray(pool)) return [];
       return shuffle(pool).slice(0, formula.n);
     }
+    case 'split': {
+      const list = Array.isArray(formula.input)
+        ? formula.input
+        : getFormulaInputValue(formula.input, context, nodeOutputs);
+      if (!Array.isArray(list)) return [];
+
+      const n = formula.n;
+      if (!Number.isInteger(n) || n <= 0) return [list];
+
+      if (formula.mode === 'size') {
+        // size mode: bins of n items; the final bin holds the remainder
+        // (n=3 over 10 → [3,3,3,1]).
+        const bins: unknown[][] = [];
+        for (let i = 0; i < list.length; i += n) {
+          bins.push(list.slice(i, i + n));
+        }
+        return bins;
+      }
+
+      // into mode: n bins. Each bin gets `base` items; the trailing `rem` bins
+      // get one extra, so the remainder lands in the last bins (n=3 over 10 →
+      // [3,3,4]). When n > length, base is 0 and the leading empty bins are
+      // dropped (n=3 over 2 → [[a],[b]]); the inline-array overflow case is
+      // caught by validation instead.
+      const base = Math.floor(list.length / n);
+      const rem = list.length - base * n;
+      const bins: unknown[][] = [];
+      let cursor = 0;
+      for (let b = 0; b < n; b++) {
+        const take = base + (b >= n - rem ? 1 : 0);
+        bins.push(list.slice(cursor, cursor + take));
+        cursor += take;
+      }
+      return bins.filter((bin) => bin.length > 0);
+    }
+    case 'collect-loop': {
+      // Merge every iteration's responses into one flat object. Iterations are
+      // read from the loop's published order; the iteration data nests under the
+      // compute node's dataPath (e.g. data[pathId][loopId]) just like
+      // loop-aggregate, so walk dataPath before indexing by loopId.
+      const order = context.loops?.[formula.loopId]?.order ?? [];
+      const loopDataRoot = (dataPath ?? []).reduce<any>(
+        (obj, key) => (obj == null ? undefined : obj[key]),
+        context.data ?? {},
+      );
+      const iterations = loopDataRoot?.[formula.loopId] as
+        | Record<string, Record<string, unknown>>
+        | undefined;
+
+      const collected: Record<string, unknown> = {};
+      for (const iterKey of order) {
+        const iterationData = iterations?.[iterKey];
+        if (iterationData == null) continue;
+        // Scope to the screen slug when given (→ flat field map); otherwise
+        // merge the whole iteration object (keeps the screen-slug level).
+        const scope =
+          formula.screen != null
+            ? ((iterationData[formula.screen] as Record<string, unknown>) ?? {})
+            : iterationData;
+        Object.assign(collected, scope);
+      }
+
+      if (formula.omitKeys != null) {
+        for (const key of formula.omitKeys) {
+          delete collected[key];
+        }
+      }
+
+      return collected;
+    }
     case 'loop-aggregate': {
       // Iterate the loop's own published keys rather than reconstructing them,
       // so static/dynamic loops, plain-string and object items, and itemKey'd

@@ -96,6 +96,30 @@ function checkComputeNodes(nodes: FrameworkNode[]): ValidationError[] {
             message: `Compute "${node.id}" output "${outputKey}" has sample size n="${formula.n}", but n must be a positive integer`,
           });
         }
+
+        if (formula.type === 'split') {
+          if (!Number.isInteger(formula.n) || formula.n <= 0) {
+            errors.push({
+              code: 'invalid-split-size',
+              category: 'node',
+              nodeType: 'compute',
+              message: `Compute "${node.id}" output "${outputKey}" has split n="${formula.n}", but it must be a positive integer`,
+            });
+          } else if (
+            formula.mode === 'into' &&
+            Array.isArray(formula.input) &&
+            formula.n > formula.input.length
+          ) {
+            // Statically known overflow: more bins than items. Dynamic inputs
+            // can't be checked here and fall back to dropping empty bins.
+            errors.push({
+              code: 'split-bins-exceed-items',
+              category: 'node',
+              nodeType: 'compute',
+              message: `Compute "${node.id}" output "${outputKey}" splits ${formula.input.length} items into ${formula.n} bins; n must not exceed the number of items`,
+            });
+          }
+        }
       }
     });
 

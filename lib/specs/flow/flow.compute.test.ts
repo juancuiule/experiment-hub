@@ -417,6 +417,164 @@ describe("compute node — sample formula feeding a dynamic loop", () => {
   });
 });
 
+describe("compute node — split formula (size mode)", () => {
+  function splitFlow(input: any, prop: object): ExperimentFlow {
+    return {
+      nodes: [
+        { id: "start", type: "start" },
+        makeCompute("pages", [
+          { outputKey: "bins", formula: { type: "split", input, ...prop } as any },
+        ]),
+        makeScreen("s1", "end"),
+      ],
+      edges: [seq("start", "pages"), seq("pages", "s1")],
+      screens: [{ slug: "end", components: [] }],
+    };
+  }
+
+  it("splits evenly into bins of N", async () => {
+    const step = await startExperiment(
+      splitFlow(["a", "b", "c", "d", "e", "f"], { mode: "size", n: 3 }),
+      "start",
+    );
+    expect(step.context.data?.["pages"]?.["bins"]).toEqual([
+      ["a", "b", "c"],
+      ["d", "e", "f"],
+    ]);
+  });
+
+  it("puts the remainder in the final bin", async () => {
+    const step = await startExperiment(
+      splitFlow(["a", "b", "c", "d", "e", "f", "g"], { mode: "size", n: 3 }),
+      "start",
+    );
+    expect(step.context.data?.["pages"]?.["bins"]).toEqual([
+      ["a", "b", "c"],
+      ["d", "e", "f"],
+      ["g"],
+    ]);
+  });
+
+  it("returns a single bin when size exceeds length", async () => {
+    const step = await startExperiment(splitFlow(["a", "b"], { mode: "size", n: 5 }), "start");
+    expect(step.context.data?.["pages"]?.["bins"]).toEqual([["a", "b"]]);
+  });
+
+  it("returns [] when the reference does not resolve to an array", async () => {
+    const step = await startExperiment(splitFlow("$$missing.items" as any, { mode: "size", n: 3 }), "start");
+    expect(step.context.data?.["pages"]?.["bins"]).toEqual([]);
+  });
+});
+
+describe("compute node — split formula (into mode)", () => {
+  function splitFlow(input: any, prop: object): ExperimentFlow {
+    return {
+      nodes: [
+        { id: "start", type: "start" },
+        makeCompute("pages", [
+          { outputKey: "bins", formula: { type: "split", input, ...prop } as any },
+        ]),
+        makeScreen("s1", "end"),
+      ],
+      edges: [seq("start", "pages"), seq("pages", "s1")],
+      screens: [{ slug: "end", components: [] }],
+    };
+  }
+
+  it("splits evenly into N bins", async () => {
+    const step = await startExperiment(
+      splitFlow(["a", "b", "c", "d", "e", "f"], { mode: "into", n: 3 }),
+      "start",
+    );
+    expect(step.context.data?.["pages"]?.["bins"]).toEqual([
+      ["a", "b"],
+      ["c", "d"],
+      ["e", "f"],
+    ]);
+  });
+
+  it("lets the last bin absorb the remainder", async () => {
+    const step = await startExperiment(
+      splitFlow(["a", "b", "c", "d", "e", "f", "g"], { mode: "into", n: 3 }),
+      "start",
+    );
+    expect(step.context.data?.["pages"]?.["bins"]).toEqual([
+      ["a", "b"],
+      ["c", "d"],
+      ["e", "f", "g"],
+    ]);
+  });
+
+  it("drops empty bins when N exceeds length (dynamic fallback)", async () => {
+    const step = await startExperiment(splitFlow(["a", "b"], { mode: "into", n: 3 }), "start");
+    expect(step.context.data?.["pages"]?.["bins"]).toEqual([["a"], ["b"]]);
+  });
+});
+
+describe("compute node — split formula (dynamic $$ input)", () => {
+  const flow: ExperimentFlow = {
+    nodes: [
+      { id: "start", type: "start" },
+      makeScreen("setup", "setup"),
+      makeCompute("pages", [
+        { outputKey: "bins", formula: { type: "split", input: "$$setup.items", mode: "size", n: 2 } as any },
+      ]),
+      makeScreen("s1", "end"),
+    ],
+    edges: [seq("start", "setup"), seq("setup", "pages"), seq("pages", "s1")],
+    screens: [{ slug: "setup", components: [] }, { slug: "end", components: [] }],
+  };
+
+  it("reads the list from context via $$ reference", async () => {
+    let step = await startExperiment(flow, "start");
+    step = await traverse(step, { items: ["q1", "q2", "q3"] });
+    expect(step.context.data?.["pages"]?.["bins"]).toEqual([["q1", "q2"], ["q3"]]);
+  });
+
+  it("returns [] when the reference does not resolve to an array", async () => {
+    let step = await startExperiment(flow, "start");
+    step = await traverse(step, {});
+    expect(step.context.data?.["pages"]?.["bins"]).toEqual([]);
+  });
+});
+
+describe("compute node — split formula feeding a dynamic loop", () => {
+  const flow: ExperimentFlow = {
+    nodes: [
+      { id: "start", type: "start" },
+      makeCompute("pages", [
+        {
+          outputKey: "bins",
+          formula: { type: "split", input: ["q1", "q2", "q3", "q4", "q5"], mode: "size", n: 2 } as any,
+        },
+      ]),
+      {
+        id: "loop-pages",
+        type: "loop",
+        props: { type: "dynamic", dataKey: "$$pages.bins" },
+      },
+      makeScreen("screen-page", "page-screen"),
+      makeScreen("screen-end", "end"),
+    ],
+    edges: [
+      seq("start", "pages"),
+      seq("pages", "loop-pages"),
+      { type: "loop-template", from: "loop-pages", to: "screen-page" },
+      seq("loop-pages", "screen-end"),
+    ],
+    screens: [
+      { slug: "page-screen", components: [] },
+      { slug: "end", components: [] },
+    ],
+  };
+
+  it("loops once per bin", async () => {
+    const step = await startExperiment(flow, "start");
+    expect(step.state.type).toBe("in-loop");
+    expect(step.context.loops?.["loop-pages"]?.order).toHaveLength(3);
+  });
+});
+
 describe("compute node — sample formula (object pool)", () => {
   const pool = [
     { id: "a", label: "Alpha" },

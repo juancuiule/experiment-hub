@@ -136,6 +136,27 @@ export type SampleFormula = {
 };
 
 /**
+ * Splits a list into bins, so a dynamic loop can present a questionnaire across
+ * several screens (one bin per screen). The output is an array of bins (each bin
+ * an array of the original items), stored under the compute node id (for example,
+ * `data.pages.bins`) and readable as `$$pages.bins`. Order is preserved — compose `sample` upstream to randomize.
+ *
+ * The mode is selected by `mode`, with `n` the bin count or bin size:
+ *   - `mode: 'into'` — exactly `n` bins. base = floor(len/n) per bin; the LAST
+ *                  bin absorbs the remainder (n=3 over 10 → [3,3,4]). When n > len
+ *                  at runtime, empty bins are dropped (n=3 over 2 → [[a],[b]]); the
+ *                  inline-array case is rejected by validation instead.
+ *   - `mode: 'size'` — bins of `n` items; the final bin holds the remainder
+ *                  (n=3 over 10 → [3,3,3,1]).
+ */
+export type SplitFormula = {
+  type: 'split';
+  input: FormulaInput | (string | Record<string, unknown>)[];
+  mode: 'into' | 'size';
+  n: number;
+};
+
+/**
  * Aggregates a value across the iterations of a loop.
  *
  * Iterations are read from `context.loops[loopId].order` — the canonical,
@@ -193,6 +214,38 @@ export type LoopAggregateFormula =
       where?: Condition;
     };
 
+/**
+ * Flattens a loop's per-iteration responses into a single object, so a
+ * paginated questionnaire (split across loop screens) can be scored without
+ * knowing which iteration each field landed in.
+ *
+ * Iteration data lives at `data[...dataPath][loopId][iterKey][screenSlug][field]`.
+ * For each iteration (read from `context.loops[loopId].order`), the responses
+ * under `screen` are merged into one flat object keyed by field name:
+ *   collect-loop(loopId, screen) → { <field>: <value>, ... }
+ *
+ * With `screen` omitted, each iteration's full data object is merged instead
+ * (keeping the screen-slug level). On a key collision the last iteration wins;
+ * a `split`-paginated questionnaire never collides because each field appears
+ * in exactly one iteration.
+ *
+ * The result is stored under the compute node's outputKey and read downstream
+ * via `$$<computeId>.<outputKey>.<field>` — e.g. a `sum` over a category's
+ * fields. (It can't be summed in the same node: a node's outputs aren't in
+ * `context.data` until every computation has run.)
+ */
+export type CollectLoopFormula = {
+  type: 'collect-loop';
+  /** ID of the loop node whose iteration responses are flattened */
+  loopId: string;
+  /** Screen slug to scope to; omit to merge each iteration's whole data object */
+  screen?: string;
+  /** Optional list of field keys to omit from the collected output
+   * (e.g. to exclude non-response fields like timestamps or
+   * iteration-specific metadata) */
+  omitKeys?: string[];
+};
+
 export type Formula =
   | SumFormula
   | MeanFormula
@@ -202,7 +255,9 @@ export type Formula =
   | ConditionalFormula
   | LookupFormula
   | SampleFormula
-  | LoopAggregateFormula;
+  | SplitFormula
+  | LoopAggregateFormula
+  | CollectLoopFormula;
 
 export type Computation = {
   outputKey: string;

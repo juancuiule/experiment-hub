@@ -2421,6 +2421,139 @@ describe('compute node — sample formula validation', () => {
   });
 });
 
+describe('compute node — split formula validation', () => {
+  it('passes with a static inline list (size mode)', () => {
+    const flow: ExperimentFlow = {
+      nodes: [
+        start,
+        makeCompute('c1', [
+          {
+            outputKey: 'bins',
+            formula: { type: 'split', input: ['a', 'b', 'c'], mode: 'size', n: 2 } as any,
+          },
+        ]),
+        makeScreen('s1', 'end'),
+        end,
+      ],
+      edges: [seq('start', 'c1'), seq('c1', 's1'), seq('s1', 'end')],
+      screens: [{ slug: 'end', components: [] }],
+    };
+    expect(codes(flow)).toEqual([]);
+  });
+
+  it('reports invalid-split-size when size is zero or negative', () => {
+    const flow: ExperimentFlow = {
+      nodes: [
+        start,
+        makeCompute('c1', [
+          {
+            outputKey: 'binsA',
+            formula: { type: 'split', input: ['a', 'b', 'c'], mode: 'size', n: 0 } as any,
+          },
+          {
+            outputKey: 'binsB',
+            formula: { type: 'split', input: ['a', 'b', 'c'], mode: 'into', n: -2 } as any,
+          },
+        ]),
+        makeScreen('s1', 'end'),
+      ],
+      edges: [seq('start', 'c1'), seq('c1', 's1')],
+      screens: [{ slug: 'end', components: [] }],
+    };
+    expect(codes(flow)).toContain('invalid-split-size');
+  });
+
+  it('reports invalid-split-size when into is not an integer', () => {
+    const flow: ExperimentFlow = {
+      nodes: [
+        start,
+        makeCompute('c1', [
+          {
+            outputKey: 'bins',
+            formula: { type: 'split', input: ['a', 'b', 'c'], mode: 'into', n: 1.5 } as any,
+          },
+        ]),
+        makeScreen('s1', 'end'),
+      ],
+      edges: [seq('start', 'c1'), seq('c1', 's1')],
+      screens: [{ slug: 'end', components: [] }],
+    };
+    expect(codes(flow)).toContain('invalid-split-size');
+  });
+
+  it('reports split-bins-exceed-items when into exceeds an inline list length', () => {
+    const flow: ExperimentFlow = {
+      nodes: [
+        start,
+        makeCompute('c1', [
+          {
+            outputKey: 'bins',
+            formula: { type: 'split', input: ['a', 'b'], mode: 'into', n: 3 } as any,
+          },
+        ]),
+        makeScreen('s1', 'end'),
+      ],
+      edges: [seq('start', 'c1'), seq('c1', 's1')],
+      screens: [{ slug: 'end', components: [] }],
+    };
+    expect(codes(flow)).toContain('split-bins-exceed-items');
+  });
+
+  it('does not report split-bins-exceed-items for a dynamic reference', () => {
+    const flow: ExperimentFlow = {
+      nodes: [
+        start,
+        makeScreen('s1', 'q'),
+        makeCompute('c1', [
+          {
+            outputKey: 'bins',
+            formula: { type: 'split', input: '$$q.items', mode: 'into', n: 50 } as any,
+          },
+        ]),
+        makeScreen('s2', 'end'),
+      ],
+      edges: [
+        seq('start', 's1'),
+        seq('s1', 'c1'),
+        seq('c1', 's2'),
+        seq('s2', 'end'),
+      ],
+      screens: [
+        {
+          slug: 'q',
+          components: [
+            {
+              componentFamily: 'response',
+              template: 'text-input',
+              props: { dataKey: 'items', label: 'Items' },
+            },
+          ],
+        },
+        { slug: 'end', components: [] },
+      ],
+    };
+    expect(codes(flow)).not.toContain('split-bins-exceed-items');
+  });
+
+  it('reports unavailable-reference when $$ input is not yet written', () => {
+    const flow: ExperimentFlow = {
+      nodes: [
+        start,
+        makeCompute('c1', [
+          {
+            outputKey: 'bins',
+            formula: { type: 'split', input: '$$q.items', mode: 'size', n: 2 } as any,
+          },
+        ]),
+        makeScreen('s1', 'end'),
+      ],
+      edges: [seq('start', 'c1'), seq('c1', 's1')],
+      screens: [{ slug: 'end', components: [] }],
+    };
+    expect(codes(flow)).toContain('unavailable-reference');
+  });
+});
+
 describe('compute node — loop-aggregate formula validation', () => {
   const loopNode = {
     id: 'trial-loop',
@@ -2608,6 +2741,55 @@ describe('compute node — loop-aggregate formula validation', () => {
       ],
     };
     expect(codes(flow)).toContain('invalid-reference');
+  });
+});
+
+describe('compute node — collect-loop formula validation', () => {
+  const loopNode = {
+    id: 'q-loop',
+    type: 'loop' as const,
+    props: { type: 'static' as const, values: ['a', 'b'] },
+  };
+
+  function makeCollectCompute(loopId: string) {
+    return makeCompute('c1', [
+      {
+        outputKey: 'ans',
+        formula: { type: 'collect-loop', loopId, screen: 'trial' } as any,
+      },
+    ]);
+  }
+
+  function flowWith(loopId: string): ExperimentFlow {
+    return {
+      nodes: [
+        start,
+        loopNode,
+        makeScreen('s-trial', 'trial'),
+        makeCollectCompute(loopId),
+        makeScreen('s-end', 'end'),
+        end,
+      ],
+      edges: [
+        seq('start', 'q-loop'),
+        { type: 'loop-template', from: 'q-loop', to: 's-trial' },
+        seq('q-loop', 'c1'),
+        seq('c1', 's-end'),
+        seq('s-end', 'end'),
+      ],
+      screens: [
+        { slug: 'trial', components: [] },
+        { slug: 'end', components: [] },
+      ],
+    };
+  }
+
+  it('passes when loopId resolves to a loop node', () => {
+    expect(codes(flowWith('q-loop'))).toEqual([]);
+  });
+
+  it('reports unknown-node when loopId does not reference a loop node', () => {
+    expect(codes(flowWith('nope'))).toContain('unknown-node');
   });
 });
 

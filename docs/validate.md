@@ -224,6 +224,8 @@ Every node (other than `start` nodes themselves) must be reachable by following 
 | `duplicate-output-key`  | A compute node has two computations with the same `outputKey`                             |
 | `duplicate-lookup-key`  | A lookup formula has two table entries with the same `when` value (after numeric coercion)|
 | `invalid-sample-size`   | A sample formula has `n ≤ 0` or `n` is not an integer                                    |
+| `invalid-split-size`    | A split formula has `n` ≤ 0 or not an integer                                             |
+| `split-bins-exceed-items` | A split formula with `mode: 'into'` has `n` exceeding the length of an inline (static) input list |
 | `loop-item-key-missing` | A static loop sets `itemKey` but an object value is missing that property                 |
 | `unknown-node`          | An edge references a node ID that does not exist; or a `loop-aggregate` `loopId` does not resolve to a loop node |
 | `missing-edge`          | A node is missing a required outgoing edge                                                |
