@@ -1,6 +1,7 @@
 import { ExperimentFlow } from '@/lib/types';
 import ejercicio1 from './ejercicio-1';
 import emociones from './emociones';
+import ocean from './ocean';
 import pandemic from './pandemic';
 
 export const EXPERIMENTS: Record<string, ExperimentFlow> = {
@@ -188,4 +189,5 @@ export const EXPERIMENTS: Record<string, ExperimentFlow> = {
       },
     ],
   },
+  ocean: ocean,
 };
