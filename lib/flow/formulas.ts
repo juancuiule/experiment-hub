@@ -113,7 +113,7 @@ export function evaluateFormula(
         const evalCtx = mergeContext(context, {
           screenData: nodeOutputs,
           loopData: {
-            [formula.loopId]: { value: items[i], index: i, ...iterationData },
+            [formula.loopId]: { ...iterationData, value: items[i], index: i },
           } as any,
         });
 
