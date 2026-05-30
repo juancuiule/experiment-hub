@@ -141,18 +141,20 @@ export type SampleFormula = {
  * an array of the original items), stored under the compute node id (for example,
  * `data.pages.bins`) and readable as `$$pages.bins`. Order is preserved — compose `sample` upstream to randomize.
  *
- * Two modes, discriminated:
- *   - `into: N`  — exactly N bins. base = floor(len/N) per bin; the LAST bin
- *                  absorbs the remainder (10 into 3 → [3,3,4]). When N > len at
- *                  runtime, empty bins are dropped (2 into 3 → [[a],[b]]); the
+ * The mode is selected by `mode`, with `n` the bin count or bin size:
+ *   - `mode: 'into'` — exactly `n` bins. base = floor(len/n) per bin; the LAST
+ *                  bin absorbs the remainder (n=3 over 10 → [3,3,4]). When n > len
+ *                  at runtime, empty bins are dropped (n=3 over 2 → [[a],[b]]); the
  *                  inline-array case is rejected by validation instead.
- *   - `size: N`  — bins of N items; the final bin holds the remainder
- *                  (10 size 3 → [3,3,3,1]).
+ *   - `mode: 'size'` — bins of `n` items; the final bin holds the remainder
+ *                  (n=3 over 10 → [3,3,3,1]).
  */
 export type SplitFormula = {
   type: 'split';
   input: FormulaInput | (string | Record<string, unknown>)[];
-} & ({ into: number } | { size: number });
+  mode: 'into' | 'size';
+  n: number;
+};
 
 /**
  * Aggregates a value across the iterations of a loop.

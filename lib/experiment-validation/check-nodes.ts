@@ -98,20 +98,17 @@ function checkComputeNodes(nodes: FrameworkNode[]): ValidationError[] {
         }
 
         if (formula.type === 'split') {
-          const param = 'size' in formula ? formula.size : formula.into;
-          const label = 'size' in formula ? 'size' : 'into';
-          if (!Number.isInteger(param) || param <= 0) {
+          if (!Number.isInteger(formula.n) || formula.n <= 0) {
             errors.push({
               code: 'invalid-split-size',
               category: 'node',
               nodeType: 'compute',
-              message: `Compute "${node.id}" output "${outputKey}" has split ${label}="${param}", but it must be a positive integer`,
+              message: `Compute "${node.id}" output "${outputKey}" has split n="${formula.n}", but it must be a positive integer`,
             });
           } else if (
-            !('size' in formula) &&
-            'into' in formula &&
+            formula.mode === 'into' &&
             Array.isArray(formula.input) &&
-            formula.into > formula.input.length
+            formula.n > formula.input.length
           ) {
             // Statically known overflow: more bins than items. Dynamic inputs
             // can't be checked here and fall back to dropping empty bins.
@@ -119,7 +116,7 @@ function checkComputeNodes(nodes: FrameworkNode[]): ValidationError[] {
               code: 'split-bins-exceed-items',
               category: 'node',
               nodeType: 'compute',
-              message: `Compute "${node.id}" output "${outputKey}" splits ${formula.input.length} items into ${formula.into} bins; into must not exceed the number of items`,
+              message: `Compute "${node.id}" output "${outputKey}" splits ${formula.input.length} items into ${formula.n} bins; n must not exceed the number of items`,
             });
           }
         }

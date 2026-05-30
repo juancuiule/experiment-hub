@@ -91,14 +91,15 @@ A `loop-aggregate` formula reads `context.loops[loopId].order` directly to find 
 A compute `split` formula chops a list into bins so a dynamic loop can present a long questionnaire across several screens (one bin per screen). Its output — an **array of bins** (each bin an array of the original items) — is stored under the compute node id (for example, `data.pages.bins`) and read by a dynamic loop via a reference such as `$$pages.bins`.
 
 ```ts
-{ outputKey: 'bins', formula: { type: 'split', input: '$$intro.questions', size: 5 } }
+{ outputKey: 'bins', formula: { type: 'split', input: '$$intro.questions', mode: 'size', n: 5 } }
 ```
 
 - `input` is a `$$`/`$` reference to a context array, or an inline array — same shape as `sample`.
-- **Mode `size: N`** — bins of N items; the final bin holds the remainder (10 items, `size: 3` → `[3,3,3,1]`).
-- **Mode `into: N`** — exactly N bins; each bin gets `floor(len/N)` items and the **last bins absorb the remainder** (10 items, `into: 3` → `[3,3,4]`). When `N` exceeds the item count at runtime, empty bins are dropped (`2 into 3` → `[[a],[b]]`); the inline-array overflow case is rejected by `validateExperiment()` (`split-bins-exceed-items`).
+- `mode` selects how `n` is interpreted; `n` is always a positive integer.
+- **`mode: 'size'`** — bins of `n` items; the final bin holds the remainder (10 items, `n: 3` → `[3,3,3,1]`).
+- **`mode: 'into'`** — exactly `n` bins; each bin gets `floor(len/n)` items and the **last bins absorb the remainder** (10 items, `n: 3` → `[3,3,4]`). When `n` exceeds the item count at runtime, empty bins are dropped (`n: 3` over 2 items → `[[a],[b]]`); the inline-array overflow case is rejected by `validateExperiment()` (`split-bins-exceed-items`).
 - Order is preserved — compose a `sample` formula upstream to randomize first.
-- Non-positive / non-integer `size`/`into` is caught by validation (`invalid-split-size`).
+- Non-positive / non-integer `n` is caught by validation (`invalid-split-size`).
 
 A non-array `input` (e.g. an unresolved reference) yields `[]`, so the dynamic loop is skipped rather than crashing.
 

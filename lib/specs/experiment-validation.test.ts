@@ -2429,7 +2429,7 @@ describe('compute node — split formula validation', () => {
         makeCompute('c1', [
           {
             outputKey: 'bins',
-            formula: { type: 'split', input: ['a', 'b', 'c'], size: 2 } as any,
+            formula: { type: 'split', input: ['a', 'b', 'c'], mode: 'size', n: 2 } as any,
           },
         ]),
         makeScreen('s1', 'end'),
@@ -2448,11 +2448,11 @@ describe('compute node — split formula validation', () => {
         makeCompute('c1', [
           {
             outputKey: 'binsA',
-            formula: { type: 'split', input: ['a', 'b', 'c'], size: 0 } as any,
+            formula: { type: 'split', input: ['a', 'b', 'c'], mode: 'size', n: 0 } as any,
           },
           {
             outputKey: 'binsB',
-            formula: { type: 'split', input: ['a', 'b', 'c'], into: -2 } as any,
+            formula: { type: 'split', input: ['a', 'b', 'c'], mode: 'into', n: -2 } as any,
           },
         ]),
         makeScreen('s1', 'end'),
@@ -2470,7 +2470,7 @@ describe('compute node — split formula validation', () => {
         makeCompute('c1', [
           {
             outputKey: 'bins',
-            formula: { type: 'split', input: ['a', 'b', 'c'], into: 1.5 } as any,
+            formula: { type: 'split', input: ['a', 'b', 'c'], mode: 'into', n: 1.5 } as any,
           },
         ]),
         makeScreen('s1', 'end'),
@@ -2488,7 +2488,7 @@ describe('compute node — split formula validation', () => {
         makeCompute('c1', [
           {
             outputKey: 'bins',
-            formula: { type: 'split', input: ['a', 'b'], into: 3 } as any,
+            formula: { type: 'split', input: ['a', 'b'], mode: 'into', n: 3 } as any,
           },
         ]),
         makeScreen('s1', 'end'),
@@ -2507,7 +2507,7 @@ describe('compute node — split formula validation', () => {
         makeCompute('c1', [
           {
             outputKey: 'bins',
-            formula: { type: 'split', input: '$$q.items', into: 50 } as any,
+            formula: { type: 'split', input: '$$q.items', mode: 'into', n: 50 } as any,
           },
         ]),
         makeScreen('s2', 'end'),
@@ -2542,7 +2542,7 @@ describe('compute node — split formula validation', () => {
         makeCompute('c1', [
           {
             outputKey: 'bins',
-            formula: { type: 'split', input: '$$q.items', size: 2 } as any,
+            formula: { type: 'split', input: '$$q.items', mode: 'size', n: 2 } as any,
           },
         ]),
         makeScreen('s1', 'end'),

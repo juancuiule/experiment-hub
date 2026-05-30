@@ -87,23 +87,24 @@ export function evaluateFormula(
         : getFormulaInputValue(formula.input, context, nodeOutputs);
       if (!Array.isArray(list)) return [];
 
-      if ('size' in formula) {
-        const size = formula.size;
-        if (!Number.isInteger(size) || size <= 0) return [list];
+      const n = formula.n;
+      if (!Number.isInteger(n) || n <= 0) return [list];
+
+      if (formula.mode === 'size') {
+        // size mode: bins of n items; the final bin holds the remainder
+        // (n=3 over 10 → [3,3,3,1]).
         const bins: unknown[][] = [];
-        for (let i = 0; i < list.length; i += size) {
-          bins.push(list.slice(i, i + size));
+        for (let i = 0; i < list.length; i += n) {
+          bins.push(list.slice(i, i + n));
         }
         return bins;
       }
 
-      // into mode: N bins. Each bin gets `base` items; the trailing `rem` bins
-      // get one extra, so the remainder lands in the last bins (10 into 3 →
-      // [3,3,4]). When N > length, base is 0 and the leading empty bins are
-      // dropped (2 into 3 → [[a],[b]]); the inline-array overflow case is caught
-      // by validation instead.
-      const n = formula.into;
-      if (!Number.isInteger(n) || n <= 0) return [list];
+      // into mode: n bins. Each bin gets `base` items; the trailing `rem` bins
+      // get one extra, so the remainder lands in the last bins (n=3 over 10 →
+      // [3,3,4]). When n > length, base is 0 and the leading empty bins are
+      // dropped (n=3 over 2 → [[a],[b]]); the inline-array overflow case is
+      // caught by validation instead.
       const base = Math.floor(list.length / n);
       const rem = list.length - base * n;
       const bins: unknown[][] = [];
