@@ -17,7 +17,8 @@ const emociones: ExperimentFlow = {
               type: 'sample',
               input: [
                 {
-                  id: '1',
+                  id: 'mirada-1',
+                  img: '1',
                   correctAnswer: 'playful',
                   options: [
                     {
@@ -31,7 +32,8 @@ const emociones: ExperimentFlow = {
                   ],
                 },
                 {
-                  id: '2',
+                  id: 'mirada-2',
+                  img: '2',
                   correctAnswer: 'upset',
                   options: [
                     { label: 'Aterrorizado', value: 'terrified' },
@@ -41,7 +43,8 @@ const emociones: ExperimentFlow = {
                   ],
                 },
                 {
-                  id: '3',
+                  id: 'mirada-3',
+                  img: '3',
                   correctAnswer: 'desire',
                   options: [
                     { label: 'Bromista', value: 'joking' },
@@ -51,7 +54,8 @@ const emociones: ExperimentFlow = {
                   ],
                 },
                 {
-                  id: '4',
+                  id: 'mirada-4',
+                  img: '4',
                   correctAnswer: 'insistent',
                   options: [
                     { label: 'Bromista', value: 'joking' },
@@ -61,7 +65,8 @@ const emociones: ExperimentFlow = {
                   ],
                 },
                 {
-                  id: '5',
+                  id: 'mirada-5',
+                  img: '5',
                   correctAnswer: 'sarcastic',
                   options: [
                     { label: 'Irritado', value: 'irritated' },
@@ -71,7 +76,8 @@ const emociones: ExperimentFlow = {
                   ],
                 },
                 {
-                  id: '6',
+                  id: 'mirada-6',
+                  img: '6',
                   correctAnswer: 'fanciful',
                   options: [
                     { label: 'Asustada', value: 'scared' },
@@ -81,7 +87,8 @@ const emociones: ExperimentFlow = {
                   ],
                 },
                 {
-                  id: '7',
+                  id: 'mirada-7',
+                  img: '7',
                   correctAnswer: 'uneasy',
                   options: [
                     { label: 'Arrepentido', value: 'regretful' },
@@ -91,7 +98,8 @@ const emociones: ExperimentFlow = {
                   ],
                 },
                 {
-                  id: '8',
+                  id: 'mirada-8',
+                  img: '8',
                   correctAnswer: 'dejected',
                   options: [
                     { label: 'Abatido', value: 'dejected' },
@@ -101,7 +109,8 @@ const emociones: ExperimentFlow = {
                   ],
                 },
                 {
-                  id: '9',
+                  id: 'mirada-9',
+                  img: '9',
                   correctAnswer: 'distressed',
                   options: [
                     { label: 'Enfadada', value: 'angry' },
@@ -111,7 +120,8 @@ const emociones: ExperimentFlow = {
                   ],
                 },
                 {
-                  id: '10',
+                  id: 'mirada-10',
+                  img: '10',
                   correctAnswer: 'cautious',
                   options: [
                     { label: 'Prudente', value: 'cautious' },
@@ -121,7 +131,8 @@ const emociones: ExperimentFlow = {
                   ],
                 },
                 {
-                  id: '11',
+                  id: 'mirada-11',
+                  img: '11',
                   correctAnswer: 'regretful',
                   options: [
                     { label: 'Aterrorizado', value: 'terrified' },
@@ -131,7 +142,8 @@ const emociones: ExperimentFlow = {
                   ],
                 },
                 {
-                  id: '12',
+                  id: 'mirada-12',
+                  img: '12',
                   correctAnswer: 'skeptical',
                   options: [
                     { label: 'Indiferente', value: 'indifferent' },
@@ -141,7 +153,8 @@ const emociones: ExperimentFlow = {
                   ],
                 },
                 {
-                  id: '13',
+                  id: 'mirada-13',
+                  img: '13',
                   correctAnswer: 'decisive',
                   options: [
                     { label: 'Decidido', value: 'decisive' },
@@ -151,7 +164,8 @@ const emociones: ExperimentFlow = {
                   ],
                 },
                 {
-                  id: '14',
+                  id: 'mirada-14',
+                  img: '14',
                   correctAnswer: 'accusing',
                   options: [
                     { label: 'Irritado', value: 'irritated' },
@@ -161,7 +175,8 @@ const emociones: ExperimentFlow = {
                   ],
                 },
                 {
-                  id: '15',
+                  id: 'mirada-15',
+                  img: '15',
                   correctAnswer: 'absorbed',
                   options: [
                     { label: 'Abstraída', value: 'absorbed' },
@@ -171,7 +186,8 @@ const emociones: ExperimentFlow = {
                   ],
                 },
                 {
-                  id: '16',
+                  id: 'mirada-16',
+                  img: '16',
                   correctAnswer: 'considerate',
                   options: [
                     { label: 'Irritado', value: 'irritated' },
@@ -181,7 +197,8 @@ const emociones: ExperimentFlow = {
                   ],
                 },
                 {
-                  id: '17',
+                  id: 'mirada-17',
+                  img: '17',
                   correctAnswer: 'insecure',
                   options: [
                     { label: 'Insegura', value: 'insecure' },
@@ -191,7 +208,8 @@ const emociones: ExperimentFlow = {
                   ],
                 },
                 {
-                  id: '18',
+                  id: 'mirada-18',
+                  img: '18',
                   correctAnswer: 'decisive',
                   options: [
                     { label: 'Decidida', value: 'decisive' },
@@ -201,7 +219,8 @@ const emociones: ExperimentFlow = {
                   ],
                 },
                 {
-                  id: '19',
+                  id: 'mirada-19',
+                  img: '19',
                   correctAnswer: 'hesitant',
                   options: [
                     { label: 'Arrogante', value: 'arrogant' },
@@ -211,7 +230,8 @@ const emociones: ExperimentFlow = {
                   ],
                 },
                 {
-                  id: '20',
+                  id: 'mirada-20',
+                  img: '20',
                   correctAnswer: 'friendly',
                   options: [
                     { label: 'Imponente', value: 'imposing' },
@@ -221,7 +241,8 @@ const emociones: ExperimentFlow = {
                   ],
                 },
                 {
-                  id: '21',
+                  id: 'mirada-21',
+                  img: '21',
                   correctAnswer: 'fanciful',
                   options: [
                     { label: 'Abochornada', value: 'embarrassed' },
@@ -231,7 +252,8 @@ const emociones: ExperimentFlow = {
                   ],
                 },
                 {
-                  id: '22',
+                  id: 'mirada-22',
+                  img: '22',
                   correctAnswer: 'distressed',
                   options: [
                     { label: 'Angustiada', value: 'distressed' },
@@ -241,7 +263,8 @@ const emociones: ExperimentFlow = {
                   ],
                 },
                 {
-                  id: '23',
+                  id: 'mirada-23',
+                  img: '23',
                   correctAnswer: 'defiant',
                   options: [
                     { label: 'Satisfecho', value: 'satisfied' },
@@ -251,7 +274,8 @@ const emociones: ExperimentFlow = {
                   ],
                 },
                 {
-                  id: '24',
+                  id: 'mirada-24',
+                  img: '24',
                   correctAnswer: 'absorbed',
                   options: [
                     { label: 'Abstraído', value: 'absorbed' },
@@ -261,7 +285,8 @@ const emociones: ExperimentFlow = {
                   ],
                 },
                 {
-                  id: '25',
+                  id: 'mirada-25',
+                  img: '25',
                   correctAnswer: 'interested',
                   options: [
                     { label: 'En pánico', value: 'panicked' },
@@ -271,7 +296,8 @@ const emociones: ExperimentFlow = {
                   ],
                 },
                 {
-                  id: '26',
+                  id: 'mirada-26',
+                  img: '26',
                   correctAnswer: 'hostile',
                   options: [
                     { label: 'Alarmado', value: 'alarmed' },
@@ -281,7 +307,8 @@ const emociones: ExperimentFlow = {
                   ],
                 },
                 {
-                  id: '27',
+                  id: 'mirada-27',
+                  img: '27',
                   correctAnswer: 'cautious',
                   options: [
                     { label: 'Bromista', value: 'joking' },
@@ -291,7 +318,8 @@ const emociones: ExperimentFlow = {
                   ],
                 },
                 {
-                  id: '28',
+                  id: 'mirada-28',
+                  img: '28',
                   correctAnswer: 'interested',
                   options: [
                     { label: 'Interesada', value: 'interested' },
@@ -301,7 +329,8 @@ const emociones: ExperimentFlow = {
                   ],
                 },
                 {
-                  id: '29',
+                  id: 'mirada-29',
+                  img: '29',
                   correctAnswer: 'reflective',
                   options: [
                     { label: 'Impaciente', value: 'impatient' },
@@ -311,7 +340,8 @@ const emociones: ExperimentFlow = {
                   ],
                 },
                 {
-                  id: '30',
+                  id: 'mirada-30',
+                  img: '30',
                   correctAnswer: 'seductive',
                   options: [
                     { label: 'Agradecida', value: 'grateful' },
@@ -321,7 +351,8 @@ const emociones: ExperimentFlow = {
                   ],
                 },
                 {
-                  id: '31',
+                  id: 'mirada-31',
+                  img: '31',
                   correctAnswer: 'confident',
                   options: [
                     { label: 'Avergonzada', value: 'ashamed' },
@@ -331,7 +362,8 @@ const emociones: ExperimentFlow = {
                   ],
                 },
                 {
-                  id: '32',
+                  id: 'mirada-32',
+                  img: '32',
                   correctAnswer: 'serious',
                   options: [
                     { label: 'Serio', value: 'serious' },
@@ -341,7 +373,8 @@ const emociones: ExperimentFlow = {
                   ],
                 },
                 {
-                  id: '33',
+                  id: 'mirada-33',
+                  img: '33',
                   correctAnswer: 'fanciful',
                   options: [
                     { label: 'Abochornado', value: 'embarrassed' },
@@ -351,7 +384,8 @@ const emociones: ExperimentFlow = {
                   ],
                 },
                 {
-                  id: '34',
+                  id: 'mirada-34',
+                  img: '34',
                   correctAnswer: 'suspicious',
                   options: [
                     { label: 'Asustada', value: 'scared' },
@@ -361,7 +395,8 @@ const emociones: ExperimentFlow = {
                   ],
                 },
                 {
-                  id: '35',
+                  id: 'mirada-35',
+                  img: '35',
                   correctAnswer: 'nervous',
                   options: [
                     { label: 'Perpleja', value: 'perplexed' },
@@ -371,7 +406,8 @@ const emociones: ExperimentFlow = {
                   ],
                 },
                 {
-                  id: '36',
+                  id: 'mirada-36',
+                  img: '36',
                   correctAnswer: 'distrustful',
                   options: [
                     { label: 'Avergonzado', value: 'ashamed' },
@@ -403,6 +439,7 @@ const emociones: ExperimentFlow = {
       props: {
         dataKey: '$$compute-sample-items.selected-items',
         type: 'dynamic',
+        itemKey: 'id',
         stepper: {
           label: 'Retrato {index}/{total}',
           style: 'continuous',
@@ -420,6 +457,14 @@ const emociones: ExperimentFlow = {
       props: {
         name: 'compute-correct',
         computations: [
+          {
+            outputKey: 'total',
+            formula: {
+              type: 'loop-aggregate',
+              loopId: 'loop-miradas',
+              op: 'count',
+            },
+          },
           {
             outputKey: 'total-correct',
             formula: {
@@ -568,7 +613,7 @@ const emociones: ExperimentFlow = {
           componentFamily: 'content',
           template: 'image',
           props: {
-            url: 'https://investigacion.elgatoylacaja.com/emociones/images/miradas/{{@loop-miradas.value.id}}.png',
+            url: 'https://investigacion.elgatoylacaja.com/emociones/images/miradas/{{@loop-miradas.value.img}}.png',
             alt: 'Retrato de mirada',
           },
         },
@@ -624,7 +669,7 @@ const emociones: ExperimentFlow = {
         //             componentFamily: 'content',
         //             template: 'image',
         //             props: {
-        //               url: 'https://investigacion.elgatoylacaja.com/emociones/images/miradas/{{#for-each-mirada.value.id}}.png',
+        //               url: 'https://investigacion.elgatoylacaja.com/emociones/images/miradas/{{#for-each-mirada.value.img}}.png',
         //               alt: '',
         //             },
         //           },
@@ -633,7 +678,7 @@ const emociones: ExperimentFlow = {
         //             template: 'rich-text',
         //             props: {
         //               content:
-        //                 'Tu respuesta:{{$$loop-miradas.{{#for-each-mirada.index}}.mirada.answer}}',
+        //                 'Tu respuesta:{{$$loop-miradas.{{#for-each-mirada.value.id}}.mirada.answer}}',
         //             },
         //           },
         //           {
@@ -859,7 +904,7 @@ const emociones: ExperimentFlow = {
           template: 'rich-text',
           props: {
             content:
-              '## ¡Gracias por participar!\n\nRespuestas correctas: {{$$compute-correct.total-correct}} / 12 \n\n {{$$compute-correct.feedback-text}}',
+              '## ¡Gracias por participar!\n\nRespuestas correctas: {{$$compute-correct.total-correct}} / {{$$compute-correct.total}} \n\n {{$$compute-correct.feedback-text}}',
           },
         },
         {
