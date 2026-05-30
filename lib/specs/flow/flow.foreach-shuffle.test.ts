@@ -109,6 +109,67 @@ describe('randomized for-each presentation order', () => {
     expect(order2).toBe(order1);
   });
 
+  it('tracks the current loop item when the for-each iterates @loop.value', async () => {
+    // Regression: a randomized for-each over @loop-1.value (which changes every
+    // iteration) must present the CURRENT item's values, not stay pinned to the
+    // first iteration's. The stability guard only applies when the resolved
+    // values are unchanged across iterations.
+    const bins = [
+      ['a', 'b'],
+      ['c', 'd', 'e'],
+    ];
+    const flow: ExperimentFlow = {
+      nodes: [
+        { id: 'start', type: 'start' },
+        {
+          id: 'loop-1',
+          type: 'loop',
+          props: {
+            type: 'static',
+            values: bins as unknown as (string | Record<string, unknown>)[],
+          },
+        },
+        { id: 's1', type: 'screen', props: { slug: 'test' } },
+      ],
+      edges: [
+        seq('start', 'loop-1'),
+        { type: 'loop-template', from: 'loop-1', to: 's1' },
+      ],
+      screens: [
+        {
+          slug: 'test',
+          components: [
+            {
+              componentFamily: 'control',
+              template: 'for-each',
+              props: {
+                id: 'sport-items',
+                type: 'dynamic',
+                dataKey: '@loop-1.value',
+                randomized: true,
+                component: {
+                  componentFamily: 'content',
+                  template: 'rich-text',
+                  props: { content: '{{#sport-items.value}}' },
+                },
+              },
+            } as ScreenComponent,
+          ],
+        },
+      ],
+    };
+
+    const step1 = await startExperiment(flow, 'start');
+    const order1 =
+      step1.context.screenData?.shuffledForeachOrders?.['sport-items'];
+    expect([...(order1 ?? [])].sort()).toEqual(['a', 'b']);
+
+    const step2 = await traverse(step1, {});
+    const order2 =
+      step2.context.screenData?.shuffledForeachOrders?.['sport-items'];
+    expect([...(order2 ?? [])].sort()).toEqual(['c', 'd', 'e']);
+  });
+
   it('reshuffles across loop iterations when reshuffleInLoop:true', async () => {
     const flow = makeFlow(
       [foreach({ randomized: true, reshuffleInLoop: true })],

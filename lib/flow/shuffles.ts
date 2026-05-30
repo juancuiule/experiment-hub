@@ -18,6 +18,21 @@ type ShuffleEntry =
   | { kind: 'option'; key: string; options: Option[] }
   | { kind: 'foreach'; id: string; values: string[] };
 
+// for-each values may be strings or objects; serialize each so two iterations'
+// value lists can be compared as multisets regardless of presentation order.
+function serializeValue(v: unknown): string {
+  return typeof v === 'string' ? v : JSON.stringify(v);
+}
+
+// True when both lists contain the same values (order-independent). Used to
+// decide whether a cached for-each order may be reused across loop iterations.
+function sameValueSet(a: readonly unknown[], b: readonly unknown[]): boolean {
+  if (a.length !== b.length) return false;
+  const as = a.map(serializeValue).sort();
+  const bs = b.map(serializeValue).sort();
+  return as.every((x, i) => x === bs[i]);
+}
+
 type ShuffleState = {
   inLoop: boolean;
   previousOptions: Record<string, Option[]>;
@@ -51,20 +66,25 @@ const handlers: Handlers<ShuffleEntry, ShuffleState> = [
           : ((getValue(c.props.dataKey, state.context) as string[] | null) ??
             []);
 
-      // Emit the randomized presentation order for this for-each. The same
-      // inLoop / reshuffleInLoop stability guard used for options keeps the
-      // order constant across loop iterations by default.
+      // Emit the randomized presentation order for this for-each. The
+      // inLoop / reshuffleInLoop stability guard keeps the order constant across
+      // loop iterations by default — but only while the underlying values are
+      // unchanged. A for-each over a per-iteration source (e.g. @loop.value)
+      // resolves to different values each pass; reusing the previous order there
+      // would pin every iteration to the first item's values, so we reshuffle
+      // whenever the resolved set differs from the cached one.
+      const cached = state.previousForeach[c.props.id];
+      const canReuse =
+        state.inLoop &&
+        !c.props.reshuffleInLoop &&
+        cached != null &&
+        sameValueSet(cached, values);
       const selfEntries: ShuffleEntry[] = c.props.randomized
         ? [
             {
               kind: 'foreach',
               id: c.props.id,
-              values:
-                state.inLoop &&
-                !c.props.reshuffleInLoop &&
-                state.previousForeach[c.props.id]
-                  ? state.previousForeach[c.props.id]
-                  : shuffle(values),
+              values: canReuse ? cached : shuffle(values),
             },
           ]
         : [];
