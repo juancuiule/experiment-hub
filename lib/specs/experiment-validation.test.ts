@@ -2744,6 +2744,55 @@ describe('compute node — loop-aggregate formula validation', () => {
   });
 });
 
+describe('compute node — collect-loop formula validation', () => {
+  const loopNode = {
+    id: 'q-loop',
+    type: 'loop' as const,
+    props: { type: 'static' as const, values: ['a', 'b'] },
+  };
+
+  function makeCollectCompute(loopId: string) {
+    return makeCompute('c1', [
+      {
+        outputKey: 'ans',
+        formula: { type: 'collect-loop', loopId, screen: 'trial' } as any,
+      },
+    ]);
+  }
+
+  function flowWith(loopId: string): ExperimentFlow {
+    return {
+      nodes: [
+        start,
+        loopNode,
+        makeScreen('s-trial', 'trial'),
+        makeCollectCompute(loopId),
+        makeScreen('s-end', 'end'),
+        end,
+      ],
+      edges: [
+        seq('start', 'q-loop'),
+        { type: 'loop-template', from: 'q-loop', to: 's-trial' },
+        seq('q-loop', 'c1'),
+        seq('c1', 's-end'),
+        seq('s-end', 'end'),
+      ],
+      screens: [
+        { slug: 'trial', components: [] },
+        { slug: 'end', components: [] },
+      ],
+    };
+  }
+
+  it('passes when loopId resolves to a loop node', () => {
+    expect(codes(flowWith('q-loop'))).toEqual([]);
+  });
+
+  it('reports unknown-node when loopId does not reference a loop node', () => {
+    expect(codes(flowWith('nope'))).toContain('unknown-node');
+  });
+});
+
 describe('cyclic-flow', () => {
   it('reports cyclic-flow when two screens form a sequential cycle', () => {
     const flow: ExperimentFlow = {

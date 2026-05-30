@@ -214,6 +214,34 @@ export type LoopAggregateFormula =
       where?: Condition;
     };
 
+/**
+ * Flattens a loop's per-iteration responses into a single object, so a
+ * paginated questionnaire (split across loop screens) can be scored without
+ * knowing which iteration each field landed in.
+ *
+ * Iteration data lives at `data[...dataPath][loopId][iterKey][screenSlug][field]`.
+ * For each iteration (read from `context.loops[loopId].order`), the responses
+ * under `screen` are merged into one flat object keyed by field name:
+ *   collect-loop(loopId, screen) → { <field>: <value>, ... }
+ *
+ * With `screen` omitted, each iteration's full data object is merged instead
+ * (keeping the screen-slug level). On a key collision the last iteration wins;
+ * a `split`-paginated questionnaire never collides because each field appears
+ * in exactly one iteration.
+ *
+ * The result is stored under the compute node's outputKey and read downstream
+ * via `$$<computeId>.<outputKey>.<field>` — e.g. a `sum` over a category's
+ * fields. (It can't be summed in the same node: a node's outputs aren't in
+ * `context.data` until every computation has run.)
+ */
+export type CollectLoopFormula = {
+  type: 'collect-loop';
+  /** ID of the loop node whose iteration responses are flattened */
+  loopId: string;
+  /** Screen slug to scope to; omit to merge each iteration's whole data object */
+  screen?: string;
+};
+
 export type Formula =
   | SumFormula
   | MeanFormula
@@ -224,7 +252,8 @@ export type Formula =
   | LookupFormula
   | SampleFormula
   | SplitFormula
-  | LoopAggregateFormula;
+  | LoopAggregateFormula
+  | CollectLoopFormula;
 
 export type Computation = {
   outputKey: string;

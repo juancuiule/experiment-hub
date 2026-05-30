@@ -104,3 +104,25 @@ A compute `split` formula chops a list into bins so a dynamic loop can present a
 A non-array `input` (e.g. an unresolved reference) yields `[]`, so the dynamic loop is skipped rather than crashing.
 
 **Rendering a bin's items** — inside the loop, the current bin is the loop item, referenced as `@loopId.value`. Use a `forEach` control with `dataKey: '@loopId.value'` to render one input per question in that bin.
+
+### `collect-loop` formula — flatten a loop's answers for scoring
+
+When a questionnaire is paginated across loop screens (e.g. via `split`), each answer lands at `data.<loopId>.<iterKey>.<screenSlug>.<field>`, and with a `randomized` loop you can't know statically which iteration holds which field. A compute `collect-loop` formula merges every iteration's responses into one flat object so the answers become addressable by field name:
+
+```ts
+{ outputKey: 'ans', formula: { type: 'collect-loop', loopId: 'loops', screen: 'questions' } }
+// -> ans = { 'question-1': 3, 'question-2': 5, ... }
+```
+
+- `loopId` — the loop whose iterations are flattened (validated to be a loop node).
+- `screen?` — scope to a screen slug (→ flat field map). Omit to merge each iteration's whole data object (keeps the screen-slug level).
+- On a key collision the last iteration wins; a `split`-paginated questionnaire never collides (each field is in exactly one iteration).
+
+The result is read **from a later node** via `$$<computeId>.<outputKey>.<field>` — e.g. category sums:
+
+```ts
+{ outputKey: 'extraversion',
+  formula: { type: 'sum', inputs: ['$$collect.ans.question-1', '$$collect.ans.question-6', /* ... */ ] } }
+```
+
+It must be a separate downstream node: a compute node's own outputs aren't in `context.data` until all its computations have run, so the flattened object can't be referenced within the same node.

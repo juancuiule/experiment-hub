@@ -116,6 +116,34 @@ export function evaluateFormula(
       }
       return bins.filter((bin) => bin.length > 0);
     }
+    case 'collect-loop': {
+      // Merge every iteration's responses into one flat object. Iterations are
+      // read from the loop's published order; the iteration data nests under the
+      // compute node's dataPath (e.g. data[pathId][loopId]) just like
+      // loop-aggregate, so walk dataPath before indexing by loopId.
+      const order = context.loops?.[formula.loopId]?.order ?? [];
+      const loopDataRoot = (dataPath ?? []).reduce<any>(
+        (obj, key) => (obj == null ? undefined : obj[key]),
+        context.data ?? {},
+      );
+      const iterations = loopDataRoot?.[formula.loopId] as
+        | Record<string, Record<string, unknown>>
+        | undefined;
+
+      const collected: Record<string, unknown> = {};
+      for (const iterKey of order) {
+        const iterationData = iterations?.[iterKey];
+        if (iterationData == null) continue;
+        // Scope to the screen slug when given (→ flat field map); otherwise
+        // merge the whole iteration object (keeps the screen-slug level).
+        const scope =
+          formula.screen != null
+            ? ((iterationData[formula.screen] as Record<string, unknown>) ?? {})
+            : iterationData;
+        Object.assign(collected, scope);
+      }
+      return collected;
+    }
     case 'loop-aggregate': {
       // Iterate the loop's own published keys rather than reconstructing them,
       // so static/dynamic loops, plain-string and object items, and itemKey'd
