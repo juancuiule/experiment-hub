@@ -2421,37 +2421,40 @@ describe('compute node — sample formula validation', () => {
   });
 });
 
-describe('compute node — count-correct formula validation', () => {
+describe('compute node — loop-aggregate formula validation', () => {
   const loopNode = {
     id: 'trial-loop',
     type: 'loop' as const,
     props: { type: 'static' as const, values: ['a', 'b'] },
   };
 
-  function makePickCompute(itemsKey: string, loopId: string) {
+  function makePickCompute(loopId: string) {
     return makeCompute('c1', [
       {
         outputKey: 'score',
         formula: {
-          type: 'count-correct',
-          itemsKey,
+          type: 'loop-aggregate',
           loopId,
-          screenSlug: 'trial',
-          answerKey: 'answer',
-          correctKey: 'correct',
+          op: 'count',
+          where: {
+            type: 'simple',
+            operator: 'eq',
+            dataKey: `@${loopId}.trial.answer`,
+            value: `@${loopId}.value.correct`,
+          },
         },
       },
     ]);
   }
 
-  it('passes when itemsKey is available and loopId exists', () => {
+  it('passes when loopId resolves to a loop node', () => {
     const flow: ExperimentFlow = {
       nodes: [
         start,
         makeScreen('s-pick', 'pick'),
         loopNode,
         makeScreen('s-trial', 'trial'),
-        makePickCompute('$$pick.items', 'trial-loop'),
+        makePickCompute('trial-loop'),
         makeScreen('s-end', 'end'),
         end,
       ],
@@ -2481,31 +2484,6 @@ describe('compute node — count-correct formula validation', () => {
     expect(codes(flow)).toEqual([]);
   });
 
-  it('reports unavailable-reference when itemsKey is not yet written', () => {
-    const flow: ExperimentFlow = {
-      nodes: [
-        start,
-        loopNode,
-        makeScreen('s-trial', 'trial'),
-        makePickCompute('$$pick.items', 'trial-loop'),
-        makeScreen('s-end', 'end'),
-        end,
-      ],
-      edges: [
-        seq('start', 'trial-loop'),
-        { type: 'loop-template', from: 'trial-loop', to: 's-trial' },
-        seq('trial-loop', 'c1'),
-        seq('c1', 's-end'),
-        seq('s-end', 'end'),
-      ],
-      screens: [
-        { slug: 'trial', components: [] },
-        { slug: 'end', components: [] },
-      ],
-    };
-    expect(codes(flow)).toContain('unavailable-reference');
-  });
-
   it('reports unknown-node when loopId does not reference a loop node', () => {
     const flow: ExperimentFlow = {
       nodes: [
@@ -2513,7 +2491,7 @@ describe('compute node — count-correct formula validation', () => {
         makeScreen('s-pick', 'pick'),
         loopNode,
         makeScreen('s-trial', 'trial'),
-        makePickCompute('$$pick.items', 'nonexistent-loop'),
+        makePickCompute('nonexistent-loop'),
         makeScreen('s-end', 'end'),
         end,
       ],
@@ -2550,7 +2528,7 @@ describe('compute node — count-correct formula validation', () => {
         makeScreen('s-pick', 'pick'),
         loopNode,
         makeScreen('s-trial', 'trial'),
-        makePickCompute('$$pick.items', 's-pick'),
+        makePickCompute('s-pick'),
         makeScreen('s-end', 'end'),
         end,
       ],
@@ -2578,6 +2556,58 @@ describe('compute node — count-correct formula validation', () => {
       ],
     };
     expect(codes(flow)).toContain('unknown-node');
+  });
+
+  it('reports invalid-reference when loop-aggregate @ refs target another loop', () => {
+    const flow: ExperimentFlow = {
+      nodes: [
+        start,
+        makeScreen('s-pick', 'pick'),
+        loopNode,
+        makeScreen('s-trial', 'trial'),
+        makeCompute('c1', [
+          {
+            outputKey: 'score',
+            formula: {
+              type: 'loop-aggregate',
+              loopId: 'trial-loop',
+              op: 'count',
+              where: {
+                type: 'simple',
+                operator: 'eq',
+                dataKey: '@other-loop.trial.answer',
+                value: '@trial-loop.value.correct',
+              },
+            },
+          },
+        ]),
+        makeScreen('s-end', 'end'),
+        end,
+      ],
+      edges: [
+        seq('start', 's-pick'),
+        seq('s-pick', 'trial-loop'),
+        { type: 'loop-template', from: 'trial-loop', to: 's-trial' },
+        seq('trial-loop', 'c1'),
+        seq('c1', 's-end'),
+        seq('s-end', 'end'),
+      ],
+      screens: [
+        {
+          slug: 'pick',
+          components: [
+            {
+              componentFamily: 'response',
+              template: 'text-input',
+              props: { dataKey: 'items', label: 'Items' },
+            },
+          ],
+        },
+        { slug: 'trial', components: [] },
+        { slug: 'end', components: [] },
+      ],
+    };
+    expect(codes(flow)).toContain('invalid-reference');
   });
 });
 

@@ -33,7 +33,15 @@ export type Context = Partial<{
   branches: Record<string, string>;
   forks: Record<string, string>;
   paths: { [pathNodeId: string]: { order: string[] } };
-  loops: { [loopNodeId: string]: { order: string[] } };
+  loops: {
+    [loopNodeId: string]: {
+      order: string[];
+      // Resolved iteration values aligned 1:1 with `order` (post-shuffle for
+      // randomized loops). Lets loop-aggregate recover each iteration's item
+      // without re-resolving the loop source or reconstructing keys.
+      values: (string | Record<string, unknown>)[];
+    };
+  };
   loopData: { [loopNodeId: string]: IterativeItem };
   timings: Record<string, Partial<TimingEntry>>;
 }>;

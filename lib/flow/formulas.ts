@@ -1,4 +1,4 @@
-import { evaluateCondition } from '../conditions';
+import { evaluateCondition, resolveCondition } from '../conditions';
 import { Formula } from '../nodes';
 import { getValue } from '../resolve';
 import { PREFIX, parseRef } from '../tokens';
@@ -20,6 +20,7 @@ export function evaluateFormula(
   formula: Formula,
   context: Context,
   nodeOutputs: Record<string, any>,
+  dataPath?: string[],
 ): any {
   switch (formula.type) {
     case 'sum':
@@ -80,33 +81,68 @@ export function evaluateFormula(
       if (!Array.isArray(pool)) return [];
       return shuffle(pool).slice(0, formula.n);
     }
-    case 'count-correct': {
-      const items = getFormulaInputValue(formula.itemsKey, context, nodeOutputs);
-      if (!Array.isArray(items)) return 0;
-      const loopIterations = context.data?.[formula.loopId] as
+    case 'loop-aggregate': {
+      // Iterate the loop's own published keys rather than reconstructing them,
+      // so static/dynamic loops, plain-string and object items, and itemKey'd
+      // loops all behave identically.
+      const loopCtx = context.loops?.[formula.loopId];
+      const order = loopCtx?.order ?? [];
+      const items = loopCtx?.values ?? [];
+      // context.loops is keyed absolutely, but the loop's *iteration data* nests
+      // under the compute node's dataPath (e.g. data[pathId][loopId] when both
+      // are inside a path). Walk dataPath before indexing by loopId.
+      const loopDataRoot = (dataPath ?? []).reduce<any>(
+        (obj, key) => (obj == null ? undefined : obj[key]),
+        context.data ?? {},
+      );
+      const iterations = loopDataRoot?.[formula.loopId] as
         | Record<string, Record<string, Record<string, unknown>>>
         | undefined;
-      if (!loopIterations) return 0;
-      return items.reduce((count: number, item: unknown, idx: number) => {
-        // Reconstruct the loop's iteration key. When itemKey is set and present
-        // on the object, use String(item[itemKey]); otherwise fall back to the
-        // 1-based index. NOTE: a mismatch between this itemKey and the loop
-        // node's itemKey is not validated and will silently miscount — pending
-        // a future count-correct refactor.
-        const itemKeyValue =
-          formula.itemKey != null && item !== null && typeof item === 'object'
-            ? (item as Record<string, unknown>)[formula.itemKey]
-            : undefined;
-        const iterKey =
-          itemKeyValue != null ? String(itemKeyValue) : String(idx + 1);
-        const answer =
-          loopIterations[iterKey]?.[formula.screenSlug]?.[formula.answerKey];
-        const correct =
-          item !== null && typeof item === 'object'
-            ? (item as Record<string, unknown>)[formula.correctKey]
-            : undefined;
-        return answer === correct ? count + 1 : count;
-      }, 0);
+
+      const collected: number[] = [];
+      let count = 0;
+
+      order.forEach((iterKey, i) => {
+        const iterationData = iterations?.[iterKey] ?? {};
+        // Expose the aggregated loop's current iteration under @<loopId>:
+        //   @<loopId>.value[.prop]         → the item
+        //   @<loopId>.index                → the iteration index
+        //   @<loopId>.<screenSlug>.<field> → a collected response
+        // `value`/`index` are reserved; screen slugs sit alongside them. $ keeps
+        // resolving to this node's prior outputs (merged as screenData).
+        const evalCtx = mergeContext(context, {
+          screenData: nodeOutputs,
+          loopData: {
+            [formula.loopId]: { ...iterationData, value: items[i], index: i },
+          } as any,
+        });
+
+        if (formula.where) {
+          const resolved = resolveCondition(formula.where, evalCtx);
+          if (!evaluateCondition(resolved, evalCtx)) return;
+        }
+
+        if (formula.op === 'count') {
+          count += 1;
+        } else if (formula.field != null) {
+          collected.push(Number(getValue(formula.field, evalCtx)) || 0);
+        }
+      });
+
+      switch (formula.op) {
+        case 'count':
+          return count;
+        case 'sum':
+          return collected.reduce((a, b) => a + b, 0);
+        case 'mean':
+          return collected.length === 0
+            ? 0
+            : collected.reduce((a, b) => a + b, 0) / collected.length;
+        case 'min':
+          return collected.length === 0 ? 0 : Math.min(...collected);
+        case 'max':
+          return collected.length === 0 ? 0 : Math.max(...collected);
+      }
     }
   }
 }

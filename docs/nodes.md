@@ -84,4 +84,4 @@ Both loop types also accept an optional `itemKey?: string` prop. By default an o
 - For `static` loops, every object value must contain the `itemKey` property; a missing property is caught by `validateExperiment()` (error code `loop-item-key-missing`).
 - For `dynamic` loops, a missing property at runtime **silently falls back** to the 1-based index for that iteration.
 
-When using a `count-correct` formula against an object loop that sets `itemKey`, the formula must set a matching `itemKey` so it can reconstruct the same iteration keys when looking up answers. A mismatch is not validated and will silently miscount.
+A `loop-aggregate` formula reads `context.loops[loopId].order` directly to find each iteration's data, so it works against `itemKey`'d loops with no extra configuration — there are no iteration keys to reconstruct or keep in sync.
