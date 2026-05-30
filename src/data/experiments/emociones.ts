@@ -423,12 +423,15 @@ const emociones: ExperimentFlow = {
           {
             outputKey: 'total-correct',
             formula: {
-              type: 'count-correct',
-              itemsKey: '$$compute-sample-items.selected-items',
+              type: 'loop-aggregate',
               loopId: 'loop-miradas',
-              screenSlug: 'mirada',
-              answerKey: 'answer',
-              correctKey: 'correctAnswer',
+              op: 'count',
+              where: {
+                type: 'simple',
+                operator: 'eq',
+                dataKey: '@loop-miradas.mirada.answer',
+                value: '@loop-miradas.value.correctAnswer',
+              },
             },
           },
           {

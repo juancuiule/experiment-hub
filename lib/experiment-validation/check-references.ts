@@ -73,8 +73,11 @@ function referencesInFormula(formula: Formula): string[] {
       return referencesInCondition(formula.condition);
     case 'lookup':
       return [formula.input];
-    case 'count-correct':
-      return [formula.itemsKey];
+    case 'loop-aggregate':
+      // Items come from context.loops[loopId].values and the where / field
+      // references ($<field>, @item) are iteration-scoped, so a loop-aggregate
+      // has no outer-scope references to validate. loopId is checked separately.
+      return [];
     case 'sample':
       return Array.isArray(formula.input) ? [] : [formula.input];
     default:
@@ -489,7 +492,7 @@ export function checkReferences(experiment: ExperimentFlow): ValidationError[] {
           });
 
           const { formula, outputKey } = computation;
-          if (formula.type === 'count-correct') {
+          if (formula.type === 'loop-aggregate') {
             const loopExists = nodes.some(
               (n) => n.id === formula.loopId && n.type === 'loop',
             );
@@ -497,7 +500,7 @@ export function checkReferences(experiment: ExperimentFlow): ValidationError[] {
               rawErrors.push({
                 code: 'unknown-node',
                 category: 'reference',
-                message: `Compute "${node.id}" output "${outputKey}" count-correct references loop "${formula.loopId}" which is not a loop node in this experiment`,
+                message: `Compute "${node.id}" output "${outputKey}" loop-aggregate references loop "${formula.loopId}" which is not a loop node in this experiment`,
               });
             }
           }

@@ -136,29 +136,49 @@ export type SampleFormula = {
 };
 
 /**
- * Counts how many loop iterations had the correct answer.
- * Requires the loop to iterate over object-valued items (not plain strings).
- * Object loops use 1-based string indices as iteration keys in context.data.
+ * Aggregates a value across the iterations of a loop.
+ *
+ * Iterations are read from `context.loops[loopId].order` — the canonical,
+ * already-resolved iteration keys produced by the loop itself — so this never
+ * reconstructs keys and works uniformly for static/dynamic loops, plain-string
+ * and object items, and itemKey'd loops.
+ *
+ * Per iteration the predicate (`where`) and aggregated `field` are evaluated
+ * against a context where the aggregated loop's current iteration is exposed
+ * under its own id, `@<loopId>`:
+ *   - `@<loopId>.value[.prop]`        — the loop item object/value
+ *   - `@<loopId>.index`               — the 0-based iteration index
+ *   - `@<loopId>.<screenSlug>.<field>`— a response collected that iteration
+ *
+ * `$` keeps its normal meaning (this compute node's prior outputs); `value`
+ * and `index` are reserved keys on `@<loopId>`, so a screen slug may not be
+ * named `value` or `index`.
+ *
+ * The item is recovered from `context.loops[loopId].values` (aligned with
+ * `order`), so scoring stays correct even when the loop is `randomized`, and
+ * the iteration responses are read through the compute node's dataPath, so it
+ * works for loops nested inside paths.
+ *
+ * Subsumes the former `count-correct`: scoring is `op: 'count'` with
+ *   `where: @<loopId>.<screen>.answer == @<loopId>.value.correctAnswer`.
  */
-export type CountCorrectFormula = {
-  type: 'count-correct';
-  /** $$ reference to the ordered array of sampled item objects (e.g. '$$pick.items') */
-  itemsKey: `$$${string}`;
-  /** ID of the loop node whose iteration data holds the answers */
+export type LoopAggregateFormula = {
+  type: 'loop-aggregate';
+  /** ID of the loop node whose iteration data is aggregated */
   loopId: string;
-  /** Slug of the screen inside the loop that collected the answer field */
-  screenSlug: string;
-  /** Form field key used for the participant's answer (dataKey on the response component) */
-  answerKey: string;
-  /** Property name on each item object that holds the correct answer */
-  correctKey: string;
+  /** Aggregation operation */
+  op: 'count' | 'sum' | 'mean' | 'min' | 'max';
   /**
-   * Property name used to reconstruct the loop's iteration key.
-   * Must match the loop node's itemKey when that loop sets one. A mismatch is
-   * NOT validated and will silently return wrong results — pending a future
-   * count-correct refactor.
+   * Reference to the per-iteration numeric value to aggregate, e.g.
+   * '@loopId.trial.rating'. Required for sum/mean/min/max; ignored by count
+   * (which counts iterations, optionally filtered by `where`).
    */
-  itemKey?: string;
+  field?: string;
+  /**
+   * Optional per-iteration predicate. Counts/aggregates only iterations that
+   * satisfy it. Both sides may be `@<loopId>` references resolved per iteration.
+   */
+  where?: Condition;
 };
 
 export type Formula =
@@ -170,7 +190,7 @@ export type Formula =
   | ConditionalFormula
   | LookupFormula
   | SampleFormula
-  | CountCorrectFormula;
+  | LoopAggregateFormula;
 
 export type Computation = {
   outputKey: string;

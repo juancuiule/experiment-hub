@@ -190,7 +190,7 @@ async function enterStep(step: FlowStep): Promise<FlowStep> {
     // Skip the loop entirely when there are no values to iterate
     if (values.length === 0) {
       const ctx = mergeContext(step.context, {
-        loops: { [node.id]: { order: [] } },
+        loops: { [node.id]: { order: [], values: [] } },
       });
       return exitToNextNode(
         step.experiment,
@@ -208,7 +208,7 @@ async function enterStep(step: FlowStep): Promise<FlowStep> {
     );
     const contextWithItem = mergeContext(
       withCurrentItem(step.context, node.id, values, index),
-      { loops: { [node.id]: { order } } },
+      { loops: { [node.id]: { order, values } } },
     );
 
     // On first entry, reinitialize innerState with the updated context so nested
@@ -453,6 +453,7 @@ export async function traverseInNode(
           computation.formula,
           context,
           nodeOutputs,
+          step.dataPath,
         );
       }
       const nContext = nestData(
