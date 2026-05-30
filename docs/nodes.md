@@ -85,3 +85,21 @@ Both loop types also accept an optional `itemKey?: string` prop. By default an o
 - For `dynamic` loops, a missing property at runtime **silently falls back** to the 1-based index for that iteration.
 
 A `loop-aggregate` formula reads `context.loops[loopId].order` directly to find each iteration's data, so it works against `itemKey`'d loops with no extra configuration — there are no iteration keys to reconstruct or keep in sync.
+
+### `split` formula — paginate a list across loop screens
+
+A compute `split` formula chops a list into bins so a dynamic loop can present a long questionnaire across several screens (one bin per screen). Its output — an **array of bins** (each bin an array of the original items) — is stored at `data[outputKey]` and read by a dynamic loop via `$$outputKey`.
+
+```ts
+{ outputKey: 'bins', formula: { type: 'split', input: '$$intro.questions', size: 5 } }
+```
+
+- `input` is a `$$`/`$` reference to a context array, or an inline array — same shape as `sample`.
+- **Mode `size: N`** — bins of N items; the final bin holds the remainder (10 items, `size: 3` → `[3,3,3,1]`).
+- **Mode `into: N`** — exactly N bins; each bin gets `floor(len/N)` items and the **last bins absorb the remainder** (10 items, `into: 3` → `[3,3,4]`). When `N` exceeds the item count at runtime, empty bins are dropped (`2 into 3` → `[[a],[b]]`); the inline-array overflow case is rejected by `validateExperiment()` (`split-bins-exceed-items`).
+- Order is preserved — compose a `sample` formula upstream to randomize first.
+- Non-positive / non-integer `size`/`into` is caught by validation (`invalid-split-size`).
+
+A non-array `input` (e.g. an unresolved reference) yields `[]`, so the dynamic loop is skipped rather than crashing.
+
+**Rendering a bin's items** — inside the loop, the current bin is the loop item, referenced as `@loopId.value`. Use a `forEach` control with `dataKey: '@loopId.value'` to render one input per question in that bin.

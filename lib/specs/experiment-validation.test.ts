@@ -2421,6 +2421,139 @@ describe('compute node — sample formula validation', () => {
   });
 });
 
+describe('compute node — split formula validation', () => {
+  it('passes with a static inline list (size mode)', () => {
+    const flow: ExperimentFlow = {
+      nodes: [
+        start,
+        makeCompute('c1', [
+          {
+            outputKey: 'bins',
+            formula: { type: 'split', input: ['a', 'b', 'c'], size: 2 } as any,
+          },
+        ]),
+        makeScreen('s1', 'end'),
+        end,
+      ],
+      edges: [seq('start', 'c1'), seq('c1', 's1'), seq('s1', 'end')],
+      screens: [{ slug: 'end', components: [] }],
+    };
+    expect(codes(flow)).toEqual([]);
+  });
+
+  it('reports invalid-split-size when size is zero or negative', () => {
+    const flow: ExperimentFlow = {
+      nodes: [
+        start,
+        makeCompute('c1', [
+          {
+            outputKey: 'binsA',
+            formula: { type: 'split', input: ['a', 'b', 'c'], size: 0 } as any,
+          },
+          {
+            outputKey: 'binsB',
+            formula: { type: 'split', input: ['a', 'b', 'c'], into: -2 } as any,
+          },
+        ]),
+        makeScreen('s1', 'end'),
+      ],
+      edges: [seq('start', 'c1'), seq('c1', 's1')],
+      screens: [{ slug: 'end', components: [] }],
+    };
+    expect(codes(flow)).toContain('invalid-split-size');
+  });
+
+  it('reports invalid-split-size when into is not an integer', () => {
+    const flow: ExperimentFlow = {
+      nodes: [
+        start,
+        makeCompute('c1', [
+          {
+            outputKey: 'bins',
+            formula: { type: 'split', input: ['a', 'b', 'c'], into: 1.5 } as any,
+          },
+        ]),
+        makeScreen('s1', 'end'),
+      ],
+      edges: [seq('start', 'c1'), seq('c1', 's1')],
+      screens: [{ slug: 'end', components: [] }],
+    };
+    expect(codes(flow)).toContain('invalid-split-size');
+  });
+
+  it('reports split-bins-exceed-items when into exceeds an inline list length', () => {
+    const flow: ExperimentFlow = {
+      nodes: [
+        start,
+        makeCompute('c1', [
+          {
+            outputKey: 'bins',
+            formula: { type: 'split', input: ['a', 'b'], into: 3 } as any,
+          },
+        ]),
+        makeScreen('s1', 'end'),
+      ],
+      edges: [seq('start', 'c1'), seq('c1', 's1')],
+      screens: [{ slug: 'end', components: [] }],
+    };
+    expect(codes(flow)).toContain('split-bins-exceed-items');
+  });
+
+  it('does not report split-bins-exceed-items for a dynamic reference', () => {
+    const flow: ExperimentFlow = {
+      nodes: [
+        start,
+        makeScreen('s1', 'q'),
+        makeCompute('c1', [
+          {
+            outputKey: 'bins',
+            formula: { type: 'split', input: '$$q.items', into: 50 } as any,
+          },
+        ]),
+        makeScreen('s2', 'end'),
+      ],
+      edges: [
+        seq('start', 's1'),
+        seq('s1', 'c1'),
+        seq('c1', 's2'),
+        seq('s2', 'end'),
+      ],
+      screens: [
+        {
+          slug: 'q',
+          components: [
+            {
+              componentFamily: 'response',
+              template: 'text-input',
+              props: { dataKey: 'items', label: 'Items' },
+            },
+          ],
+        },
+        { slug: 'end', components: [] },
+      ],
+    };
+    expect(codes(flow)).not.toContain('split-bins-exceed-items');
+  });
+
+  it('reports unavailable-reference when $$ input is not yet written', () => {
+    const flow: ExperimentFlow = {
+      nodes: [
+        start,
+        makeCompute('c1', [
+          {
+            outputKey: 'bins',
+            formula: { type: 'split', input: '$$q.items', size: 2 } as any,
+          },
+        ]),
+        makeScreen('s1', 'end'),
+      ],
+      edges: [seq('start', 'c1'), seq('c1', 's1')],
+      screens: [{ slug: 'end', components: [] }],
+    };
+    expect(codes(flow)).toContain('unavailable-reference');
+  });
+});
+
 describe('compute node — loop-aggregate formula validation', () => {
   const loopNode = {
     id: 'trial-loop',

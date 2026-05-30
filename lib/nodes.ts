@@ -136,6 +136,25 @@ export type SampleFormula = {
 };
 
 /**
+ * Splits a list into bins, so a dynamic loop can present a questionnaire across
+ * several screens (one bin per screen). The output is an array of bins (each bin
+ * an array of the original items), stored at `data[outputKey]` and readable as
+ * `$$outputKey`. Order is preserved — compose `sample` upstream to randomize.
+ *
+ * Two modes, discriminated:
+ *   - `into: N`  — exactly N bins. base = floor(len/N) per bin; the LAST bin
+ *                  absorbs the remainder (10 into 3 → [3,3,4]). When N > len at
+ *                  runtime, empty bins are dropped (2 into 3 → [[a],[b]]); the
+ *                  inline-array case is rejected by validation instead.
+ *   - `size: N`  — bins of N items; the final bin holds the remainder
+ *                  (10 size 3 → [3,3,3,1]).
+ */
+export type SplitFormula = {
+  type: 'split';
+  input: FormulaInput | (string | Record<string, unknown>)[];
+} & ({ into: number } | { size: number });
+
+/**
  * Aggregates a value across the iterations of a loop.
  *
  * Iterations are read from `context.loops[loopId].order` — the canonical,
@@ -202,6 +221,7 @@ export type Formula =
   | ConditionalFormula
   | LookupFormula
   | SampleFormula
+  | SplitFormula
   | LoopAggregateFormula;
 
 export type Computation = {

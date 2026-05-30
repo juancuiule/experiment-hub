@@ -81,6 +81,40 @@ export function evaluateFormula(
       if (!Array.isArray(pool)) return [];
       return shuffle(pool).slice(0, formula.n);
     }
+    case 'split': {
+      const list = Array.isArray(formula.input)
+        ? formula.input
+        : getFormulaInputValue(formula.input, context, nodeOutputs);
+      if (!Array.isArray(list)) return [];
+
+      if ('size' in formula) {
+        const size = formula.size;
+        if (!Number.isInteger(size) || size <= 0) return [list];
+        const bins: unknown[][] = [];
+        for (let i = 0; i < list.length; i += size) {
+          bins.push(list.slice(i, i + size));
+        }
+        return bins;
+      }
+
+      // into mode: N bins. Each bin gets `base` items; the trailing `rem` bins
+      // get one extra, so the remainder lands in the last bins (10 into 3 →
+      // [3,3,4]). When N > length, base is 0 and the leading empty bins are
+      // dropped (2 into 3 → [[a],[b]]); the inline-array overflow case is caught
+      // by validation instead.
+      const n = formula.into;
+      if (!Number.isInteger(n) || n <= 0) return [list];
+      const base = Math.floor(list.length / n);
+      const rem = list.length - base * n;
+      const bins: unknown[][] = [];
+      let cursor = 0;
+      for (let b = 0; b < n; b++) {
+        const take = base + (b >= n - rem ? 1 : 0);
+        bins.push(list.slice(cursor, cursor + take));
+        cursor += take;
+      }
+      return bins.filter((bin) => bin.length > 0);
+    }
     case 'loop-aggregate': {
       // Iterate the loop's own published keys rather than reconstructing them,
       // so static/dynamic loops, plain-string and object items, and itemKey'd

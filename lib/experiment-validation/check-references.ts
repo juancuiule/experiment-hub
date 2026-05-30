@@ -84,6 +84,7 @@ function referencesInFormula(formula: Formula): string[] {
       // has no outer-scope references to validate. loopId is checked separately.
       return [];
     case 'sample':
+    case 'split':
       return Array.isArray(formula.input) ? [] : [formula.input];
     default:
       return [];
