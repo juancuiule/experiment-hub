@@ -152,6 +152,123 @@ const ocean: ExperimentFlow = {
       },
     },
     {
+      // The answers are scattered across the (randomized) loop screens under
+      // data.loops.<iter>.questions.question-<id>. collect-loop flattens them
+      // into one object keyed by field name, regardless of which screen each
+      // question appeared on.
+      id: 'compute-collect',
+      type: 'compute',
+      props: {
+        name: 'Flatten questionnaire answers across screens',
+        computations: [
+          {
+            outputKey: 'ans',
+            formula: {
+              type: 'collect-loop',
+              loopId: 'loops',
+              screen: 'questions',
+            },
+          },
+        ],
+      },
+    },
+    {
+      // Per-category sums of the flattened answers. NOTE: these are RAW sums —
+      // reverse-keyed items (question.reverse) are not yet reverse-scored, so
+      // the totals aren't psychometrically correct until reversal is added.
+      id: 'compute-score',
+      type: 'compute',
+      props: {
+        name: 'OCEAN category sums',
+        computations: [
+          {
+            outputKey: 'extraversion',
+            formula: {
+              type: 'sum',
+              inputs: [
+                '$$compute-collect.ans.question-1',
+                '$$compute-collect.ans.question-6',
+                '$$compute-collect.ans.question-11',
+                '$$compute-collect.ans.question-16',
+                '$$compute-collect.ans.question-21',
+                '$$compute-collect.ans.question-26',
+                '$$compute-collect.ans.question-31',
+                '$$compute-collect.ans.question-36',
+              ],
+            },
+          },
+          {
+            outputKey: 'agreeableness',
+            formula: {
+              type: 'sum',
+              inputs: [
+                '$$compute-collect.ans.question-2',
+                '$$compute-collect.ans.question-7',
+                '$$compute-collect.ans.question-12',
+                '$$compute-collect.ans.question-17',
+                '$$compute-collect.ans.question-22',
+                '$$compute-collect.ans.question-27',
+                '$$compute-collect.ans.question-32',
+                '$$compute-collect.ans.question-37',
+                '$$compute-collect.ans.question-42',
+              ],
+            },
+          },
+          {
+            outputKey: 'conscientiousness',
+            formula: {
+              type: 'sum',
+              inputs: [
+                '$$compute-collect.ans.question-3',
+                '$$compute-collect.ans.question-8',
+                '$$compute-collect.ans.question-13',
+                '$$compute-collect.ans.question-18',
+                '$$compute-collect.ans.question-23',
+                '$$compute-collect.ans.question-28',
+                '$$compute-collect.ans.question-33',
+                '$$compute-collect.ans.question-38',
+                '$$compute-collect.ans.question-43',
+              ],
+            },
+          },
+          {
+            outputKey: 'neuroticism',
+            formula: {
+              type: 'sum',
+              inputs: [
+                '$$compute-collect.ans.question-4',
+                '$$compute-collect.ans.question-9',
+                '$$compute-collect.ans.question-14',
+                '$$compute-collect.ans.question-19',
+                '$$compute-collect.ans.question-24',
+                '$$compute-collect.ans.question-29',
+                '$$compute-collect.ans.question-34',
+                '$$compute-collect.ans.question-39',
+              ],
+            },
+          },
+          {
+            outputKey: 'openness',
+            formula: {
+              type: 'sum',
+              inputs: [
+                '$$compute-collect.ans.question-5',
+                '$$compute-collect.ans.question-10',
+                '$$compute-collect.ans.question-15',
+                '$$compute-collect.ans.question-20',
+                '$$compute-collect.ans.question-25',
+                '$$compute-collect.ans.question-30',
+                '$$compute-collect.ans.question-35',
+                '$$compute-collect.ans.question-40',
+                '$$compute-collect.ans.question-41',
+                '$$compute-collect.ans.question-44',
+              ],
+            },
+          },
+        ],
+      },
+    },
+    {
       id: 'screen-regressors',
       type: 'screen',
       props: {
@@ -166,7 +283,9 @@ const ocean: ExperimentFlow = {
     { from: 'screen-instructions', to: 'compute-split', type: 'sequential' },
     { from: 'compute-split', to: 'loops', type: 'sequential' },
     { from: 'loops', to: 'screen-questionnaire', type: 'loop-template' },
-    { from: 'loops', to: 'screen-regressors', type: 'sequential' },
+    { from: 'loops', to: 'compute-collect', type: 'sequential' },
+    { from: 'compute-collect', to: 'compute-score', type: 'sequential' },
+    { from: 'compute-score', to: 'screen-regressors', type: 'sequential' },
     { from: 'screen-regressors', to: 'end', type: 'sequential' },
   ],
   screens: [
