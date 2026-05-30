@@ -46,7 +46,12 @@ import { ValidationError } from './types';
 function referencesInCondition(condition: Condition): string[] {
   switch (condition.type) {
     case 'simple': {
-      return [condition.dataKey];
+      return [
+        condition.dataKey,
+        ...(typeof condition.value === 'string' && parseRef(condition.value)
+          ? [condition.value]
+          : []),
+      ];
     }
     case 'and':
     case 'or': {
@@ -55,20 +60,6 @@ function referencesInCondition(condition: Condition): string[] {
     case 'not': {
       return referencesInCondition(condition.condition);
     }
-  }
-}
-
-function valueReferencesInCondition(condition: Condition): string[] {
-  switch (condition.type) {
-    case 'simple':
-      return typeof condition.value === 'string' && parseRef(condition.value)
-        ? [condition.value]
-        : [];
-    case 'and':
-    case 'or':
-      return condition.conditions.flatMap(valueReferencesInCondition);
-    case 'not':
-      return valueReferencesInCondition(condition.condition);
   }
 }
 
@@ -520,7 +511,6 @@ export function checkReferences(experiment: ExperimentFlow): ValidationError[] {
 
             const loopRefs = [
               ...(formula.where ? referencesInCondition(formula.where) : []),
-              ...(formula.where ? valueReferencesInCondition(formula.where) : []),
               ...(formula.op === 'count' ? [] : [formula.field]),
             ].filter((ref) => ref.startsWith(PREFIX.LOOP));
 
