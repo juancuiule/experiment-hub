@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { evaluateCondition } from '../conditions';
+import { Condition, evaluateCondition, resolveCondition } from '../conditions';
 import { getValue } from '../resolve';
 
 describe('getValue', () => {
@@ -601,5 +601,115 @@ describe('evaluateCondition — nested compound', () => {
         ctx,
       ),
     ).toBe(true);
+  });
+});
+
+describe('evaluateCondition — fall-through', () => {
+  it('returns false for an unrecognized simple operator', () => {
+    expect(
+      evaluateCondition(
+        {
+          type: 'simple',
+          operator: 'bogus' as never,
+          dataKey: '$$profile.age',
+          value: 1,
+        },
+        { data: { profile: { age: 25 } } },
+      ),
+    ).toBe(false);
+  });
+
+  it('returns false for an unrecognized condition type', () => {
+    expect(evaluateCondition({ type: 'xyz' } as never, {})).toBe(false);
+  });
+});
+
+describe('resolveCondition', () => {
+  it('interpolates {{ }} tokens in a simple dataKey', () => {
+    const ctx = {
+      screenData: { foreachData: { fe: { index: 2, value: 'c' } } },
+    };
+    const resolved = resolveCondition(
+      {
+        type: 'simple',
+        operator: 'eq',
+        dataKey: '$$answers.{{#fe.index}}.value',
+        value: 'x',
+      },
+      ctx,
+    );
+    expect((resolved as { dataKey: string }).dataKey).toBe('$$answers.2.value');
+  });
+
+  it('resolves a value that is itself a data reference', () => {
+    const ctx = { data: { threshold: 18, profile: { age: 20 } } };
+    const resolved = resolveCondition(
+      {
+        type: 'simple',
+        operator: 'gte',
+        dataKey: '$$profile.age',
+        value: '$$threshold',
+      },
+      ctx,
+    );
+    expect((resolved as { value: unknown }).value).toBe(18);
+  });
+
+  it('leaves a non-reference literal value untouched', () => {
+    const resolved = resolveCondition(
+      { type: 'simple', operator: 'eq', dataKey: '$$x', value: 'plain' },
+      {},
+    );
+    expect((resolved as { value: unknown }).value).toBe('plain');
+  });
+
+  it('recurses into and/or conditions', () => {
+    const ctx = {
+      screenData: { foreachData: { fe: { index: 1, value: 'a' } } },
+    };
+    const tree: Condition = {
+      type: 'and',
+      conditions: [
+        {
+          type: 'or',
+          conditions: [
+            {
+              type: 'simple',
+              operator: 'eq',
+              dataKey: '$$a.{{#fe.index}}',
+              value: 1,
+            },
+          ],
+        },
+      ],
+    };
+    const resolved = resolveCondition(tree, ctx) as unknown as {
+      conditions: [{ conditions: [{ dataKey: string }] }];
+    };
+    expect(resolved.conditions[0].conditions[0].dataKey).toBe('$$a.1');
+  });
+
+  it('recurses into a not condition', () => {
+    const ctx = {
+      screenData: { foreachData: { fe: { index: 3, value: 'z' } } },
+    };
+    const resolved = resolveCondition(
+      {
+        type: 'not',
+        condition: {
+          type: 'simple',
+          operator: 'eq',
+          dataKey: '$$a.{{#fe.index}}',
+          value: 1,
+        },
+      },
+      ctx,
+    ) as { condition: { dataKey: string } };
+    expect(resolved.condition.dataKey).toBe('$$a.3');
+  });
+
+  it('returns an unrecognized condition type unchanged', () => {
+    const weird = { type: 'xyz' } as never;
+    expect(resolveCondition(weird, {})).toBe(weird);
   });
 });
