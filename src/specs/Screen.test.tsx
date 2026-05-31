@@ -564,7 +564,7 @@ describe('conditional', () => {
           operator: 'eq',
           value: 'yes',
         },
-        component: {
+        then: {
           componentFamily: 'response',
           template: 'numeric-input',
           props: {
@@ -875,7 +875,7 @@ describe('conditional inside for-each', () => {
                 operator: 'eq',
                 value: 'alpha',
               },
-              component: {
+              then: {
                 componentFamily: 'content',
                 template: 'rich-text',
                 props: { content: 'Only for alpha' },

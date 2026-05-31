@@ -1,4 +1,5 @@
 import { Condition } from './conditions';
+import { DataPrefix, ScreenPrefix } from './tokens';
 
 export type NodeType =
   | 'start'
@@ -16,6 +17,14 @@ interface BaseNode {
   type: NodeType;
 }
 
+/**
+ * Entry point of the experiment flow — the first node executed on a run.
+ * Most experiments have a single start node. To support multiple entry points
+ * selected by URL query string, give each start node `props.name` (the group
+ * name) and `props.param` (`{ key, value }`); the runner picks the start node
+ * whose `param` matches the incoming query param (e.g. `?condition=A` →
+ * `param: { key: 'condition', value: 'A' }`). Auto-traversed (no participant UI).
+ */
 export interface StartNode extends BaseNode {
   type: 'start';
   props?: {
@@ -24,6 +33,11 @@ export interface StartNode extends BaseNode {
   };
 }
 
+/**
+ * Persists the run's data collected up to this point (via `send()` in
+ * `lib/utils.ts`), so partial data survives if a participant abandons the study.
+ * `props.name` identifies the checkpoint. Auto-traversed (no participant UI).
+ */
 export interface CheckpointNode extends BaseNode {
   type: 'checkpoint';
   props: {
@@ -31,6 +45,11 @@ export interface CheckpointNode extends BaseNode {
   };
 }
 
+/**
+ * Renders a screen to the participant. `props.slug` references a screen defined
+ * in the experiment's `screens` array; that screen's components are rendered in
+ * order. Advancing submits the screen's form data into context.
+ */
 export interface ScreenNode extends BaseNode {
   type: 'screen';
   props: {
@@ -38,6 +57,10 @@ export interface ScreenNode extends BaseNode {
   };
 }
 
+/**
+ * One arm of a `branch` node. `config` is the `Condition` under which this arm
+ * is taken; `id`/`name` identify it (`description` is optional).
+ */
 export type Branch = {
   id: string;
   name: string;
@@ -45,6 +68,13 @@ export type Branch = {
   config: Condition;
 };
 
+/**
+ * Conditional split. Each entry in `props.branches` carries a `Condition`; the
+ * runner takes the first branch (by edge order) whose condition is true. The
+ * `config` accepts the full composable `Condition` type and `$$`/`@`/`$`
+ * references. Reconvergence is not enforced — the downstream nodes decide the
+ * flow after the branch, not the branch node. Auto-traversed (no participant UI).
+ */
 export interface BranchNode extends BaseNode {
   type: 'branch';
   props: {
@@ -54,8 +84,20 @@ export interface BranchNode extends BaseNode {
   };
 }
 
+/**
+ * Progress-stepper shown at the top of screens inside a `path` or `loop`.
+ * `style` picks the visual treatment; `label` is optional text in which
+ * `{index}` and `{total}` are substituted with the current step and total step
+ * count. (Note: this `{ }` substitution differs from answer piping's `{{ }}` —
+ * see docs/nodes.md.)
+ */
 export type StepperConfig = { label?: string; style: 'continuous' | 'dashed' };
 
+/**
+ * A fixed sequence of nodes traversed in order. `props.name` identifies it;
+ * `randomized` shuffles the contained steps once on entry; `stepper` configures
+ * an optional progress indicator. Only `name` is required.
+ */
 export interface PathNode extends BaseNode {
   type: 'path';
   props: {
@@ -66,6 +108,11 @@ export interface PathNode extends BaseNode {
   };
 }
 
+/**
+ * One outcome of a `fork` node. `weight` sets its relative probability (the
+ * runner normalizes weights across all forks); `id`/`name` identify it
+ * (`description` is optional).
+ */
 export type Fork = {
   id: string;
   name: string;
@@ -73,6 +120,11 @@ export type Fork = {
   weight?: number;
 };
 
+/**
+ * Random split. The runner picks one entry from `props.forks` weighted by each
+ * fork's `weight`. Flow afterward is determined by `fork-edge`s, not sequential
+ * edges. Auto-traversed (no participant UI).
+ */
 export interface ForkNode extends BaseNode {
   type: 'fork';
   props: {
@@ -82,11 +134,20 @@ export interface ForkNode extends BaseNode {
   };
 }
 
+/**
+ * Repeats its contained nodes once per item. A `static` loop lists its `values`
+ * inline; a `dynamic` loop resolves them at runtime from a `$$`-prefixed
+ * `dataKey` (an array collected earlier, e.g. via `sample`/`split`). Items may
+ * be strings or objects. `randomized` shuffles the items once on entry (the
+ * resulting order is published to `context.loops[loopId].order`); `stepper`
+ * adds an optional progress indicator. Per-iteration data nests under
+ * `context.data.<loopId>.<iterKey>` — see `itemKey` for how the key is chosen.
+ */
 export interface LoopNode extends BaseNode {
   type: 'loop';
   props: (
     | { type: 'static'; values: (string | Record<string, unknown>)[] }
-    | { type: 'dynamic'; dataKey: `$$${string}` }
+    | { type: 'dynamic'; dataKey: `${DataPrefix}${string}` }
   ) & {
     stepper?: StepperConfig;
     randomized?: boolean;
@@ -101,27 +162,74 @@ export interface LoopNode extends BaseNode {
   };
 }
 
-export type FormulaInput = `$$${string}` | `$${string}`;
+/**
+ * A data reference accepted as a formula input: either `$$`-prefixed (a value
+ * collected earlier in the experiment, e.g. `$$screenSlug.field`) or
+ * `$`-prefixed (an output of the current compute node). See docs/data-keys.md
+ * for the full prefix list.
+ */
+export type FormulaInput = `${DataPrefix | ScreenPrefix}${string}`;
 
+/**
+ * Sums the numeric values of every input. Each input is coerced with
+ * `Number(...)`; anything non-numeric or missing contributes 0. Empty `inputs`
+ * yields 0.
+ */
 export type SumFormula = { type: 'sum'; inputs: FormulaInput[] };
+/**
+ * Arithmetic mean of the inputs. Each input is coerced with `Number(...)`
+ * (non-numeric/missing → 0, and still counts toward the denominator). Empty
+ * `inputs` yields 0.
+ */
 export type MeanFormula = { type: 'mean'; inputs: FormulaInput[] };
+/**
+ * Smallest of the inputs (`Math.min`). Each input is coerced with `Number(...)`;
+ * non-numeric/missing values become 0, so they can pull the result down. Empty
+ * `inputs` yields 0.
+ */
 export type MinFormula = { type: 'min'; inputs: FormulaInput[] };
+/**
+ * Largest of the inputs (`Math.max`). Each input is coerced with `Number(...)`;
+ * non-numeric/missing values become 0. Empty `inputs` yields 0.
+ */
 export type MaxFormula = { type: 'max'; inputs: FormulaInput[] };
+/**
+ * Counts how many inputs qualify.
+ *
+ * An input qualifies when it is *present* — not `null`/`undefined` and not the
+ * empty string (so `0` and `false` are counted). With a `where` predicate, each
+ * present input is additionally tested and only matching ones are counted; the
+ * value under test is exposed to the condition as `@current`, e.g. count inputs
+ * `>= 3` with `where: { type: 'simple', operator: 'gte', dataKey: '@current', value: 3 }`.
+ */
 export type CountFormula = {
   type: 'count';
   inputs: FormulaInput[];
-  // Optional condition to count only inputs that satisfy a
-  // certain condition (e.g. count how many inputs are greater than 5)
-  // If no condition is provided, it will simply count the number of inputs
-  // that are truthy (non-zero for numbers, non-empty for strings, true for booleans)
+  /**
+   * Optional per-input predicate; only inputs satisfying it are counted. The
+   * input under test is referenced as `@current`. Omit to count every present
+   * input.
+   */
   where?: Condition;
 };
+/**
+ * Branches on a condition: returns `then` when `condition` holds, else `else`.
+ * The condition is evaluated against the full context with this compute node's
+ * prior outputs merged in (so `$` references to earlier outputs resolve).
+ */
 export type ConditionalFormula = {
   type: 'conditional';
   condition: Condition;
   then: string | number | boolean;
   else: string | number | boolean;
 };
+/**
+ * Threshold / banding lookup. Coerces `input` to a number and returns the `then`
+ * of the highest `when` entry that the value reaches (the matching band of a
+ * `value >= when` scale). `table` order does not matter — entries are sorted by
+ * `when` descending internally. Falls back to `default` when the value is below
+ * every threshold. Useful for mapping a score onto a label/grade.
+ */
 export type LookupFormula = {
   type: 'lookup';
   input: FormulaInput;
@@ -129,6 +237,13 @@ export type LookupFormula = {
   default?: string | number;
 };
 
+/**
+ * Randomly samples up to `n` items from `input` (a `$$`/`$` reference to a
+ * context array, or an inline array). The pool is shuffled and the first `n`
+ * taken, so `n` larger than the pool returns the whole pool shuffled. A
+ * non-array `input` yields `[]`. Commonly composed upstream of a dynamic loop
+ * or a `split` formula to randomize before paginating.
+ */
 export type SampleFormula = {
   type: 'sample';
   input: FormulaInput | any[];
@@ -259,11 +374,22 @@ export type Formula =
   | LoopAggregateFormula
   | CollectLoopFormula;
 
+/**
+ * A single named output of a compute node: `formula` is evaluated and its result
+ * stored under `outputKey`, readable downstream as `$$<computeId>.<outputKey>`.
+ */
 export type Computation = {
   outputKey: string;
   formula: Formula;
 };
 
+/**
+ * Derives values from already-collected data. Runs each entry in
+ * `props.computations` and writes the results into context under the node id. A
+ * node's own outputs are not visible to its sibling computations until the node
+ * finishes, so chained derivations need separate compute nodes. Auto-traversed
+ * (no participant UI).
+ */
 export interface ComputeNode extends BaseNode {
   type: 'compute';
   props: {
@@ -273,6 +399,7 @@ export interface ComputeNode extends BaseNode {
   };
 }
 
+/** Terminates the flow. Auto-traversed; has no props and no participant UI. */
 export interface EndNode extends BaseNode {
   type: 'end';
 }

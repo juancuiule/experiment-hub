@@ -19,6 +19,12 @@ export const PREFIX = {
   SHARED: '%' as const,
 } as const;
 
+export type DataPrefix = typeof PREFIX.DATA;
+export type ScreenPrefix = typeof PREFIX.SCREEN;
+export type LoopPrefix = typeof PREFIX.LOOP;
+export type ForEachPrefix = typeof PREFIX.FOREACH;
+export type SharedPrefix = typeof PREFIX.SHARED;
+
 // The four prefixes that appear in {{…}} template tokens and bare reference
 // strings. SHARED (%) names option sets, not runtime data — excluded here.
 export type RefPrefix =

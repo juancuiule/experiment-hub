@@ -24,7 +24,7 @@ export function Conditional({
 }: Props) {
   const {
     if: condition,
-    component: innerComponent,
+    then: innerComponent,
     else: elseComponent,
   } = component.props;
 

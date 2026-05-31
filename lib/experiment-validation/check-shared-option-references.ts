@@ -32,7 +32,7 @@ export function checkSharedOptionReferences(
     on(
       { componentFamily: 'control', template: 'conditional' },
       (c, slug, recur): ValidationError[] => [
-        ...recur([c.props.component], slug),
+        ...recur([c.props.then], slug),
         ...(c.props.else ? recur([c.props.else], slug) : []),
       ],
     ),

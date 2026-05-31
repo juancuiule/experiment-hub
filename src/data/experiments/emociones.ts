@@ -780,7 +780,7 @@ const emociones: ExperimentFlow = {
               operator: 'eq',
               value: 'si',
             },
-            component: {
+            then: {
               componentFamily: 'response',
               template: 'numeric-input',
               props: {
@@ -814,7 +814,7 @@ const emociones: ExperimentFlow = {
               operator: 'eq',
               value: 'si',
             },
-            component: {
+            then: {
               componentFamily: 'layout',
               template: 'group',
               props: {

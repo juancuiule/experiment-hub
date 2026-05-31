@@ -35,7 +35,7 @@ export function checkForeachRandomization(
     on(
       { componentFamily: 'control', template: 'conditional' },
       (c, _s, recur) => [
-        ...recur([c.props.component], _s),
+        ...recur([c.props.then], _s),
         ...(c.props.else ? recur([c.props.else], _s) : []),
       ],
     ),

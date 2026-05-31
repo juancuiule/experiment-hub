@@ -118,7 +118,7 @@ export function collectFields(
     on(
       { componentFamily: 'control', template: 'conditional' },
       (c, state, recur) => {
-        const thenFields = recur([c.props.component], {
+        const thenFields = recur([c.props.then], {
           enclosingGate: and(state.enclosingGate, c.props.if),
         });
         const elseFields = c.props.else

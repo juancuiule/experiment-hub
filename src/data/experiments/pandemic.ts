@@ -301,7 +301,7 @@ const pandemic: ExperimentFlow = {
               operator: 'eq',
               value: true,
             },
-            component: {
+            then: {
               id: 'start-button',
               componentFamily: 'layout',
               template: 'button',
@@ -464,7 +464,7 @@ const pandemic: ExperimentFlow = {
               operator: 'length-gt',
               value: 0,
             },
-            component: {
+            then: {
               componentFamily: 'layout',
               template: 'button',
               props: {
@@ -545,7 +545,7 @@ const pandemic: ExperimentFlow = {
               operator: 'lte',
               value: 45,
             },
-            component: {
+            then: {
               componentFamily: 'response',
               template: 'single-checkbox',
               props: {
@@ -790,7 +790,7 @@ const pandemic: ExperimentFlow = {
                         operator: 'lte',
                         value: 45,
                       },
-                      component: {
+                      then: {
                         componentFamily: 'response',
                         template: 'single-checkbox',
                         props: {

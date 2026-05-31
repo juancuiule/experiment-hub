@@ -241,7 +241,7 @@ describe('collectFields — conditional', () => {
       template: 'conditional',
       props: {
         if: cond,
-        component: {
+        then: {
           componentFamily: 'response',
           template: 'text-input',
           props: { dataKey: 'detail', label: 'Detail' },
@@ -265,7 +265,7 @@ describe('collectFields — conditional', () => {
       template: 'conditional',
       props: {
         if: cond,
-        component: {
+        then: {
           componentFamily: 'response',
           template: 'text-input',
           props: { dataKey: 'if-field', label: 'If' },
@@ -302,7 +302,7 @@ describe('collectFields — conditional', () => {
       template: 'conditional',
       props: {
         if: inner,
-        component: {
+        then: {
           componentFamily: 'response',
           template: 'text-input',
           props: { dataKey: 'nested', label: 'N' },
@@ -328,7 +328,7 @@ describe('collectFields — conditional', () => {
       template: 'conditional',
       props: {
         if: cond,
-        component: {
+        then: {
           componentFamily: 'response',
           template: 'slider',
           props: { dataKey: 'score', label: 'Score', min: 0, max: 100 },
@@ -405,7 +405,7 @@ describe('collectFields — static for-each', () => {
               dataKey: '$resp_{{#items.index}}',
               value: 'yes',
             },
-            component: {
+            then: {
               componentFamily: 'response',
               template: 'text-input',
               props: { dataKey: 'detail_{{#items.index}}', label: 'D' },
@@ -703,7 +703,9 @@ describe('buildSchemaFromFields — button payload', () => {
     };
     const descriptors = collectFields([button, input], null);
     const schema = buildSchemaFromFields(descriptors, { data: {} });
-    expect(schema.safeParse({ choice: 'yes', name: 'Alice' }).success).toBe(true);
+    expect(schema.safeParse({ choice: 'yes', name: 'Alice' }).success).toBe(
+      true,
+    );
     expect(schema.safeParse({ choice: 'yes', name: '' }).success).toBe(false);
   });
 
@@ -740,7 +742,7 @@ describe('buildSchemaFromFields — superRefine, static conditional', () => {
     const conditional: ScreenComponent = {
       componentFamily: 'control',
       template: 'conditional',
-      props: { if: cond, component: field },
+      props: { if: cond, then: field },
     };
     const descriptors = collectFields([gate, conditional], null);
     const schema = buildSchemaFromFields(descriptors, { data: {} });
@@ -879,7 +881,7 @@ describe('buildSchemaFromFields — superRefine, static conditional', () => {
     const conditional: ScreenComponent = {
       componentFamily: 'control',
       template: 'conditional',
-      props: { if: cond, component: numField, else: textField },
+      props: { if: cond, then: numField, else: textField },
     };
     const descriptors = collectFields([conditional], null);
     const schema = buildSchemaFromFields(descriptors, { data: {} });
@@ -910,12 +912,12 @@ describe('buildSchemaFromFields — superRefine, static conditional', () => {
       template: 'conditional',
       props: {
         if: outerCond,
-        component: {
+        then: {
           componentFamily: 'control',
           template: 'conditional',
           props: {
             if: innerCond,
-            component: {
+            then: {
               componentFamily: 'response',
               template: 'text-input',
               props: { dataKey: 'deep', label: 'D', required: true },
@@ -953,7 +955,7 @@ describe('buildSchemaFromFields — superRefine, static conditional', () => {
               dataKey: '$gate_{{#items.index}}',
               value: 'show',
             },
-            component: {
+            then: {
               componentFamily: 'response',
               template: 'text-input',
               props: {
@@ -1017,7 +1019,7 @@ describe('buildSchemaFromFields — superRefine, dynamic for-each', () => {
               operator: 'eq',
               value: 'yes',
             },
-            component: {
+            then: {
               componentFamily: 'response',
               template: 'radio',
               props: {
@@ -1149,7 +1151,7 @@ describe('buildSchemaFromFields — superRefine, dynamic for-each', () => {
               dataKey: '$mode_{{#countries.value}}',
               value: 'detail',
             },
-            component: {
+            then: {
               componentFamily: 'response',
               template: 'text-input',
               props: {
@@ -2179,7 +2181,7 @@ describe('conditional — nested field included as optional in base schema', () 
               dataKey: '$answer',
               value: 'yes',
             },
-            component: {
+            then: {
               componentFamily: 'response',
               template: 'text-input',
               props: { dataKey: 'details', label: 'Details', required: true },
@@ -2215,7 +2217,7 @@ describe('conditional — nested field included as optional in base schema', () 
               dataKey: '$answer',
               value: 'yes',
             },
-            component: {
+            then: {
               componentFamily: 'response',
               template: 'text-input',
               props: { dataKey: 'details', label: 'Details', required: true },
@@ -2253,7 +2255,7 @@ describe('conditional — nested field included as optional in base schema', () 
               dataKey: '$answer',
               value: 'yes',
             },
-            component: {
+            then: {
               componentFamily: 'response',
               template: 'text-input',
               props: { dataKey: 'details', label: 'Details', required: true },
@@ -2290,7 +2292,7 @@ describe('conditional — nested field included as optional in base schema', () 
               dataKey: '$answer',
               value: 'yes',
             },
-            component: {
+            then: {
               componentFamily: 'response',
               template: 'text-input',
               props: { dataKey: 'details', label: 'Details', required: false },

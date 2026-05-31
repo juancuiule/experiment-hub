@@ -310,7 +310,7 @@ function referencesInScreen(
     on(
       { componentFamily: 'control', template: 'conditional' },
       (c, avail, recur): ValidationError[] => [
-        ...recur([c.props.component], avail),
+        ...recur([c.props.then], avail),
         ...(c.props.else ? recur([c.props.else], avail) : []),
       ],
     ),

@@ -370,7 +370,7 @@ const ocean: ExperimentFlow = {
               operator: 'lt',
               value: 3,
             },
-            component: {
+            then: {
               componentFamily: 'layout',
               template: 'button',
               props: {

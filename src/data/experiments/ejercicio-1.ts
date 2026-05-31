@@ -129,8 +129,7 @@ const ejercicio1: ExperimentFlow = {
                       value: 'charged-battery',
                     },
                     {
-                      label:
-                        'Una batería que arranca bien pero se cae rápido',
+                      label: 'Una batería que arranca bien pero se cae rápido',
                       value: 'battery-drops-quickly',
                     },
                     {
@@ -160,7 +159,7 @@ const ejercicio1: ExperimentFlow = {
                     operator: 'contains',
                     value: 'other',
                   },
-                  component: {
+                  then: {
                     componentFamily: 'response',
                     template: 'text-input',
                     props: {
@@ -230,7 +229,7 @@ const ejercicio1: ExperimentFlow = {
                     operator: 'contains',
                     value: 'other',
                   },
-                  component: {
+                  then: {
                     componentFamily: 'response',
                     template: 'text-input',
                     props: {
@@ -254,8 +253,7 @@ const ejercicio1: ExperimentFlow = {
                 componentFamily: 'response',
                 template: 'checkboxes',
                 props: {
-                  label:
-                    'Mi __estado de ánimo__ últimamente se parece más a…',
+                  label: 'Mi __estado de ánimo__ últimamente se parece más a…',
                   dataKey: 'mood',
                   options: [
                     { label: 'Estable', value: 'stable' },
@@ -286,7 +284,7 @@ const ejercicio1: ExperimentFlow = {
                     operator: 'contains',
                     value: 'other',
                   },
-                  component: {
+                  then: {
                     componentFamily: 'response',
                     template: 'text-input',
                     props: {
@@ -353,7 +351,7 @@ const ejercicio1: ExperimentFlow = {
                     operator: 'contains',
                     value: 'other',
                   },
-                  component: {
+                  then: {
                     componentFamily: 'response',
                     template: 'text-input',
                     props: {
@@ -408,7 +406,7 @@ const ejercicio1: ExperimentFlow = {
                     operator: 'contains',
                     value: 'other',
                   },
-                  component: {
+                  then: {
                     componentFamily: 'response',
                     template: 'text-input',
                     props: {
@@ -459,7 +457,7 @@ const ejercicio1: ExperimentFlow = {
                     operator: 'contains',
                     value: 'other',
                   },
-                  component: {
+                  then: {
                     componentFamily: 'response',
                     template: 'text-input',
                     props: {

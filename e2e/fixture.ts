@@ -97,7 +97,7 @@ export const testExperiment: ExperimentFlow = {
               operator: 'eq',
               value: 'yes',
             },
-            component: {
+            then: {
               componentFamily: 'response',
               template: 'numeric-input',
               props: {

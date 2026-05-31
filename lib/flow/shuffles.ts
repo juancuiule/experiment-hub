@@ -44,7 +44,10 @@ type ShuffleState = {
 const handlers: Handlers<ShuffleEntry, ShuffleState> = [
   on(
     { componentFamily: 'response' },
-    (c, { inLoop, previousOptions, context, sharedOptions }): ShuffleEntry[] => {
+    (
+      c,
+      { inLoop, previousOptions, context, sharedOptions },
+    ): ShuffleEntry[] => {
       if (!hasRandomizedOptions(c)) return [];
       const key = resolveValuesInString(c.props.dataKey, context);
       const options =
@@ -110,7 +113,7 @@ const handlers: Handlers<ShuffleEntry, ShuffleState> = [
   on(
     { componentFamily: 'control', template: 'conditional' },
     (c, state, recur): ShuffleEntry[] => {
-      const thenEntries = recur([c.props.component], state);
+      const thenEntries = recur([c.props.then], state);
       const elseEntries = c.props.else ? recur([c.props.else], state) : [];
       return [...thenEntries, ...elseEntries];
     },

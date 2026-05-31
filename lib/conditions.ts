@@ -1,5 +1,5 @@
 import { getValue, resolveValuesInString } from './resolve';
-import { STARTS_WITH_PREFIX_RE } from './tokens';
+import { RefPrefix, STARTS_WITH_PREFIX_RE } from './tokens';
 import { Context } from './types';
 
 export type BaseOperator = 'lt' | 'lte' | 'gt' | 'gte' | 'eq' | 'neq';
@@ -11,8 +11,7 @@ export type Operator = BaseOperator | ArrayOperator;
 export type SimpleCondition = {
   type: 'simple';
   operator: Operator;
-  dataKey: `$$${string}` | `@${string}` | `$${string}` | `#${string}`;
-  // $$ -> global context, @ -> loop data, $ -> screenData, # -> foreachData
+  dataKey: `${RefPrefix}${string}`;
   value: string | number | boolean;
 };
 
