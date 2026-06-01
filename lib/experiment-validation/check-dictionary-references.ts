@@ -62,13 +62,16 @@ export function checkDictionaryReferences(
     flatByLocale.set(locale, flattenMessages(dictionary[locale]));
   }
 
-  // Keys referenced by component props (any string prop) plus keys referenced
-  // from within dictionary messages themselves (nested [[ ]]). Only `screens`
-  // are scanned because [[ ]] is resolved exclusively where resolveValuesInString
-  // runs — component rendering — never from node props; scanning nodes would
-  // risk false positives on literal bracketed text in branch/checkpoint names.
+  // Keys referenced by component props (any string prop) plus shared-option
+  // labels and keys referenced from within dictionary messages themselves
+  // (nested [[ ]]). Both `screens` and `options` are scanned because [[ ]] is
+  // resolved wherever resolveValuesInString runs — component rendering and
+  // shared-option labels (resolveOptionsSource → Label). Node props are NOT
+  // scanned: they never pass through resolveValuesInString, and scanning them
+  // would risk false positives on literal bracketed text in node names.
   const referenced = new Set<string>();
   collectKeys(JSON.stringify(flow.screens ?? []), referenced);
+  collectKeys(JSON.stringify(flow.options ?? {}), referenced);
   for (const locale of locales) {
     for (const message of Object.values(flatByLocale.get(locale)!)) {
       collectKeys(message, referenced);

@@ -3272,6 +3272,55 @@ describe('dictionary (i18n) references', () => {
     expect(codes(flow)).not.toContain('dictionary-locale-mismatch');
   });
 
+  it('flags an unknown [[key]] referenced in a shared option label', () => {
+    const flow: ExperimentFlow = {
+      nodes: [start, makeScreen('s1', 'welcome'), end],
+      edges: [seq('start', 's1'), seq('s1', 'end')],
+      screens: [
+        {
+          slug: 'welcome',
+          components: [
+            {
+              componentFamily: 'response',
+              template: 'radio',
+              props: { label: 'Q', dataKey: 'q', options: '%scale' },
+            },
+          ],
+        },
+      ],
+      options: { scale: [{ label: '[[opt.unknown]]', value: 'a' }] },
+      dictionary: { en: { other: 'x' }, es: { other: 'y' } },
+      defaultLocale: 'en',
+    };
+    expect(codes(flow)).toContain('unknown-dictionary-key');
+  });
+
+  it('accepts a [[key]] in a shared option label defined in all locales', () => {
+    const flow: ExperimentFlow = {
+      nodes: [start, makeScreen('s1', 'welcome'), end],
+      edges: [seq('start', 's1'), seq('s1', 'end')],
+      screens: [
+        {
+          slug: 'welcome',
+          components: [
+            {
+              componentFamily: 'response',
+              template: 'radio',
+              props: { label: 'Q', dataKey: 'q', options: '%scale' },
+            },
+          ],
+        },
+      ],
+      options: { scale: [{ label: '[[opt.yes]]', value: 'a' }] },
+      dictionary: {
+        en: { opt: { yes: 'Yes' } },
+        es: { opt: { yes: 'Sí' } },
+      },
+      defaultLocale: 'en',
+    };
+    expect(codes(flow)).not.toContain('unknown-dictionary-key');
+  });
+
   it('flags a defaultLocale that is not a key of the dictionary', () => {
     const flow = flowWithDict(
       { en: { greeting: 'Hello' }, es: { greeting: 'Hola' } },
