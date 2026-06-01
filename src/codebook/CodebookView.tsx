@@ -1,24 +1,8 @@
 'use client';
 
 import type { Codebook, CodebookVariable } from '@/lib/codebook';
+import { optionsText, repetitionText } from '@/lib/codebook/render/format';
 import { useState } from 'react';
-
-function optionsText(options: CodebookVariable['options']): string {
-  if (!options) return '';
-  if (Array.isArray(options)) return options.map((o) => o.value).join(', ');
-  return `→ ${options.ref}`;
-}
-
-function repetitionText(repetition: CodebookVariable['repetition']): string {
-  switch (repetition.kind) {
-    case 'none':
-      return '—';
-    case 'static':
-      return `×${repetition.count}`;
-    case 'dynamic':
-      return `per ${repetition.over}`;
-  }
-}
 
 function VariableTable({ variables }: { variables: CodebookVariable[] }) {
   if (variables.length === 0) {

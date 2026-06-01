@@ -25,7 +25,7 @@ const md = toMarkdown(codebook);
 | Section | Contents |
 |---|---|
 | **collected** | Participant-produced fields: response components, button payloads, and `:order` companions of randomized option lists. |
-| **derived** | Compute-node outputs (one per `computations[].outputKey`), labelled `compute:<formula>`. |
+| **derived** | Compute-node outputs (one per `computations[].outputKey`), labelled `compute:<formula>`. Statically-known value domains are documented as `options`: a `lookup`'s band values (+ default), a `conditional`'s then/else, and the **pool** of an inline-array `sample`/`split` (capped, with a `+N more` marker). A `sample`/`split` from a `$$`/`$` reference records the source as `→ ref`. |
 | **system** | Engine metadata that lands in the export: per-screen timings, assignment group (when >1 start node), branch/fork choices, randomized path/loop order, and checkpoint timestamps. |
 
 ## How variables are identified

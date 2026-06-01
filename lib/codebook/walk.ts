@@ -8,6 +8,7 @@ import {
   getTemplateNode,
 } from '../flow/graph';
 import { mergeContext } from '../flow';
+import { resolveIterKey } from '../flow/traverse';
 import { ComputeNode } from '../nodes';
 import { Context, ExperimentFlow } from '../types';
 
@@ -120,13 +121,10 @@ export function walkExperiment(experiment: ExperimentFlow): WalkResult {
             const values = node.props.values;
             const itemKey = node.props.itemKey;
             values.forEach((value, index) => {
-              const iterKey =
-                itemKey != null &&
-                value != null &&
-                typeof value === 'object' &&
-                (value as Record<string, unknown>)[itemKey] != null
-                  ? String((value as Record<string, unknown>)[itemKey])
-                  : String(index + 1);
+              // Mirror the runtime exactly so codebook keys match export columns:
+              // plain values key on the value itself, objects on itemKey, else
+              // the 1-based index (reserved keys also fall back to the index).
+              const iterKey = resolveIterKey(value, index, itemKey);
               const iterCtx = mergeContext(context, {
                 loopData: { [nodeId]: { value, index } },
               });

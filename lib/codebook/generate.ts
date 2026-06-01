@@ -1,9 +1,94 @@
 import { collectFields, Field, isButtonPayload, isOrderMarker } from '../fields';
+import { getDefaultBranchNode } from '../flow/graph';
 import { Formula } from '../nodes';
 import { ExperimentFlow } from '../types';
 import { conditionToText, describeField } from './describe';
-import { Codebook, CodebookVariable, FieldType, Repetition } from './types';
+import {
+  Codebook,
+  CodebookVariable,
+  FieldType,
+  OptionsRef,
+  Repetition,
+} from './types';
 import { LoopRepetition, ScreenOccurrence, walkExperiment } from './walk';
+
+// Cap how many inline pool values are listed before summarizing the rest.
+const POOL_LIMIT = 20;
+
+type Primitive = string | number | boolean;
+
+function optionFromValue(v: Primitive): { value: string; label: string } {
+  const s = typeof v === 'object' ? JSON.stringify(v) : String(v);
+  return { value: s, label: s };
+}
+
+// Renders an inline array as option rows, capped with a "+N more" marker.
+function poolOptions(items: unknown[]): { value: string; label: string }[] {
+  const shown = items.slice(0, POOL_LIMIT).map((v) => optionFromValue(v as Primitive));
+  if (items.length > POOL_LIMIT) {
+    shown.push({ value: '…', label: `+${items.length - POOL_LIMIT} more` });
+  }
+  return shown;
+}
+
+// Static metadata derived from a compute formula: its output type, the
+// statically-known value domain (lookup bands, conditional branches) or sampled
+// pool (inline-array sample/split), and a short description.
+type ComputeMeta = {
+  type: FieldType;
+  options?: { value: string; label: string }[] | OptionsRef;
+  description?: string;
+};
+
+function describeCompute(formula: Formula): ComputeMeta {
+  switch (formula.type) {
+    case 'sum':
+    case 'mean':
+    case 'min':
+    case 'max':
+    case 'count':
+    case 'loop-aggregate':
+      return { type: 'number' };
+
+    case 'lookup': {
+      const values: Primitive[] = formula.table.map((e) => e.then);
+      if (formula.default != null) values.push(formula.default);
+      return { type: 'enum', options: values.map(optionFromValue) };
+    }
+
+    case 'conditional': {
+      const { then, else: otherwise } = formula;
+      const bothNumber =
+        typeof then === 'number' && typeof otherwise === 'number';
+      const bothBoolean =
+        typeof then === 'boolean' && typeof otherwise === 'boolean';
+      return {
+        type: bothNumber ? 'number' : bothBoolean ? 'boolean' : 'enum',
+        options: [optionFromValue(then), optionFromValue(otherwise)],
+      };
+    }
+
+    case 'sample':
+    case 'split': {
+      if (Array.isArray(formula.input)) {
+        return {
+          type: 'unknown',
+          options: poolOptions(formula.input),
+          description: `${formula.type === 'sample' ? 'Random sample' : 'Bins'} from a ${formula.input.length}-item static pool`,
+        };
+      }
+      return {
+        type: 'unknown',
+        options: { ref: formula.input },
+        description: `${formula.type === 'sample' ? 'Random sample' : 'Bins'} drawn from ${formula.input}`,
+      };
+    }
+
+    default:
+      // collect-loop → an object keyed by field; no single scalar domain.
+      return { type: 'unknown' };
+  }
+}
 
 // Combines a field's own (within-screen) for-each loops with the enclosing
 // loop-node repetition into a single Repetition descriptor.
@@ -65,22 +150,6 @@ function fieldToVariable(field: Field, occ: ScreenOccurrence): CodebookVariable 
   return variable;
 }
 
-function computeType(formula: Formula): FieldType {
-  switch (formula.type) {
-    case 'sum':
-    case 'mean':
-    case 'min':
-    case 'max':
-    case 'count':
-    case 'loop-aggregate':
-      return 'number';
-    default:
-      // conditional/lookup (string|number), sample/split (arrays),
-      // collect-loop (object) — not a single scalar type.
-      return 'unknown';
-  }
-}
-
 export function generateCodebook(
   experiment: ExperimentFlow,
   experimentSlug?: string,
@@ -104,15 +173,18 @@ export function generateCodebook(
   const derived: CodebookVariable[] = [];
   for (const { node, dataPath } of computes) {
     for (const c of node.props.computations) {
-      derived.push({
+      const meta = describeCompute(c.formula);
+      const variable: CodebookVariable = {
         section: 'derived',
         key: [...dataPath, node.id, c.outputKey].join('.'),
         repetition: { kind: 'none' },
-        type: computeType(c.formula),
+        type: meta.type,
         template: `compute:${c.formula.type}`,
-        description: node.props.name,
+        description: meta.description ?? node.props.name,
         nodePath: dataPath,
-      });
+      };
+      if (meta.options) variable.options = meta.options;
+      derived.push(variable);
     }
   }
 
@@ -145,7 +217,10 @@ export function generateCodebook(
         description: node.props.name,
         options: [
           ...node.props.branches.map((b) => ({ value: b.id, label: b.name })),
-          { value: 'default', label: 'Default' },
+          // Only when a branch-default edge actually exists can "default" occur.
+          ...(getDefaultBranchNode(experiment, node.id)
+            ? [{ value: 'default', label: 'Default' }]
+            : []),
         ],
       });
     } else if (node.type === 'fork') {

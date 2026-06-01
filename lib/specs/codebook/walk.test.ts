@@ -62,9 +62,10 @@ describe('walkExperiment', () => {
       ],
     };
     const { screens } = walkExperiment(flow);
+    // Plain-string items key on the value itself (matches resolveIterKey).
     expect(screens.map((s) => s.dataPath)).toEqual([
-      ['loop-c', '1'],
-      ['loop-c', '2'],
+      ['loop-c', 'NYC'],
+      ['loop-c', 'LA'],
     ]);
     // Each occurrence binds its loop item so @loop-c.value resolves.
     expect(getValue('@loop-c.value', screens[0].context)).toBe('NYC');
@@ -199,6 +200,52 @@ describe('walkExperiment', () => {
     expect(computes).toHaveLength(1);
     expect(computes[0].node.id).toBe('cmp');
     expect(computes[0].dataPath).toEqual([]);
+  });
+
+  it('nests dataPath as [pathId, loopId, iterKey] for a loop inside a path', () => {
+    const flow: ExperimentFlow = {
+      nodes: [
+        start,
+        { id: 'path-p', type: 'path', props: { name: 'P' } },
+        {
+          id: 'loop-l',
+          type: 'loop',
+          props: { type: 'static', values: ['a'] },
+        },
+        makeScreen('item', 'item'),
+        end,
+      ],
+      edges: [
+        seq('start', 'path-p'),
+        { type: 'path-contains', from: 'path-p', to: 'loop-l', order: 0 },
+        { type: 'loop-template', from: 'loop-l', to: 'item' },
+        seq('loop-l', 'end'), // exit of the loop, still inside the path
+        seq('path-p', 'end'),
+      ],
+    };
+    const { screens } = walkExperiment(flow);
+    expect(screens.map((s) => s.dataPath)).toEqual([['path-p', 'loop-l', 'a']]);
+  });
+
+  it('yields distinct occurrences when one screen sits in two paths', () => {
+    const flow: ExperimentFlow = {
+      nodes: [
+        start,
+        { id: 'path-a', type: 'path', props: { name: 'A' } },
+        { id: 'path-b', type: 'path', props: { name: 'B' } },
+        makeScreen('shared', 'shared'),
+        end,
+      ],
+      edges: [
+        seq('start', 'path-a'),
+        { type: 'path-contains', from: 'path-a', to: 'shared', order: 0 },
+        seq('path-a', 'path-b'),
+        { type: 'path-contains', from: 'path-b', to: 'shared', order: 0 },
+        seq('path-b', 'end'),
+      ],
+    };
+    const { screens } = walkExperiment(flow);
+    expect(screens.map((s) => s.dataPath)).toEqual([['path-a'], ['path-b']]);
   });
 
   it('does not revisit a node at the same dataPath (cycle guard)', () => {
