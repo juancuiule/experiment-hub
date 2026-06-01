@@ -14,38 +14,50 @@ import { ExperimentFlow } from '@/lib/types';
  */
 const i18nDemo: ExperimentFlow = {
   defaultLocale: 'es',
+  // Messages are organized as nested trees; [[welcome.title]] addresses
+  // dictionary.<locale>.welcome.title. Flat dotted keys would work too.
   dictionary: {
     es: {
-      'welcome.title': '# Bienvenido/a',
-      'welcome.intro':
-        'Este es un experimento de demostración del sistema multilingüe. Cambiá el idioma con el parámetro `?lang=en` en la URL.',
-      'welcome.name-label': '¿Cómo te llamás?',
-      'welcome.name-placeholder': 'Escribí tu nombre…',
-      'welcome.cta': 'Empezar',
-      'survey.question': 'Hola {{$$welcome.name}}, ¿qué tan claro fue esto?',
-      'survey.opt-clear': 'Muy claro',
-      'survey.opt-ok': 'Más o menos',
-      'survey.opt-confusing': 'Confuso',
-      'survey.cta': 'Enviar',
-      'thanks.title': '# ¡Gracias!',
-      'thanks.body':
-        'Listo, {{$$welcome.name}}. Respondiste **{{$$survey.clarity}}**. ¡Gracias por participar!',
+      welcome: {
+        title: '# Bienvenido/a',
+        intro:
+          'Este es un experimento de demostración del sistema multilingüe. Cambiá el idioma con el parámetro `?lang=en` en la URL.',
+        'name-label': '¿Cómo te llamás?',
+        'name-placeholder': 'Escribí tu nombre…',
+        cta: 'Empezar',
+      },
+      survey: {
+        question: 'Hola {{$$welcome.name}}, ¿qué tan claro fue esto?',
+        'opt-clear': 'Muy claro',
+        'opt-ok': 'Más o menos',
+        'opt-confusing': 'Confuso',
+        cta: 'Enviar',
+      },
+      thanks: {
+        title: '# ¡Gracias!',
+        body: 'Listo, {{$$welcome.name}}. Respondiste **{{$$survey.clarity}}**. ¡Gracias por participar!',
+      },
     },
     en: {
-      'welcome.title': '# Welcome',
-      'welcome.intro':
-        'This is a demo experiment for the multilingual system. Switch languages with the `?lang=en` URL parameter.',
-      'welcome.name-label': "What's your name?",
-      'welcome.name-placeholder': 'Type your name…',
-      'welcome.cta': 'Start',
-      'survey.question': 'Hi {{$$welcome.name}}, how clear was this?',
-      'survey.opt-clear': 'Very clear',
-      'survey.opt-ok': 'Somewhat',
-      'survey.opt-confusing': 'Confusing',
-      'survey.cta': 'Submit',
-      'thanks.title': '# Thank you!',
-      'thanks.body':
-        'All done, {{$$welcome.name}}. You answered **{{$$survey.clarity}}**. Thanks for taking part!',
+      welcome: {
+        title: '# Welcome',
+        intro:
+          'This is a demo experiment for the multilingual system. Switch languages with the `?lang=en` URL parameter.',
+        'name-label': "What's your name?",
+        'name-placeholder': 'Type your name…',
+        cta: 'Start',
+      },
+      survey: {
+        question: 'Hi {{$$welcome.name}}, how clear was this?',
+        'opt-clear': 'Very clear',
+        'opt-ok': 'Somewhat',
+        'opt-confusing': 'Confusing',
+        cta: 'Submit',
+      },
+      thanks: {
+        title: '# Thank you!',
+        body: 'All done, {{$$welcome.name}}. You answered **{{$$survey.clarity}}**. Thanks for taking part!',
+      },
     },
   },
   nodes: [

@@ -1,7 +1,26 @@
-import { ExperimentFlow } from './types';
+import { ExperimentFlow, MessageTree } from './types';
 
 // Query-string key used to request a locale at runtime, e.g. ?lang=es.
 export const LOCALE_PARAM = 'lang';
+
+// Flattens a (possibly nested) message tree into dotted keys:
+// { welcome: { title: "x" } } → { "welcome.title": "x" }. String leaves with
+// already-dotted keys pass through unchanged, so flat and nested forms mix.
+export function flattenMessages(
+  tree: MessageTree,
+  prefix = '',
+): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [key, value] of Object.entries(tree)) {
+    const path = prefix ? `${prefix}.${key}` : key;
+    if (typeof value === 'string') {
+      out[path] = value;
+    } else {
+      Object.assign(out, flattenMessages(value, path));
+    }
+  }
+  return out;
+}
 
 // Returns the locale used as the fallback source: the experiment's
 // `defaultLocale` when it is a key of the dictionary, otherwise the first
@@ -42,7 +61,7 @@ export function buildMessages(
   const fallbackLocale = defaultLocaleOf(experiment);
   const fallback =
     fallbackLocale && fallbackLocale !== locale
-      ? dictionary[fallbackLocale]
+      ? flattenMessages(dictionary[fallbackLocale])
       : undefined;
-  return { ...fallback, ...dictionary[locale] };
+  return { ...fallback, ...flattenMessages(dictionary[locale]) };
 }

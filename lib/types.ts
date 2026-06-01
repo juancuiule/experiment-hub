@@ -3,11 +3,16 @@ import { FrameworkEdge } from './edges';
 import { FrameworkNode, PathNode, LoopNode } from './nodes';
 import { FrameworkScreen } from './screen';
 
-// i18n dictionary: locale → message key → message string.
-// e.g. { en: { greeting: "Hello" }, es: { greeting: "Hola" } }.
-// Messages are addressed from component string props with the [[key]] token and
-// may themselves contain {{ }} answer-piping and nested [[ ]] references.
-export type Dictionary = Record<string, Record<string, string>>;
+// A tree of localized messages. Leaves are message strings; branches nest
+// further keys. Addressed by [[dotted.key]] tokens, e.g. { welcome: { title } }
+// is referenced as [[welcome.title]]. Flat dotted keys are also allowed and may
+// be mixed with nesting.
+export type MessageTree = { [key: string]: string | MessageTree };
+
+// i18n dictionary: locale → message tree.
+// e.g. { en: { welcome: { title: "Hello" } }, es: { welcome: { title: "Hola" } } }.
+// Messages may themselves contain {{ }} answer-piping and nested [[ ]] references.
+export type Dictionary = Record<string, MessageTree>;
 
 export type ExperimentFlow = {
   nodes: FrameworkNode[];

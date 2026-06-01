@@ -1,3 +1,4 @@
+import { flattenMessages } from '../i18n';
 import { DICTIONARY_TOKEN_RE } from '../tokens';
 import { ExperimentFlow } from '../types';
 import { ValidationError } from './types';
@@ -20,12 +21,18 @@ export function checkDictionaryReferences(
   const dictionary = flow.dictionary ?? {};
   const locales = Object.keys(dictionary);
 
+  // Flatten each locale's (possibly nested) tree to dotted keys once, up front.
+  const flatByLocale = new Map<string, Record<string, string>>();
+  for (const locale of locales) {
+    flatByLocale.set(locale, flattenMessages(dictionary[locale]));
+  }
+
   // Keys referenced by component props (any string prop) plus keys referenced
   // from within dictionary messages themselves (nested [[ ]]).
   const referenced = new Set<string>();
   collectKeys(JSON.stringify(flow.screens ?? []), referenced);
   for (const locale of locales) {
-    for (const message of Object.values(dictionary[locale])) {
+    for (const message of Object.values(flatByLocale.get(locale)!)) {
       collectKeys(message, referenced);
     }
   }
@@ -34,7 +41,7 @@ export function checkDictionaryReferences(
   const definedByLocale = new Map<string, Set<string>>();
   const allKeys = new Set<string>();
   for (const locale of locales) {
-    const keys = new Set(Object.keys(dictionary[locale]));
+    const keys = new Set(Object.keys(flatByLocale.get(locale)!));
     definedByLocale.set(locale, keys);
     keys.forEach((key) => allKeys.add(key));
   }

@@ -3295,6 +3295,46 @@ describe('dictionary (i18n) references', () => {
     expect(codes(minimalFlow)).not.toContain('dictionary-locale-mismatch');
     expect(codes(minimalFlow)).not.toContain('unknown-default-locale');
   });
+
+  it('accepts a nested-tree dictionary referenced by dotted key', () => {
+    const flow = flowWithDict(
+      {
+        en: { welcome: { title: 'Hello' } },
+        es: { welcome: { title: 'Hola' } },
+      },
+      '[[welcome.title]]',
+      { defaultLocale: 'en' },
+    );
+    expect(codes(flow)).not.toContain('unknown-dictionary-key');
+    expect(codes(flow)).not.toContain('dictionary-locale-mismatch');
+  });
+
+  it('flags an unknown dotted key against a nested-tree dictionary', () => {
+    const flow = flowWithDict(
+      {
+        en: { welcome: { title: 'Hello' } },
+        es: { welcome: { title: 'Hola' } },
+      },
+      '[[welcome.subtitle]]',
+      { defaultLocale: 'en' },
+    );
+    expect(codes(flow)).toContain('unknown-dictionary-key');
+  });
+
+  it('detects parity gaps across nested trees (dotted key missing in a locale)', () => {
+    const flow = flowWithDict(
+      {
+        en: { welcome: { title: 'Hello', footer: 'Bye' } },
+        es: { welcome: { title: 'Hola' } },
+      },
+      '[[welcome.title]]',
+      { defaultLocale: 'en' },
+    );
+    const found = validateExperiment(flow).find(
+      (e) => e.code === 'dictionary-locale-mismatch',
+    );
+    expect(found?.message).toContain('welcome.footer');
+  });
 });
 
 describe('i18n-demo example experiment', () => {
