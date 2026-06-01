@@ -25,7 +25,9 @@ export function flattenMessages(
 // Returns the locale used as the fallback source: the experiment's
 // `defaultLocale` when it is a key of the dictionary, otherwise the first
 // declared locale. Returns undefined when there is no dictionary.
-export function defaultLocaleOf(experiment: ExperimentFlow): string | undefined {
+export function defaultLocaleOf(
+  experiment: ExperimentFlow,
+): string | undefined {
   const locales = Object.keys(experiment.dictionary ?? {});
   if (locales.length === 0) return undefined;
   const { defaultLocale } = experiment;
@@ -58,10 +60,18 @@ export function buildMessages(
 ): Record<string, string> | undefined {
   const { dictionary } = experiment;
   if (!dictionary || !locale) return undefined;
+
+  const active = dictionary[locale] ?? {};
+  if (!dictionary[locale]) {
+    console.warn(
+      `Locale "${locale}" not found in dictionary; falling back to default locale for any missing keys.`,
+    );
+  }
+
   const fallbackLocale = defaultLocaleOf(experiment);
   const fallback =
     fallbackLocale && fallbackLocale !== locale
       ? flattenMessages(dictionary[fallbackLocale])
       : undefined;
-  return { ...fallback, ...flattenMessages(dictionary[locale]) };
+  return { ...fallback, ...flattenMessages(active) };
 }

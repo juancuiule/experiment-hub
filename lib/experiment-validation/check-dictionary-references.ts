@@ -70,6 +70,9 @@ export function checkDictionaryReferences(
   // scanned: they never pass through resolveValuesInString, and scanning them
   // would risk false positives on literal bracketed text in node names.
   const referenced = new Set<string>();
+
+  // TODO: implement a more robust solution for only scanning props that actually support dictionary references, rather than any string prop.
+  // TODO: This solution risks false positives on literal bracketed text in props that do not support dictionary references, but it is simpler.
   collectKeys(JSON.stringify(flow.screens ?? []), referenced);
   collectKeys(JSON.stringify(flow.options ?? {}), referenced);
   for (const locale of locales) {
