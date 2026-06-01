@@ -247,3 +247,4 @@ Every node (other than `start` nodes themselves) must be reachable by following 
 | `unknown-dictionary-key`  | A `[[key]]` dictionary reference (in a component prop or nested in a message) is defined in no locale of `ExperimentFlow.dictionary` |
 | `dictionary-locale-mismatch` | A dictionary key exists in some locales but not others (warning); the active locale would fall back or render literal |
 | `unknown-default-locale`  | `ExperimentFlow.defaultLocale` is set but is not a key of `ExperimentFlow.dictionary` |
+| `dictionary-key-collision` | Within one locale, a flat dotted key and a nested path produce the same dotted key (e.g. `"a.b"` and `a: { b }`), which would resolve last-wins |

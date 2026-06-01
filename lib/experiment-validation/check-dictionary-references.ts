@@ -1,11 +1,27 @@
 import { flattenMessages } from '../i18n';
 import { DICTIONARY_TOKEN_RE } from '../tokens';
-import { ExperimentFlow } from '../types';
+import { ExperimentFlow, MessageTree } from '../types';
 import { ValidationError } from './types';
 
 // Collects every [[key]] token found in `text` into `into`.
 function collectKeys(text: string, into: Set<string>): void {
   for (const match of text.matchAll(DICTIONARY_TOKEN_RE)) into.add(match[1]);
+}
+
+// Walks a message tree, pushing the dotted path of every string leaf into
+// `into` (with duplicates). Two distinct source positions producing the same
+// dotted path — e.g. a flat "a.b" key alongside a nested a → b — appear as a
+// duplicate, which flattenMessages would otherwise silently resolve last-wins.
+function collectLeafPaths(
+  tree: MessageTree,
+  prefix: string,
+  into: string[],
+): void {
+  for (const [key, value] of Object.entries(tree)) {
+    const path = prefix ? `${prefix}.${key}` : key;
+    if (typeof value === 'string') into.push(path);
+    else collectLeafPaths(value, path, into);
+  }
 }
 
 // Validates i18n dictionary usage:
@@ -22,13 +38,35 @@ export function checkDictionaryReferences(
   const locales = Object.keys(dictionary);
 
   // Flatten each locale's (possibly nested) tree to dotted keys once, up front.
+  // Detect collisions first: a flat "a.b" key and a nested a → b both produce
+  // the dotted key "a.b", which flattenMessages resolves last-wins silently.
   const flatByLocale = new Map<string, Record<string, string>>();
   for (const locale of locales) {
+    const leaves: string[] = [];
+    collectLeafPaths(dictionary[locale], '', leaves);
+    const seen = new Set<string>();
+    const collisions = new Set<string>();
+    for (const path of leaves) {
+      if (seen.has(path)) collisions.add(path);
+      seen.add(path);
+    }
+    if (collisions.size > 0) {
+      errors.push({
+        code: 'dictionary-key-collision',
+        category: 'reference',
+        message: `Locale "${locale}" defines the same dotted key from both a nested path and a flat key: ${[
+          ...collisions,
+        ].join(', ')}`,
+      });
+    }
     flatByLocale.set(locale, flattenMessages(dictionary[locale]));
   }
 
   // Keys referenced by component props (any string prop) plus keys referenced
-  // from within dictionary messages themselves (nested [[ ]]).
+  // from within dictionary messages themselves (nested [[ ]]). Only `screens`
+  // are scanned because [[ ]] is resolved exclusively where resolveValuesInString
+  // runs — component rendering — never from node props; scanning nodes would
+  // risk false positives on literal bracketed text in branch/checkpoint names.
   const referenced = new Set<string>();
   collectKeys(JSON.stringify(flow.screens ?? []), referenced);
   for (const locale of locales) {

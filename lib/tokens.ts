@@ -91,4 +91,7 @@ export const BARE_DOUBLE_DOLLAR_RE = /\$\$([\w.\-]+)/g;
 // Keys share the same charset as data refs: word chars, dots, hyphens.
 // Distinct from {{…}} answer-piping: these resolve against the active locale's
 // dictionary messages, not runtime context data.
+// Safe to share despite the /g flag: it is only used with String.replace and
+// String.matchAll, both of which reset lastIndex per call. Do not call .test()
+// or .exec() on it directly — those would carry lastIndex across calls.
 export const DICTIONARY_TOKEN_RE = /\[\[([\w.\-]+)\]\]/g;

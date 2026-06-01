@@ -3321,6 +3321,35 @@ describe('dictionary (i18n) references', () => {
     expect(codes(flow)).toContain('unknown-dictionary-key');
   });
 
+  it('flags a collision between a flat dotted key and a nested path', () => {
+    const flow = flowWithDict(
+      {
+        en: { 'welcome.title': 'Flat', welcome: { title: 'Nested' } },
+        es: { 'welcome.title': 'Plano', welcome: { title: 'Anidado' } },
+      },
+      '[[welcome.title]]',
+      { defaultLocale: 'en' },
+    );
+    const found = validateExperiment(flow).find(
+      (e) => e.code === 'dictionary-key-collision',
+    );
+    expect(found).toBeDefined();
+    expect(found?.message).toContain('welcome.title');
+    expect(found?.message).toContain('en');
+  });
+
+  it('does not flag collision for distinct nested and flat keys', () => {
+    const flow = flowWithDict(
+      {
+        en: { welcome: { title: 'Hi' }, 'survey.cta': 'Go' },
+        es: { welcome: { title: 'Hola' }, 'survey.cta': 'Ir' },
+      },
+      '[[welcome.title]] [[survey.cta]]',
+      { defaultLocale: 'en' },
+    );
+    expect(codes(flow)).not.toContain('dictionary-key-collision');
+  });
+
   it('detects parity gaps across nested trees (dotted key missing in a locale)', () => {
     const flow = flowWithDict(
       {
