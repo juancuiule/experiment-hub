@@ -10,16 +10,14 @@ export function flattenMessages(
   tree: MessageTree,
   prefix = '',
 ): Record<string, string> {
-  const out: Record<string, string> = {};
-  for (const [key, value] of Object.entries(tree)) {
-    const path = prefix ? `${prefix}.${key}` : key;
-    if (typeof value === 'string') {
-      out[path] = value;
-    } else {
-      Object.assign(out, flattenMessages(value, path));
-    }
-  }
-  return out;
+  return Object.fromEntries(
+    Object.entries(tree).flatMap(([key, value]) => {
+      const path = prefix ? `${prefix}.${key}` : key;
+      return typeof value === 'string'
+        ? [[path, value] as const]
+        : Object.entries(flattenMessages(value, path));
+    }),
+  );
 }
 
 // Returns the locale used as the fallback source: the experiment's

@@ -3,25 +3,25 @@ import { DICTIONARY_TOKEN_RE } from '../tokens';
 import { ExperimentFlow, MessageTree } from '../types';
 import { ValidationError } from './types';
 
-// Collects every [[key]] token found in `text` into `into`.
-function collectKeys(text: string, into: Set<string>): void {
-  for (const match of text.matchAll(DICTIONARY_TOKEN_RE)) into.add(match[1]);
+// Every [[key]] token found in `text`, in order of appearance (with duplicates).
+function extractKeys(text: string): string[] {
+  return [...text.matchAll(DICTIONARY_TOKEN_RE)].map((match) => match[1]);
 }
 
-// Walks a message tree, pushing the dotted path of every string leaf into
-// `into` (with duplicates). Two distinct source positions producing the same
-// dotted path — e.g. a flat "a.b" key alongside a nested a → b — appear as a
-// duplicate, which flattenMessages would otherwise silently resolve last-wins.
-function collectLeafPaths(
-  tree: MessageTree,
-  prefix: string,
-  into: string[],
-): void {
-  for (const [key, value] of Object.entries(tree)) {
+// The dotted path of every string leaf in a message tree (with duplicates).
+// Two distinct source positions producing the same dotted path — e.g. a flat
+// "a.b" key alongside a nested a → b — appear twice here, which flattenMessages
+// would otherwise silently resolve last-wins. Duplicates are detected downstream.
+function leafPaths(tree: MessageTree, prefix = ''): string[] {
+  return Object.entries(tree).flatMap(([key, value]) => {
     const path = prefix ? `${prefix}.${key}` : key;
-    if (typeof value === 'string') into.push(path);
-    else collectLeafPaths(value, path, into);
-  }
+    return typeof value === 'string' ? [path] : leafPaths(value, path);
+  });
+}
+
+// The distinct values that appear more than once in `items`, in first-seen order.
+function duplicates(items: string[]): string[] {
+  return [...new Set(items.filter((item, i) => items.indexOf(item) !== i))];
 }
 
 // Validates i18n dictionary usage:
@@ -30,37 +30,36 @@ function collectLeafPaths(
 // - dictionary-locale-mismatch: a key exists in some locales but not others,
 //   so the active locale could silently fall back or render literal.
 // - unknown-default-locale: `defaultLocale` is set but is not a dictionary key.
+// - dictionary-key-collision: a locale defines the same dotted key from both a
+//   nested path and a flat key, which flattenMessages resolves last-wins.
 export function checkDictionaryReferences(
   flow: ExperimentFlow,
 ): ValidationError[] {
-  const errors: ValidationError[] = [];
   const dictionary = flow.dictionary ?? {};
   const locales = Object.keys(dictionary);
 
   // Flatten each locale's (possibly nested) tree to dotted keys once, up front.
-  // Detect collisions first: a flat "a.b" key and a nested a → b both produce
-  // the dotted key "a.b", which flattenMessages resolves last-wins silently.
-  const flatByLocale = new Map<string, Record<string, string>>();
-  for (const locale of locales) {
-    const leaves: string[] = [];
-    collectLeafPaths(dictionary[locale], '', leaves);
-    const seen = new Set<string>();
-    const collisions = new Set<string>();
-    for (const path of leaves) {
-      if (seen.has(path)) collisions.add(path);
-      seen.add(path);
-    }
-    if (collisions.size > 0) {
-      errors.push({
-        code: 'dictionary-key-collision',
-        category: 'reference',
-        message: `Locale "${locale}" defines the same dotted key from both a nested path and a flat key: ${[
-          ...collisions,
-        ].join(', ')}`,
-      });
-    }
-    flatByLocale.set(locale, flattenMessages(dictionary[locale]));
-  }
+  const flatByLocale: Record<string, Record<string, string>> =
+    Object.fromEntries(
+      locales.map((locale) => [locale, flattenMessages(dictionary[locale])]),
+    );
+
+  // Collisions: the same dotted key reached via both a nested path and a flat
+  // key. flattenMessages collapses these last-wins, so we inspect raw leaves.
+  const collisionErrors: ValidationError[] = locales.flatMap((locale) => {
+    const collisions = duplicates(leafPaths(dictionary[locale]));
+    return collisions.length === 0
+      ? []
+      : [
+          {
+            code: 'dictionary-key-collision',
+            category: 'reference',
+            message: `Locale "${locale}" defines the same dotted key from both a nested path and a flat key: ${collisions.join(
+              ', ',
+            )}`,
+          },
+        ];
+  });
 
   // Keys referenced by component props (any string prop) plus shared-option
   // labels and keys referenced from within dictionary messages themselves
@@ -69,61 +68,67 @@ export function checkDictionaryReferences(
   // shared-option labels (resolveOptionsSource → Label). Node props are NOT
   // scanned: they never pass through resolveValuesInString, and scanning them
   // would risk false positives on literal bracketed text in node names.
-  const referenced = new Set<string>();
-
-  // TODO: implement a more robust solution for only scanning props that actually support dictionary references, rather than any string prop.
-  // TODO: This solution risks false positives on literal bracketed text in props that do not support dictionary references, but it is simpler.
-  collectKeys(JSON.stringify(flow.screens ?? []), referenced);
-  collectKeys(JSON.stringify(flow.options ?? {}), referenced);
-  for (const locale of locales) {
-    for (const message of Object.values(flatByLocale.get(locale)!)) {
-      collectKeys(message, referenced);
-    }
-  }
+  //
+  // TODO: only scan props that actually support dictionary references, rather
+  // than any string prop. The current approach is simpler but risks false
+  // positives on literal bracketed text in props that do not support [[ ]].
+  const referenced = new Set([
+    ...extractKeys(JSON.stringify(flow.screens ?? [])),
+    ...extractKeys(JSON.stringify(flow.options ?? {})),
+    ...locales.flatMap((locale) =>
+      Object.values(flatByLocale[locale]).flatMap(extractKeys),
+    ),
+  ]);
 
   // Defined keys, per locale and unioned.
-  const definedByLocale = new Map<string, Set<string>>();
-  const allKeys = new Set<string>();
-  for (const locale of locales) {
-    const keys = new Set(Object.keys(flatByLocale.get(locale)!));
-    definedByLocale.set(locale, keys);
-    keys.forEach((key) => allKeys.add(key));
-  }
+  const keysByLocale: Record<string, Set<string>> = Object.fromEntries(
+    locales.map((locale) => [locale, new Set(Object.keys(flatByLocale[locale]))]),
+  );
+  const allKeys = new Set(
+    locales.flatMap((locale) => Object.keys(flatByLocale[locale])),
+  );
 
-  if (flow.defaultLocale && !locales.includes(flow.defaultLocale)) {
-    errors.push({
-      code: 'unknown-default-locale',
+  const defaultLocaleErrors: ValidationError[] =
+    flow.defaultLocale && !locales.includes(flow.defaultLocale)
+      ? [
+          {
+            code: 'unknown-default-locale',
+            category: 'reference',
+            message: `defaultLocale "${flow.defaultLocale}" is not a key of the dictionary (locales: ${
+              locales.join(', ') || 'none'
+            })`,
+          },
+        ]
+      : [];
+
+  const unknownKeyErrors: ValidationError[] = [...referenced]
+    .filter((key) => !allKeys.has(key))
+    .map((key) => ({
+      code: 'unknown-dictionary-key',
       category: 'reference',
-      message: `defaultLocale "${flow.defaultLocale}" is not a key of the dictionary (locales: ${
-        locales.join(', ') || 'none'
-      })`,
-    });
-  }
+      message: `Dictionary reference [[${key}]] is not defined in any locale`,
+    }));
 
-  for (const key of referenced) {
-    if (!allKeys.has(key)) {
-      errors.push({
-        code: 'unknown-dictionary-key',
-        category: 'reference',
-        message: `Dictionary reference [[${key}]] is not defined in any locale`,
-      });
-    }
-  }
+  const mismatchErrors: ValidationError[] = locales.flatMap((locale) => {
+    const missing = [...allKeys].filter((key) => !keysByLocale[locale].has(key));
+    return missing.length === 0
+      ? []
+      : [
+          {
+            code: 'dictionary-locale-mismatch',
+            category: 'reference',
+            severity: 'warning',
+            message: `Locale "${locale}" is missing keys defined in other locales: ${missing.join(
+              ', ',
+            )}`,
+          },
+        ];
+  });
 
-  for (const locale of locales) {
-    const keys = definedByLocale.get(locale)!;
-    const missing = [...allKeys].filter((key) => !keys.has(key));
-    if (missing.length > 0) {
-      errors.push({
-        code: 'dictionary-locale-mismatch',
-        category: 'reference',
-        severity: 'warning',
-        message: `Locale "${locale}" is missing keys defined in other locales: ${missing.join(
-          ', ',
-        )}`,
-      });
-    }
-  }
-
-  return errors;
+  return [
+    ...collisionErrors,
+    ...defaultLocaleErrors,
+    ...unknownKeyErrors,
+    ...mismatchErrors,
+  ];
 }
