@@ -158,6 +158,7 @@ The `docs/` folder contains precise reference documentation — use it before re
 | `docs/components.md` | All component types and their props (content, response, layout, control) |
 | `docs/data-keys.md` | The 5 reference prefixes: `$$`, `@`, `$`, `#`, `%` |
 | `docs/answer-piping.md` | String interpolation in labels and content (`{{ }}` syntax) |
+| `docs/codebook.md` | Auto-generated data dictionary derived from the typed config |
 | `docs/validate.md` | All 15 validation error codes with explanations |
 
 ## Where to look first
