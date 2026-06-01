@@ -5,6 +5,7 @@ import {
   OptionsSource,
 } from './components/response';
 import {
+  DICTIONARY_TOKEN_RE,
   PREFIX,
   ParsedRef,
   RefPrefix,
@@ -32,13 +33,34 @@ export function resolveValuesInString(
   _depth = 0,
 ): string {
   if (_depth > 10) return text;
-  return text.replace(
+  // Dictionary ([[key]]) pass runs first so that a resolved message may itself
+  // contain {{ }} answer-piping tokens, which the subsequent pass resolves.
+  const withMessages = resolveMessagesInString(text, context, _depth);
+  return withMessages.replace(
     TEMPLATE_TOKEN_RE,
     (match, prefix: RefPrefix, path: string) => {
       const resolved = getValue(`${prefix}${path}`, context, _depth + 1);
       return resolved != null ? String(resolved) : match;
     },
   );
+}
+
+// Replaces [[key]] tokens with the active locale's message (default-locale
+// fallback is already merged into context.messages by the runtime). Missing
+// keys are left literal so typos are visible during development. Nested [[ ]]
+// inside a message are resolved recursively under the shared depth guard.
+function resolveMessagesInString(
+  text: string,
+  context: Context,
+  _depth = 0,
+): string {
+  const messages = context.messages;
+  if (!messages || _depth > 10) return text;
+  return text.replace(DICTIONARY_TOKEN_RE, (match, key: string) => {
+    const message = messages[key];
+    if (message == null) return match;
+    return resolveMessagesInString(message, context, _depth + 1);
+  });
 }
 
 export function getPrefixAndPath(text: string): ParsedRef | null {

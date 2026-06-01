@@ -8,6 +8,7 @@ import { checkUnreachableNodes } from './check-unreachable-nodes';
 import { checkReferences } from './check-references';
 import { checkSharedOptionReferences } from './check-shared-option-references';
 import { checkForeachRandomization } from './check-foreach-randomization';
+import { checkDictionaryReferences } from './check-dictionary-references';
 import { ValidationError } from './types';
 
 export type { ErrorCategory, ValidationError } from './types';
@@ -23,5 +24,6 @@ export function validateExperiment(flow: ExperimentFlow): ValidationError[] {
     ...checkReferences(flow),
     ...checkSharedOptionReferences(flow),
     ...checkForeachRandomization(flow),
+    ...checkDictionaryReferences(flow),
   ];
 }

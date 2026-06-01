@@ -10,21 +10,34 @@ import { create } from 'zustand';
 type ExperimentStore = {
   step: FlowStep | null;
   isLoading: boolean;
-  start: (experiment: ExperimentFlow, startNodeId?: string) => Promise<void>;
+  start: (
+    experiment: ExperimentFlow,
+    startNodeId?: string,
+    locale?: string,
+  ) => Promise<void>;
   next: (data?: Context['data']) => Promise<void>;
 };
 
 export const useExperimentStore = create<ExperimentStore>()((set, get) => ({
   step: null,
   isLoading: false,
-  start: async (experiment: ExperimentFlow, startNodeId?: string) => {
+  start: async (
+    experiment: ExperimentFlow,
+    startNodeId?: string,
+    locale?: string,
+  ) => {
     set({ isLoading: true });
     try {
-      const step = await startExperiment(experiment, startNodeId, {
-        onCheckpoint: async (context) => {
-          await send(context);
+      const step = await startExperiment(
+        experiment,
+        startNodeId,
+        {
+          onCheckpoint: async (context) => {
+            await send(context);
+          },
         },
-      }).then(recordEnteredAt);
+        locale,
+      ).then(recordEnteredAt);
       set({ step });
     } finally {
       set({ isLoading: false });

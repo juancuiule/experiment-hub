@@ -9,17 +9,18 @@ import { useEffect } from 'react';
 type Props = {
   startingNode?: string;
   experiment: ExperimentFlow;
+  locale?: string;
 };
 
 export default function Experiment(props: Props) {
-  const { startingNode, experiment } = props;
+  const { startingNode, experiment, locale } = props;
   const { step, isLoading, start, next } = useExperimentStore();
 
   useEffect(() => {
     if (!step) {
-      start(experiment, startingNode);
+      start(experiment, startingNode, locale);
     }
-  }, [step, startingNode, experiment]);
+  }, [step, startingNode, experiment, locale]);
 
   if (!step) {
     return <div className="flex-1"></div>;

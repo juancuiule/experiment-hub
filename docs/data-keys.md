@@ -16,3 +16,5 @@ We will also be using `$` (a single dollar sign) to reference values from the cu
 | `@`    | Loop item (by loop node ID) | `@loop-sports.value`, `@loop-sports.index` |
 | `$`    | Current screen         | `$hasChildren`                      |
 | `#`    | For-each item (by for-each component ID) | `#foreach-sport.value`, `#foreach-sport.index` |
+
+Localized static copy uses a separate token, `[[key]]`, which resolves against the active locale's dictionary rather than runtime data. It is wrapped in `[[ ]]` (not `{{ }}`) and is documented in [i18n](./i18n.md).

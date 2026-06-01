@@ -423,4 +423,59 @@ describe('resolveValuesInString', () => {
       expect(() => resolveValuesInString('{{$$loop}}', ctx)).not.toThrow();
     });
   });
+
+  describe('[[ ]] dictionary references (context.messages)', () => {
+    it('replaces [[key]] with the matching message', () => {
+      const ctx = { messages: { greeting: 'Hola' } };
+      expect(resolveValuesInString('[[greeting]] mundo', ctx)).toBe(
+        'Hola mundo',
+      );
+    });
+
+    it('replaces multiple [[ ]] tokens in one string', () => {
+      const ctx = { messages: { greeting: 'Hola', cta: 'Continuar' } };
+      expect(resolveValuesInString('[[greeting]] — [[cta]]', ctx)).toBe(
+        'Hola — Continuar',
+      );
+    });
+
+    it('supports dotted and hyphenated keys', () => {
+      const ctx = { messages: { 'welcome.title': 'Bienvenido' } };
+      expect(resolveValuesInString('[[welcome.title]]', ctx)).toBe(
+        'Bienvenido',
+      );
+    });
+
+    it('leaves the token literal when the key is missing', () => {
+      const ctx = { messages: { greeting: 'Hola' } };
+      expect(resolveValuesInString('[[missing]]', ctx)).toBe('[[missing]]');
+    });
+
+    it('leaves the token literal when there are no messages at all', () => {
+      expect(resolveValuesInString('[[greeting]]', {})).toBe('[[greeting]]');
+    });
+
+    it('resolves {{ }} answer-piping inside a dictionary message', () => {
+      const ctx = {
+        messages: { greeting: 'Hola {{$$welcome.name}}' },
+        data: { welcome: { name: 'Ana' } },
+      };
+      expect(resolveValuesInString('[[greeting]]', ctx)).toBe('Hola Ana');
+    });
+
+    it('resolves nested [[ ]] inside a dictionary message', () => {
+      const ctx = {
+        messages: {
+          intro: 'Bienvenido, [[greeting]]',
+          greeting: 'hola',
+        },
+      };
+      expect(resolveValuesInString('[[intro]]', ctx)).toBe('Bienvenido, hola');
+    });
+
+    it('does not stack overflow on a self-referential message', () => {
+      const ctx = { messages: { loop: '[[loop]]' } };
+      expect(() => resolveValuesInString('[[loop]]', ctx)).not.toThrow();
+    });
+  });
 });

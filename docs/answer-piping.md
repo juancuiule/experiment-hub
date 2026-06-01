@@ -17,6 +17,8 @@ Keys support dotted paths and hyphens: `{{$$survey.follow-up}}`, `{{$$prayer-fre
 
 Unresolvable tokens are left literal — `{{$$missing.key}}` renders as-is, making typos visible during development.
 
+> For **localized static copy** use the separate `[[key]]` dictionary token, not `{{ }}`. It resolves against the active locale's messages and runs before the `{{ }}` pass (so a dictionary message may itself contain `{{ }}`). See [i18n](./i18n.md).
+
 ## Supported props
 
 The following props currently support interpolation:

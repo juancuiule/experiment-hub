@@ -3,11 +3,23 @@ import { FrameworkEdge } from './edges';
 import { FrameworkNode, PathNode, LoopNode } from './nodes';
 import { FrameworkScreen } from './screen';
 
+// i18n dictionary: locale → message key → message string.
+// e.g. { en: { greeting: "Hello" }, es: { greeting: "Hola" } }.
+// Messages are addressed from component string props with the [[key]] token and
+// may themselves contain {{ }} answer-piping and nested [[ ]] references.
+export type Dictionary = Record<string, Record<string, string>>;
+
 export type ExperimentFlow = {
   nodes: FrameworkNode[];
   edges: FrameworkEdge[];
   screens?: FrameworkScreen[];
   options?: Record<string, Option[]>;
+  // Localized message sets keyed by locale. Referenced via [[key]] tokens.
+  dictionary?: Dictionary;
+  // Locale used when the ?lang= param is absent or invalid, and the source of
+  // fallback messages for keys missing in the active locale. Must be a key of
+  // `dictionary` when a dictionary is present.
+  defaultLocale?: string;
 };
 
 type IterativeItem = { value: any; index: number };
@@ -44,6 +56,12 @@ export type Context = Partial<{
   };
   loopData: { [loopNodeId: string]: IterativeItem };
   timings: Record<string, Partial<TimingEntry>>;
+  // Active locale selected for this run (e.g. "es"). Informational; resolution
+  // reads `messages`, which already has default-locale fallback merged in.
+  locale: string;
+  // Flattened messages for the active locale with default-locale fallback
+  // merged underneath. Consumed by [[key]] resolution in resolveValuesInString.
+  messages: Record<string, string>;
 }>;
 
 export type InitialState = { type: 'initial' };

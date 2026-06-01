@@ -86,3 +86,9 @@ export const IS_BARE_REF_RE = /^(?:\$\$|\$|@|#)[\w.\-]+$/;
 
 // Finds bare $$ patterns (no surrounding braces). Used for unwrapped-token detection.
 export const BARE_DOUBLE_DOLLAR_RE = /\$\$([\w.\-]+)/g;
+
+// Matches [[key]] dictionary (i18n) tokens. Captures: [1] message key.
+// Keys share the same charset as data refs: word chars, dots, hyphens.
+// Distinct from {{…}} answer-piping: these resolve against the active locale's
+// dictionary messages, not runtime context data.
+export const DICTIONARY_TOKEN_RE = /\[\[([\w.\-]+)\]\]/g;

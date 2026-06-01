@@ -1,5 +1,6 @@
 import { validateExperiment } from '@/lib/experiment-validation';
 import { selectStartNode } from '@/lib/flow';
+import { selectLocale } from '@/lib/i18n';
 import { EXPERIMENTS } from '@/src/data/experiments';
 import { DataDebug, StateDebug } from '@/src/debug/Debug';
 import Experiment from '@/src/Experiment';
@@ -32,6 +33,7 @@ export default async function Home(props: Props) {
   }
 
   const startingNode = selectStartNode(searchParams, experiment);
+  const locale = selectLocale(searchParams, experiment);
 
   return (
     <>
@@ -43,7 +45,11 @@ export default async function Home(props: Props) {
           <StateDebug />
         </details>
       )}
-      <Experiment startingNode={startingNode} experiment={experiment} />
+      <Experiment
+        startingNode={startingNode}
+        experiment={experiment}
+        locale={locale}
+      />
       {process.env.NODE_ENV === 'development' && (
         <details className="my-2">
           <summary className="text-content-secondary cursor-pointer text-xs">

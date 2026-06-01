@@ -3183,3 +3183,123 @@ describe('randomized for-each validation', () => {
     expect(codes(flow)).not.toContain('invalid-randomized-foreach');
   });
 });
+
+describe('dictionary (i18n) references', () => {
+  function flowWithDict(
+    dictionary: ExperimentFlow['dictionary'],
+    content: string,
+    extra: Partial<ExperimentFlow> = {},
+  ): ExperimentFlow {
+    return {
+      nodes: [start, makeScreen('s1', 'welcome'), end],
+      edges: [seq('start', 's1'), seq('s1', 'end')],
+      screens: [
+        {
+          slug: 'welcome',
+          components: [
+            {
+              componentFamily: 'content',
+              template: 'rich-text',
+              props: { content },
+            },
+          ],
+        },
+      ],
+      dictionary,
+      ...extra,
+    };
+  }
+
+  it('accepts a [[key]] that exists in all locales', () => {
+    const flow = flowWithDict(
+      { en: { greeting: 'Hello' }, es: { greeting: 'Hola' } },
+      '[[greeting]]',
+      { defaultLocale: 'en' },
+    );
+    expect(codes(flow)).not.toContain('unknown-dictionary-key');
+    expect(codes(flow)).not.toContain('dictionary-locale-mismatch');
+  });
+
+  it('flags a [[key]] absent from every locale', () => {
+    const flow = flowWithDict(
+      { en: { greeting: 'Hello' }, es: { greeting: 'Hola' } },
+      '[[missing]]',
+      { defaultLocale: 'en' },
+    );
+    expect(codes(flow)).toContain('unknown-dictionary-key');
+  });
+
+  it('flags a [[key]] when the experiment has no dictionary at all', () => {
+    const flow: ExperimentFlow = {
+      nodes: [start, makeScreen('s1', 'welcome'), end],
+      edges: [seq('start', 's1'), seq('s1', 'end')],
+      screens: [
+        {
+          slug: 'welcome',
+          components: [
+            {
+              componentFamily: 'content',
+              template: 'rich-text',
+              props: { content: '[[greeting]]' },
+            },
+          ],
+        },
+      ],
+    };
+    expect(codes(flow)).toContain('unknown-dictionary-key');
+  });
+
+  it('flags a key present in one locale but missing in another (parity)', () => {
+    const flow = flowWithDict(
+      { en: { greeting: 'Hello', footer: 'Bye' }, es: { greeting: 'Hola' } },
+      '[[greeting]]',
+      { defaultLocale: 'en' },
+    );
+    const found = validateExperiment(flow).find(
+      (e) => e.code === 'dictionary-locale-mismatch',
+    );
+    expect(found).toBeDefined();
+    expect(found?.message).toContain('footer');
+    expect(found?.message).toContain('es');
+  });
+
+  it('does not flag parity when all locales share the same keys', () => {
+    const flow = flowWithDict(
+      { en: { a: '1', b: '2' }, es: { a: '1', b: '2' } },
+      '[[a]] [[b]]',
+      { defaultLocale: 'en' },
+    );
+    expect(codes(flow)).not.toContain('dictionary-locale-mismatch');
+  });
+
+  it('flags a defaultLocale that is not a key of the dictionary', () => {
+    const flow = flowWithDict(
+      { en: { greeting: 'Hello' }, es: { greeting: 'Hola' } },
+      '[[greeting]]',
+      { defaultLocale: 'fr' },
+    );
+    expect(codes(flow)).toContain('unknown-default-locale');
+  });
+
+  it('detects [[key]] references nested in dictionary messages', () => {
+    const flow = flowWithDict(
+      { en: { intro: 'Hi [[absent]]' }, es: { intro: 'Hola [[absent]]' } },
+      '[[intro]]',
+      { defaultLocale: 'en' },
+    );
+    expect(codes(flow)).toContain('unknown-dictionary-key');
+  });
+
+  it('emits no dictionary errors for an experiment without dictionary or [[ ]] refs', () => {
+    expect(codes(minimalFlow)).not.toContain('unknown-dictionary-key');
+    expect(codes(minimalFlow)).not.toContain('dictionary-locale-mismatch');
+    expect(codes(minimalFlow)).not.toContain('unknown-default-locale');
+  });
+});
+
+describe('i18n-demo example experiment', () => {
+  it('validates with no errors', async () => {
+    const { EXPERIMENTS } = await import('@/src/data/experiments');
+    expect(validateExperiment(EXPERIMENTS['i18n-demo'])).toEqual([]);
+  });
+});
