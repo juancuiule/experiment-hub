@@ -32,6 +32,13 @@ const escapeRegex = (s: string) => s.replace(REGEX_META_RE, '\\$&');
 // "experience.{{$$screen.drug}}" → /^experience\.[\w\-]+$/
 // Each {{ }} fills exactly one path segment (no dot), so the matcher does not
 // accept deeper-nested keys.
+//
+// This is intentionally stricter than the runtime: resolveMessagesInString would
+// happily look up a key whose {{ }} resolved to a dot-containing value (spanning
+// segments). We assume single-segment values — the documented advice is to feed
+// dynamic keys from constrained sources (fixed option sets, compute outputs). A
+// dot-containing value is therefore reported as unknown-dictionary-key rather than
+// silently passing; see docs/i18n.md "Dynamic dictionary keys".
 function dynamicKeyMatcher(key: string): RegExp {
   let pattern = '';
   let last = 0;
