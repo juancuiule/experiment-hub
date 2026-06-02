@@ -4,6 +4,7 @@ import {
   LoopNode,
   StepperConfig,
 } from '../nodes';
+import { buildMessages } from '../i18n';
 import { getValue } from '../resolve';
 import {
   Context,
@@ -697,9 +698,13 @@ export async function startExperiment(
   experiment: ExperimentFlow,
   startNodeId?: string,
   handlers?: FlowHandlers,
+  locale?: string,
 ): Promise<FlowStep> {
+  const messages = buildMessages(experiment, locale);
+  const context: Context =
+    locale != null && messages != null ? { locale, messages } : {};
   return await traverse(
-    { state: { type: 'initial' }, experiment, context: {}, handlers },
+    { state: { type: 'initial' }, experiment, context, handlers },
     startNodeId ? { startNodeId } : undefined,
   );
 }

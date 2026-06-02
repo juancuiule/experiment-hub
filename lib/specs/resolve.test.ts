@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { buildMessages } from '../i18n';
 import {
   getPath,
   getPrefixAndPath,
@@ -421,6 +422,129 @@ describe('resolveValuesInString', () => {
       // context.data.loop resolves to "{{$$loop}}" — a direct self-reference
       const ctx = { data: { loop: '{{$$loop}}' } };
       expect(() => resolveValuesInString('{{$$loop}}', ctx)).not.toThrow();
+    });
+  });
+
+  describe('[[ ]] dictionary references (context.messages)', () => {
+    it('replaces [[key]] with the matching message', () => {
+      const ctx = { messages: { greeting: 'Hola' } };
+      expect(resolveValuesInString('[[greeting]] mundo', ctx)).toBe(
+        'Hola mundo',
+      );
+    });
+
+    it('replaces multiple [[ ]] tokens in one string', () => {
+      const ctx = { messages: { greeting: 'Hola', cta: 'Continuar' } };
+      expect(resolveValuesInString('[[greeting]] — [[cta]]', ctx)).toBe(
+        'Hola — Continuar',
+      );
+    });
+
+    it('supports dotted and hyphenated keys', () => {
+      const ctx = { messages: { 'welcome.title': 'Bienvenido' } };
+      expect(resolveValuesInString('[[welcome.title]]', ctx)).toBe(
+        'Bienvenido',
+      );
+    });
+
+    it('leaves the token literal when the key is missing', () => {
+      const ctx = { messages: { greeting: 'Hola' } };
+      expect(resolveValuesInString('[[missing]]', ctx)).toBe('[[missing]]');
+    });
+
+    it('leaves the token literal when there are no messages at all', () => {
+      expect(resolveValuesInString('[[greeting]]', {})).toBe('[[greeting]]');
+    });
+
+    it('resolves {{ }} answer-piping inside a dictionary message', () => {
+      const ctx = {
+        messages: { greeting: 'Hola {{$$welcome.name}}' },
+        data: { welcome: { name: 'Ana' } },
+      };
+      expect(resolveValuesInString('[[greeting]]', ctx)).toBe('Hola Ana');
+    });
+
+    it('resolves nested [[ ]] inside a dictionary message', () => {
+      const ctx = {
+        messages: {
+          intro: 'Bienvenido, [[greeting]]',
+          greeting: 'hola',
+        },
+      };
+      expect(resolveValuesInString('[[intro]]', ctx)).toBe('Bienvenido, hola');
+    });
+
+    it('does not stack overflow on a self-referential message', () => {
+      const ctx = { messages: { loop: '[[loop]]' } };
+      expect(() => resolveValuesInString('[[loop]]', ctx)).not.toThrow();
+    });
+
+    it('resolves a {{ }} data ref inside a [[ ]] key, then looks it up', () => {
+      const ctx = {
+        messages: { 'experience.lsd': 'Algo sobre el LSD' },
+        screenData: { drug: 'lsd' },
+      };
+      expect(
+        resolveValuesInString('[[experience.{{$drug}}]]', ctx),
+      ).toBe('Algo sobre el LSD');
+    });
+
+    it('renders the reduced literal when the computed key is missing', () => {
+      const ctx = {
+        messages: { 'experience.marijuana': 'x' },
+        screenData: { drug: 'lsd' },
+      };
+      expect(
+        resolveValuesInString('[[experience.{{$drug}}]]', ctx),
+      ).toBe('[[experience.lsd]]');
+    });
+
+    it('renders the unreduced literal when the inner {{ }} cannot resolve', () => {
+      const ctx = { messages: { 'experience.lsd': 'x' } };
+      expect(
+        resolveValuesInString('[[experience.{{$drug}}]]', ctx),
+      ).toBe('[[experience.{{$drug}}]]');
+    });
+
+    it('resolves a $$ data ref inside a [[ ]] key', () => {
+      const ctx = {
+        messages: { 'experience.lsd': 'About LSD' },
+        data: { drug: 'lsd' },
+      };
+      expect(
+        resolveValuesInString('[[experience.{{$$drug}}]]', ctx),
+      ).toBe('About LSD');
+    });
+
+    it('does NOT re-interpret a [[ ]] that surfaces from piped data', () => {
+      // $$answer holds participant text that happens to contain [[other]].
+      // It appears only AFTER the {{ }} pass, so it must stay literal:
+      // participant data can never forge a dictionary lookup.
+      const ctx = {
+        messages: { other: 'SECRET' },
+        data: { answer: '[[other]]' },
+      };
+      expect(resolveValuesInString('{{$$answer}}', ctx)).toBe('[[other]]');
+    });
+
+    it('treats a builtin-named key as missing instead of inheriting it', () => {
+      // context.messages is built by buildMessages (null prototype). A token
+      // like [[toString]] for an undefined key must render literal, not resolve
+      // to the inherited Object.prototype.toString function (which would crash
+      // the recursive replace).
+      const messages = buildMessages(
+        {
+          nodes: [],
+          edges: [],
+          defaultLocale: 'en',
+          dictionary: { en: { greeting: 'Hi' } },
+        },
+        'en',
+      );
+      const ctx = { messages };
+      expect(resolveValuesInString('[[toString]]', ctx)).toBe('[[toString]]');
+      expect(resolveValuesInString('[[__proto__]]', ctx)).toBe('[[__proto__]]');
+      expect(resolveValuesInString('[[greeting]]', ctx)).toBe('Hi');
     });
   });
 });

@@ -65,6 +65,37 @@ describe('startExperiment', () => {
   });
 });
 
+describe('startExperiment — locale seeding', () => {
+  const flow: ExperimentFlow = {
+    nodes: [{ id: 'start', type: 'start' }, makeScreen('s1', 's1')],
+    edges: [seq('start', 's1')],
+    defaultLocale: 'en',
+    dictionary: {
+      en: { greeting: 'Hello', footer: 'Bye' },
+      es: { greeting: 'Hola' },
+    },
+  };
+
+  it('seeds the active locale and merged messages into context', async () => {
+    const step = await startExperiment(flow, 'start', undefined, 'es');
+    expect(step.context.locale).toBe('es');
+    // `footer` only exists in en — present via default-locale fallback.
+    expect(step.context.messages).toEqual({ greeting: 'Hola', footer: 'Bye' });
+  });
+
+  it('preserves seeded messages after traversal lands on a screen', async () => {
+    const step = await startExperiment(flow, 'start', undefined, 'es');
+    expect(step.state.type).toBe('in-node');
+    expect(step.context.messages?.greeting).toBe('Hola');
+  });
+
+  it('leaves locale/messages undefined when no locale is given', async () => {
+    const step = await startExperiment(flow, 'start');
+    expect(step.context.locale).toBeUndefined();
+    expect(step.context.messages).toBeUndefined();
+  });
+});
+
 describe('start node without props', () => {
   it("records 'default' as the group when start node has no props", async () => {
     const flow: ExperimentFlow = {

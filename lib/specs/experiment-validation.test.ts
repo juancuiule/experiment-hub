@@ -3183,3 +3183,295 @@ describe('randomized for-each validation', () => {
     expect(codes(flow)).not.toContain('invalid-randomized-foreach');
   });
 });
+
+describe('dictionary (i18n) references', () => {
+  function flowWithDict(
+    dictionary: ExperimentFlow['dictionary'],
+    content: string,
+    extra: Partial<ExperimentFlow> = {},
+  ): ExperimentFlow {
+    return {
+      nodes: [start, makeScreen('s1', 'welcome'), end],
+      edges: [seq('start', 's1'), seq('s1', 'end')],
+      screens: [
+        {
+          slug: 'welcome',
+          components: [
+            {
+              componentFamily: 'content',
+              template: 'rich-text',
+              props: { content },
+            },
+          ],
+        },
+      ],
+      dictionary,
+      ...extra,
+    };
+  }
+
+  it('accepts a [[key]] that exists in all locales', () => {
+    const flow = flowWithDict(
+      { en: { greeting: 'Hello' }, es: { greeting: 'Hola' } },
+      '[[greeting]]',
+      { defaultLocale: 'en' },
+    );
+    expect(codes(flow)).not.toContain('unknown-dictionary-key');
+    expect(codes(flow)).not.toContain('dictionary-locale-mismatch');
+  });
+
+  it('flags a [[key]] absent from every locale', () => {
+    const flow = flowWithDict(
+      { en: { greeting: 'Hello' }, es: { greeting: 'Hola' } },
+      '[[missing]]',
+      { defaultLocale: 'en' },
+    );
+    expect(codes(flow)).toContain('unknown-dictionary-key');
+  });
+
+  it('flags a [[key]] when the experiment has no dictionary at all', () => {
+    const flow: ExperimentFlow = {
+      nodes: [start, makeScreen('s1', 'welcome'), end],
+      edges: [seq('start', 's1'), seq('s1', 'end')],
+      screens: [
+        {
+          slug: 'welcome',
+          components: [
+            {
+              componentFamily: 'content',
+              template: 'rich-text',
+              props: { content: '[[greeting]]' },
+            },
+          ],
+        },
+      ],
+    };
+    expect(codes(flow)).toContain('unknown-dictionary-key');
+  });
+
+  it('flags a key present in one locale but missing in another (parity)', () => {
+    const flow = flowWithDict(
+      { en: { greeting: 'Hello', footer: 'Bye' }, es: { greeting: 'Hola' } },
+      '[[greeting]]',
+      { defaultLocale: 'en' },
+    );
+    const found = validateExperiment(flow).find(
+      (e) => e.code === 'dictionary-locale-mismatch',
+    );
+    expect(found).toBeDefined();
+    expect(found?.message).toContain('footer');
+    expect(found?.message).toContain('es');
+  });
+
+  it('does not flag parity when all locales share the same keys', () => {
+    const flow = flowWithDict(
+      { en: { a: '1', b: '2' }, es: { a: '1', b: '2' } },
+      '[[a]] [[b]]',
+      { defaultLocale: 'en' },
+    );
+    expect(codes(flow)).not.toContain('dictionary-locale-mismatch');
+  });
+
+  it('flags an unknown [[key]] referenced in a shared option label', () => {
+    const flow: ExperimentFlow = {
+      nodes: [start, makeScreen('s1', 'welcome'), end],
+      edges: [seq('start', 's1'), seq('s1', 'end')],
+      screens: [
+        {
+          slug: 'welcome',
+          components: [
+            {
+              componentFamily: 'response',
+              template: 'radio',
+              props: { label: 'Q', dataKey: 'q', options: '%scale' },
+            },
+          ],
+        },
+      ],
+      options: { scale: [{ label: '[[opt.unknown]]', value: 'a' }] },
+      dictionary: { en: { other: 'x' }, es: { other: 'y' } },
+      defaultLocale: 'en',
+    };
+    expect(codes(flow)).toContain('unknown-dictionary-key');
+  });
+
+  it('accepts a [[key]] in a shared option label defined in all locales', () => {
+    const flow: ExperimentFlow = {
+      nodes: [start, makeScreen('s1', 'welcome'), end],
+      edges: [seq('start', 's1'), seq('s1', 'end')],
+      screens: [
+        {
+          slug: 'welcome',
+          components: [
+            {
+              componentFamily: 'response',
+              template: 'radio',
+              props: { label: 'Q', dataKey: 'q', options: '%scale' },
+            },
+          ],
+        },
+      ],
+      options: { scale: [{ label: '[[opt.yes]]', value: 'a' }] },
+      dictionary: {
+        en: { opt: { yes: 'Yes' } },
+        es: { opt: { yes: 'Sí' } },
+      },
+      defaultLocale: 'en',
+    };
+    expect(codes(flow)).not.toContain('unknown-dictionary-key');
+  });
+
+  it('flags a defaultLocale that is not a key of the dictionary', () => {
+    const flow = flowWithDict(
+      { en: { greeting: 'Hello' }, es: { greeting: 'Hola' } },
+      '[[greeting]]',
+      { defaultLocale: 'fr' },
+    );
+    expect(codes(flow)).toContain('unknown-default-locale');
+  });
+
+  it('detects [[key]] references nested in dictionary messages', () => {
+    const flow = flowWithDict(
+      { en: { intro: 'Hi [[absent]]' }, es: { intro: 'Hola [[absent]]' } },
+      '[[intro]]',
+      { defaultLocale: 'en' },
+    );
+    expect(codes(flow)).toContain('unknown-dictionary-key');
+  });
+
+  it('emits no dictionary errors for an experiment without dictionary or [[ ]] refs', () => {
+    expect(codes(minimalFlow)).not.toContain('unknown-dictionary-key');
+    expect(codes(minimalFlow)).not.toContain('dictionary-locale-mismatch');
+    expect(codes(minimalFlow)).not.toContain('unknown-default-locale');
+  });
+
+  it('accepts a nested-tree dictionary referenced by dotted key', () => {
+    const flow = flowWithDict(
+      {
+        en: { welcome: { title: 'Hello' } },
+        es: { welcome: { title: 'Hola' } },
+      },
+      '[[welcome.title]]',
+      { defaultLocale: 'en' },
+    );
+    expect(codes(flow)).not.toContain('unknown-dictionary-key');
+    expect(codes(flow)).not.toContain('dictionary-locale-mismatch');
+  });
+
+  it('flags an unknown dotted key against a nested-tree dictionary', () => {
+    const flow = flowWithDict(
+      {
+        en: { welcome: { title: 'Hello' } },
+        es: { welcome: { title: 'Hola' } },
+      },
+      '[[welcome.subtitle]]',
+      { defaultLocale: 'en' },
+    );
+    expect(codes(flow)).toContain('unknown-dictionary-key');
+  });
+
+  it('flags a collision between a flat dotted key and a nested path', () => {
+    const flow = flowWithDict(
+      {
+        en: { 'welcome.title': 'Flat', welcome: { title: 'Nested' } },
+        es: { 'welcome.title': 'Plano', welcome: { title: 'Anidado' } },
+      },
+      '[[welcome.title]]',
+      { defaultLocale: 'en' },
+    );
+    const found = validateExperiment(flow).find(
+      (e) => e.code === 'dictionary-key-collision',
+    );
+    expect(found).toBeDefined();
+    expect(found?.message).toContain('welcome.title');
+    expect(found?.message).toContain('en');
+  });
+
+  it('does not flag collision for distinct nested and flat keys', () => {
+    const flow = flowWithDict(
+      {
+        en: { welcome: { title: 'Hi' }, 'survey.cta': 'Go' },
+        es: { welcome: { title: 'Hola' }, 'survey.cta': 'Ir' },
+      },
+      '[[welcome.title]] [[survey.cta]]',
+      { defaultLocale: 'en' },
+    );
+    expect(codes(flow)).not.toContain('dictionary-key-collision');
+  });
+
+  it('detects parity gaps across nested trees (dotted key missing in a locale)', () => {
+    const flow = flowWithDict(
+      {
+        en: { welcome: { title: 'Hello', footer: 'Bye' } },
+        es: { welcome: { title: 'Hola' } },
+      },
+      '[[welcome.title]]',
+      { defaultLocale: 'en' },
+    );
+    const found = validateExperiment(flow).find(
+      (e) => e.code === 'dictionary-locale-mismatch',
+    );
+    expect(found?.message).toContain('welcome.footer');
+  });
+
+  it('accepts a dynamic [[ ]] key when the family exists in all locales', () => {
+    const flow = flowWithDict(
+      {
+        en: { experience: { lsd: 'About LSD', marijuana: 'About weed' } },
+        es: { experience: { lsd: 'Sobre LSD', marijuana: 'Sobre la maria' } },
+      },
+      '[[experience.{{$$screen.drug}}]]',
+      { defaultLocale: 'en' },
+    );
+    expect(codes(flow)).not.toContain('unknown-dictionary-key');
+    expect(codes(flow)).not.toContain('dictionary-locale-mismatch');
+  });
+
+  it('flags a dynamic [[ ]] key whose static stem matches no defined key', () => {
+    const flow = flowWithDict(
+      { en: { greeting: 'Hello' }, es: { greeting: 'Hola' } },
+      '[[experience.{{$$screen.drug}}]]',
+      { defaultLocale: 'en' },
+    );
+    expect(codes(flow)).toContain('unknown-dictionary-key');
+  });
+
+  it('matches a mid-key {{ }} token to a single nested segment only', () => {
+    // [[a.{{ }}.b]] must match a.<seg>.b, not a flat a.b nor a.x.y.b
+    const ok = flowWithDict(
+      { en: { a: { lsd: { b: 'ok' } } }, es: { a: { lsd: { b: 'bien' } } } },
+      '[[a.{{$$screen.x}}.b]]',
+      { defaultLocale: 'en' },
+    );
+    expect(codes(ok)).not.toContain('unknown-dictionary-key');
+
+    const bad = flowWithDict(
+      { en: { a: { b: 'ok' } }, es: { a: { b: 'bien' } } },
+      '[[a.{{$$screen.x}}.b]]',
+      { defaultLocale: 'en' },
+    );
+    expect(codes(bad)).toContain('unknown-dictionary-key');
+  });
+
+  it('still reports a per-locale parity gap for a dynamic family', () => {
+    // experience.lsd only in en, experience.marijuana only in es: the dynamic
+    // family "exists" in the union, but static parity still flags each gap.
+    const flow = flowWithDict(
+      {
+        en: { experience: { lsd: 'About LSD' } },
+        es: { experience: { marijuana: 'Sobre la maria' } },
+      },
+      '[[experience.{{$$screen.drug}}]]',
+      { defaultLocale: 'en' },
+    );
+    expect(codes(flow)).not.toContain('unknown-dictionary-key');
+    expect(codes(flow)).toContain('dictionary-locale-mismatch');
+  });
+});
+
+describe('i18n-demo example experiment', () => {
+  it('validates with no errors', async () => {
+    const { EXPERIMENTS } = await import('@/src/data/experiments');
+    expect(validateExperiment(EXPERIMENTS['i18n-demo'])).toEqual([]);
+  });
+});

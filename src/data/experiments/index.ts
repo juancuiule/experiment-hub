@@ -5,11 +5,13 @@ import ocean from './ocean';
 import pandemic from './pandemic';
 import tribalismo from './tribalismo';
 import pecados from './pecados';
+import i18nDemo from './i18n-demo';
 
 export const EXPERIMENTS: Record<string, ExperimentFlow> = {
   experiment: pandemic,
   'ejercicio-1': ejercicio1,
   emociones,
+  'i18n-demo': i18nDemo,
   ocean,
   pecados,
   tribalismo,

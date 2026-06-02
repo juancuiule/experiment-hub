@@ -3,11 +3,28 @@ import { FrameworkEdge } from './edges';
 import { FrameworkNode, PathNode, LoopNode } from './nodes';
 import { FrameworkScreen } from './screen';
 
+// A tree of localized messages. Leaves are message strings; branches nest
+// further keys. Addressed by [[dotted.key]] tokens, e.g. { welcome: { title } }
+// is referenced as [[welcome.title]]. Flat dotted keys are also allowed and may
+// be mixed with nesting.
+export type MessageTree = { [key: string]: string | MessageTree };
+
+// i18n dictionary: locale → message tree.
+// e.g. { en: { welcome: { title: "Hello" } }, es: { welcome: { title: "Hola" } } }.
+// Messages may themselves contain {{ }} answer-piping and nested [[ ]] references.
+export type Dictionary = Record<string, MessageTree>;
+
 export type ExperimentFlow = {
   nodes: FrameworkNode[];
   edges: FrameworkEdge[];
   screens?: FrameworkScreen[];
   options?: Record<string, Option[]>;
+  // Localized message sets keyed by locale. Referenced via [[key]] tokens.
+  dictionary?: Dictionary;
+  // Locale used when the ?lang= param is absent or invalid, and the source of
+  // fallback messages for keys missing in the active locale. Must be a key of
+  // `dictionary` when a dictionary is present.
+  defaultLocale?: string;
 };
 
 type IterativeItem = { value: any; index: number };
@@ -44,6 +61,12 @@ export type Context = Partial<{
   };
   loopData: { [loopNodeId: string]: IterativeItem };
   timings: Record<string, Partial<TimingEntry>>;
+  // Active locale selected for this run (e.g. "es"). Informational; resolution
+  // reads `messages`, which already has default-locale fallback merged in.
+  locale: string;
+  // Flattened messages for the active locale with default-locale fallback
+  // merged underneath. Consumed by [[key]] resolution in resolveValuesInString.
+  messages: Record<string, string>;
 }>;
 
 export type InitialState = { type: 'initial' };
