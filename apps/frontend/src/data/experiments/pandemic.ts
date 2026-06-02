@@ -1,17 +1,77 @@
 import { ExperimentFlow } from '@experiment-hub/engine/types';
 
 const pandemic: ExperimentFlow = {
+  dictionary: {
+    es: {
+      frecuency: {
+        daily: 'Todos los días',
+        weekly: 'Una o varias veces a la semana',
+        monthly: 'Una o varias veces al mes',
+        sporadically: 'Muy esporádicamente',
+        never: 'Nunca',
+      },
+      'yes-no': {
+        yes: 'Sí',
+        no: 'No',
+      },
+      'psychedelics-substances': {
+        mushrooms: 'Hongos',
+        lsd: 'LSD o análogo',
+        ayahuasca: 'Ayahuasca',
+        dmt: 'DMT',
+        '5-meo-dmt': '5-MeO-DMT',
+        ibogaine: 'Iboga/ibogaina',
+        'san-pedro': 'San Pedro',
+        'bufo-alvarius': 'Bufo alvarius',
+      },
+      'psychoactive-substances': {
+        marijuana: 'Marihuana',
+        stimulants: 'Estimulantes (modafinilo, cocaína, anfetaminas)',
+        sedatives: 'Sedativos (hipnóticos, opióides, benzodiacepinas)',
+        dissociatives: 'Disociativos (ketamina, salvia divinorum)',
+        alcohol: 'Alcohol',
+        mdma: 'MDMA / éxtasis',
+        otro: 'Otro',
+      },
+    },
+  },
+  defaultLocale: 'es',
   options: {
     frequency: [
-      { label: 'Todos los días', value: 'daily' },
-      { label: 'Una o varias veces a la semana', value: 'weekly' },
-      { label: 'Una o varias veces al mes', value: 'monthly' },
-      { label: 'Muy esporádicamente', value: 'sporadically' },
-      { label: 'Nunca', value: 'never' },
+      { label: '[[frecuency.daily]]', value: 'daily' },
+      { label: '[[frecuency.weekly]]', value: 'weekly' },
+      { label: '[[frecuency.monthly]]', value: 'monthly' },
+      { label: '[[frecuency.sporadically]]', value: 'sporadically' },
+      { label: '[[frecuency.never]]', value: 'never' },
     ],
     'yes-no': [
-      { label: 'Sí', value: 'yes' },
-      { label: 'No', value: 'no' },
+      { label: '[[yes-no.yes]]', value: 'yes' },
+      { label: '[[yes-no.no]]', value: 'no' },
+    ],
+    'psychedelics-substances': [
+      { label: '[[psychedelics-substances.mushrooms]]', value: 'mushrooms' },
+      { label: '[[psychedelics-substances.lsd]]', value: 'lsd' },
+      { label: '[[psychedelics-substances.ayahuasca]]', value: 'ayahuasca' },
+      { label: '[[psychedelics-substances.dmt]]', value: 'dmt' },
+      { label: '[[psychedelics-substances.5-meo-dmt]]', value: '5-meo-dmt' },
+      { label: '[[psychedelics-substances.ibogaine]]', value: 'ibogaine' },
+      { label: '[[psychedelics-substances.san-pedro]]', value: 'san-pedro' },
+      {
+        label: '[[psychedelics-substances.bufo-alvarius]]',
+        value: 'bufo-alvarius',
+      },
+    ],
+    'psychoactive-substances': [
+      { label: '[[psychoactive-substances.marijuana]]', value: 'marijuana' },
+      { label: '[[psychoactive-substances.stimulants]]', value: 'stimulants' },
+      { label: '[[psychoactive-substances.sedatives]]', value: 'sedatives' },
+      {
+        label: '[[psychoactive-substances.dissociatives]]',
+        value: 'dissociatives',
+      },
+      { label: '[[psychoactive-substances.alcohol]]', value: 'alcohol' },
+      { label: '[[psychoactive-substances.mdma]]', value: 'mdma' },
+      { label: '[[psychoactive-substances.otro]]', value: 'otro' },
     ],
   },
   nodes: [
@@ -441,16 +501,7 @@ const pandemic: ExperimentFlow = {
             label: '',
             dataKey: 'psychedelic-substances',
             randomize: true,
-            options: [
-              { label: 'Hongos', value: 'mushrooms' },
-              { label: 'LSD o análogo', value: 'lsd' },
-              { label: 'Ayahuasca', value: 'ayahuasca' },
-              { label: 'DMT', value: 'dmt' },
-              { label: '5-MeO-DMT', value: '5-meo-dmt' },
-              { label: 'Iboga/ibogaina', value: 'ibogaine' },
-              { label: 'San Pedro', value: 'san-pedro' },
-              { label: 'Bufo alvarius', value: 'bufo-alvarius' },
-            ],
+            options: '%psychedelics-substances',
             required: false,
           },
         },
@@ -714,24 +765,7 @@ const pandemic: ExperimentFlow = {
           props: {
             label: '',
             dataKey: 'psychoactive-substances',
-            options: [
-              { label: 'Marihuana', value: 'marijuana' },
-              {
-                label: 'Estimulantes (modafinilo, cocaína, anfetaminas)',
-                value: 'stimulants',
-              },
-              {
-                label: 'Sedativos (hipnóticos, opióides, benzodiacepinas)',
-                value: 'sedatives',
-              },
-              {
-                label: 'Disociativos (ketamina, salvia divinorum)',
-                value: 'dissociatives',
-              },
-              { label: 'Alcohol', value: 'alcohol' },
-              { label: 'MDMD / éxtasis', value: 'mdma' },
-              { label: 'Otro', value: 'otro' },
-            ],
+            options: '%psychoactive-substances',
             required: false,
           },
         },
@@ -772,7 +806,8 @@ const pandemic: ExperimentFlow = {
                     componentFamily: 'response',
                     template: 'slider',
                     props: {
-                      label: '{{#for-each-psychoactive-substance.value}}',
+                      label:
+                        '[[psychoactive-substances.{{#for-each-psychoactive-substance.value}}]]',
                       minLabel: 'Disminuyó mucho',
                       maxLabel: 'Aumentó mucho',
                       dataKey:
@@ -795,10 +830,10 @@ const pandemic: ExperimentFlow = {
                         template: 'single-checkbox',
                         props: {
                           label:
-                            'Mi consumo de {{#for-each-psychoactive-substance.value}} disminuyó por factores externos. (Ej. no tengo, me queda poco, vivo con otra gente, etc.)',
+                            'Mi consumo de [[psychoactive-substances.{{#for-each-psychoactive-substance.value}}]] disminuyó por factores externos. (Ej. no tengo, me queda poco, vivo con otra gente, etc.)',
                           dataKey:
                             'psychoactive-{{#for-each-psychoactive-substance.value}}-decrease-external',
-                          defaultValue: true,
+                          defaultValue: false,
                           required: false,
                         },
                       },
