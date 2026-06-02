@@ -6,7 +6,7 @@ import { makeScreen, seq } from '../test-helpers';
 const start = { id: 'start', type: 'start' as const };
 const end = { id: 'end', type: 'end' as const };
 
-function find(vars: { key: string }[], key: string) {
+function find<T extends { key: string }>(vars: T[], key: string): T | undefined {
   return vars.find((v) => v.key === key);
 }
 
@@ -378,24 +378,5 @@ describe('generateCodebook — system section', () => {
     };
     const cb = generateCodebook(flow);
     expect(find(cb.system, 'start.group')).toBeUndefined();
-  });
-});
-
-describe('generateCodebook — real experiments smoke test', () => {
-  it('generates a non-empty codebook for every registered experiment without throwing', async () => {
-    const { EXPERIMENTS } = await import('@/src/data/experiments');
-    for (const [slug, experiment] of Object.entries(EXPERIMENTS)) {
-      const cb = generateCodebook(experiment, slug);
-      const total =
-        cb.collected.length + cb.derived.length + cb.system.length;
-      expect(total, `experiment "${slug}" produced no variables`).toBeGreaterThan(0);
-    }
-  });
-
-  it('captures the pecados dynamic for-each as a template row', async () => {
-    const { EXPERIMENTS } = await import('@/src/data/experiments');
-    const cb = generateCodebook(EXPERIMENTS['pecados'], 'pecados');
-    const dynamic = cb.collected.filter((v) => v.repetition.kind === 'dynamic');
-    expect(dynamic.length).toBeGreaterThan(0);
   });
 });

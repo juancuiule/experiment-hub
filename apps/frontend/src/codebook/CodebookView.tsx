@@ -1,7 +1,7 @@
 'use client';
 
-import type { Codebook, CodebookVariable } from '@/lib/codebook';
-import { optionsText, repetitionText } from '@/lib/codebook/render/format';
+import type { Codebook, CodebookVariable } from '@experiment-hub/engine/codebook';
+import { optionsText, repetitionText } from '@experiment-hub/engine/codebook/render/format';
 import { useState } from 'react';
 
 function VariableTable({ variables }: { variables: CodebookVariable[] }) {

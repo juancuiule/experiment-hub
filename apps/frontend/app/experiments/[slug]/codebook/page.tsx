@@ -1,4 +1,4 @@
-import { generateCodebook, toCsv, toJson, toMarkdown } from '@/lib/codebook';
+import { generateCodebook, toCsv, toJson, toMarkdown } from '@experiment-hub/engine/codebook';
 import { EXPERIMENTS } from '@/src/data/experiments';
 import { CodebookView } from '@/src/codebook/CodebookView';
 import { notFound } from 'next/navigation';
