@@ -13,10 +13,11 @@ import { ExperimentFlow } from '@/lib/types';
  * second resolution pass fills with the name collected on the welcome screen.
  *
  * Finally, the thanks screen demonstrates a *dynamic* dictionary key:
- * `[[feedback.{{$$survey.clarity}}]]`. The inner {{ }} resolves first to the
- * survey answer (clear|ok|confusing), reducing the key to feedback.clear etc.,
+ * `[[survey.opt-{{$$survey.clarity}}]]`. The inner {{ }} resolves first to the
+ * survey answer (clear|ok|confusing), reducing the key to survey.opt-clear etc.,
  * which is then looked up in the active locale — so the key itself is computed
- * from a previous response.
+ * from a previous response. Note these are the same `survey.opt-*` keys the radio
+ * uses for its option labels: one source of truth, no parallel value→label table.
  */
 const i18nDemo: ExperimentFlow = {
   defaultLocale: 'es',
@@ -44,11 +45,6 @@ const i18nDemo: ExperimentFlow = {
         rating: 'Respondiste:',
         body: 'Listo, {{$$welcome.name}}. ¡Gracias por participar!',
       },
-      feedback: {
-        clear: 'Muy claro',
-        ok: 'Más o menos claro',
-        confusing: 'Confuso',
-      },
     },
     en: {
       welcome: {
@@ -70,11 +66,6 @@ const i18nDemo: ExperimentFlow = {
         title: '# Thank you!',
         rating: 'You answered:',
         body: 'All done, {{$$welcome.name}}. Thanks for taking part!',
-      },
-      feedback: {
-        clear: 'Very clear',
-        ok: 'Somewhat clear',
-        confusing: 'Confusing',
       },
     },
   },
@@ -163,10 +154,13 @@ const i18nDemo: ExperimentFlow = {
           template: 'rich-text',
           // Dynamic dictionary key at the prop level (the canonical form from
           // docs/i18n.md): the survey answer in $$survey.clarity (clear|ok|
-          // confusing) selects which feedback.<value> message to render, in the
-          // active locale. [[thanks.rating]] beside it is an ordinary static key.
+          // confusing) selects which survey.opt-<value> message to render, in the
+          // active locale — the very same keys the radio uses for its labels, so
+          // there's no parallel value→label table. [[thanks.rating]] beside it is
+          // an ordinary static key.
           props: {
-            content: '[[thanks.rating]] **[[feedback.{{$$survey.clarity}}]]**',
+            content:
+              '[[thanks.rating]] **[[survey.opt-{{$$survey.clarity}}]]**',
           },
         },
       ],
