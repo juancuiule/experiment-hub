@@ -37,7 +37,7 @@ The following props currently support interpolation:
 
 ## How it works
 
-`resolveValuesInString(text, context)` in `lib/resolve.ts` is the single implementation. It applies the regex `/\{\{(\$\$|\$|@|#)([a-zA-Z0-9_.\-]+)\}\}/g` and looks up each token via `getValue(key, context)`.
+`resolveValuesInString(text, context)` in `lib/resolve.ts` is the single implementation. It scans for `{{prefix.path}}` tokens (`prefix` is `$$`/`$`/`@`/`#`; `path` allows word chars, dots, hyphens, and one level of nested `{{ }}`, e.g. `{{$$loop.{{#forEach.index}}.answer}}`) via `TEMPLATE_TOKEN_RE` (in `lib/tokens.ts`) and resolves each token through `getValue(key, context)`.
 
 The `Label` component in `src/components/Label.tsx` calls `resolveValuesInString` before passing text to the markdown renderer, so labels also support inline markdown on top of interpolation.
 
