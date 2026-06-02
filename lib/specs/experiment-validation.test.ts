@@ -3413,6 +3413,60 @@ describe('dictionary (i18n) references', () => {
     );
     expect(found?.message).toContain('welcome.footer');
   });
+
+  it('accepts a dynamic [[ ]] key when the family exists in all locales', () => {
+    const flow = flowWithDict(
+      {
+        en: { experience: { lsd: 'About LSD', marijuana: 'About weed' } },
+        es: { experience: { lsd: 'Sobre LSD', marijuana: 'Sobre la maria' } },
+      },
+      '[[experience.{{$$screen.drug}}]]',
+      { defaultLocale: 'en' },
+    );
+    expect(codes(flow)).not.toContain('unknown-dictionary-key');
+    expect(codes(flow)).not.toContain('dictionary-locale-mismatch');
+  });
+
+  it('flags a dynamic [[ ]] key whose static stem matches no defined key', () => {
+    const flow = flowWithDict(
+      { en: { greeting: 'Hello' }, es: { greeting: 'Hola' } },
+      '[[experience.{{$$screen.drug}}]]',
+      { defaultLocale: 'en' },
+    );
+    expect(codes(flow)).toContain('unknown-dictionary-key');
+  });
+
+  it('matches a mid-key {{ }} token to a single nested segment only', () => {
+    // [[a.{{ }}.b]] must match a.<seg>.b, not a flat a.b nor a.x.y.b
+    const ok = flowWithDict(
+      { en: { a: { lsd: { b: 'ok' } } }, es: { a: { lsd: { b: 'bien' } } } },
+      '[[a.{{$$screen.x}}.b]]',
+      { defaultLocale: 'en' },
+    );
+    expect(codes(ok)).not.toContain('unknown-dictionary-key');
+
+    const bad = flowWithDict(
+      { en: { a: { b: 'ok' } }, es: { a: { b: 'bien' } } },
+      '[[a.{{$$screen.x}}.b]]',
+      { defaultLocale: 'en' },
+    );
+    expect(codes(bad)).toContain('unknown-dictionary-key');
+  });
+
+  it('still reports a per-locale parity gap for a dynamic family', () => {
+    // experience.lsd only in en, experience.marijuana only in es: the dynamic
+    // family "exists" in the union, but static parity still flags each gap.
+    const flow = flowWithDict(
+      {
+        en: { experience: { lsd: 'About LSD' } },
+        es: { experience: { marijuana: 'Sobre la maria' } },
+      },
+      '[[experience.{{$$screen.drug}}]]',
+      { defaultLocale: 'en' },
+    );
+    expect(codes(flow)).not.toContain('unknown-dictionary-key');
+    expect(codes(flow)).toContain('dictionary-locale-mismatch');
+  });
 });
 
 describe('i18n-demo example experiment', () => {

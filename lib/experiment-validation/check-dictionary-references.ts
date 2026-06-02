@@ -1,5 +1,5 @@
 import { flattenMessages } from '../i18n';
-import { DICTIONARY_TOKEN_RE } from '../tokens';
+import { DICTIONARY_TOKEN_RE, TEMPLATE_TOKEN_RE } from '../tokens';
 import { ExperimentFlow, MessageTree } from '../types';
 import { ValidationError } from './types';
 
@@ -22,6 +22,25 @@ function leafPaths(tree: MessageTree, prefix = ''): string[] {
 // The distinct values that appear more than once in `items`, in first-seen order.
 function duplicates(items: string[]): string[] {
   return [...new Set(items.filter((item, i) => items.indexOf(item) !== i))];
+}
+
+const REGEX_META_RE = /[.*+?^${}()|[\]\\]/g;
+const escapeRegex = (s: string) => s.replace(REGEX_META_RE, '\\$&');
+
+// Builds an anchored matcher for a dynamic dictionary key by replacing each
+// {{ }} token with a [\w\-]+ wildcard and escaping the literal segments.
+// "experience.{{$$screen.drug}}" → /^experience\.[\w\-]+$/
+// Each {{ }} fills exactly one path segment (no dot), so the matcher does not
+// accept deeper-nested keys.
+function dynamicKeyMatcher(key: string): RegExp {
+  let pattern = '';
+  let last = 0;
+  for (const m of key.matchAll(TEMPLATE_TOKEN_RE)) {
+    pattern += escapeRegex(key.slice(last, m.index)) + '[\\w\\-]+';
+    last = (m.index ?? 0) + m[0].length;
+  }
+  pattern += escapeRegex(key.slice(last));
+  return new RegExp(`^${pattern}$`);
 }
 
 // Validates i18n dictionary usage:
@@ -101,13 +120,31 @@ export function checkDictionaryReferences(
         ]
       : [];
 
-  const unknownKeyErrors: ValidationError[] = [...referenced]
-    .filter((key) => !allKeys.has(key))
+  const refs = [...referenced];
+  const allKeysList = [...allKeys];
+
+  const unknownStaticErrors: ValidationError[] = refs
+    .filter((key) => !key.includes('{{') && !allKeys.has(key))
     .map((key) => ({
       code: 'unknown-dictionary-key',
       category: 'reference',
       message: `Dictionary reference [[${key}]] is not defined in any locale`,
     }));
+
+  const unknownDynamicErrors: ValidationError[] = refs
+    .filter((key) => key.includes('{{'))
+    .filter((key) => {
+      const matcher = dynamicKeyMatcher(key);
+      return !allKeysList.some((defined) => matcher.test(defined));
+    })
+    .map((key) => {
+      const stem = key.slice(0, key.indexOf('{{'));
+      return {
+        code: 'unknown-dictionary-key',
+        category: 'reference',
+        message: `Dictionary reference [[${key}]] matches no defined key (stem "${stem}")`,
+      };
+    });
 
   const mismatchErrors: ValidationError[] = locales.flatMap((locale) => {
     const missing = [...allKeys].filter((key) => !keysByLocale[locale].has(key));
@@ -128,7 +165,8 @@ export function checkDictionaryReferences(
   return [
     ...collisionErrors,
     ...defaultLocaleErrors,
-    ...unknownKeyErrors,
+    ...unknownStaticErrors,
+    ...unknownDynamicErrors,
     ...mismatchErrors,
   ];
 }
