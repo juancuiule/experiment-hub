@@ -6,17 +6,29 @@ export const LOCALE_PARAM = 'lang';
 // Flattens a (possibly nested) message tree into dotted keys:
 // { welcome: { title: "x" } } → { "welcome.title": "x" }. String leaves with
 // already-dotted keys pass through unchanged, so flat and nested forms mix.
+//
+// The result has a null prototype. Message keys are author-controlled and may
+// collide with Object.prototype members (toString, constructor, __proto__).
+// On an ordinary object, a lookup of an *undefined* such key returns the
+// inherited member (e.g. messages["toString"] → a function), which downstream
+// lookups would mistake for a present message. A null prototype makes every
+// unmapped key read as undefined. (Object.fromEntries uses defineProperty
+// semantics, so a literal "__proto__" key is a normal own property, not
+// prototype mutation — this guards lookups, not pollution.)
 export function flattenMessages(
   tree: MessageTree,
   prefix = '',
 ): Record<string, string> {
-  return Object.fromEntries(
-    Object.entries(tree).flatMap(([key, value]) => {
-      const path = prefix ? `${prefix}.${key}` : key;
-      return typeof value === 'string'
-        ? [[path, value] as const]
-        : Object.entries(flattenMessages(value, path));
-    }),
+  return Object.assign(
+    Object.create(null) as Record<string, string>,
+    Object.fromEntries(
+      Object.entries(tree).flatMap(([key, value]) => {
+        const path = prefix ? `${prefix}.${key}` : key;
+        return typeof value === 'string'
+          ? [[path, value] as const]
+          : Object.entries(flattenMessages(value, path));
+      }),
+    ),
   );
 }
 
@@ -71,5 +83,12 @@ export function buildMessages(
     fallbackLocale && fallbackLocale !== locale
       ? flattenMessages(dictionary[fallbackLocale])
       : undefined;
-  return { ...fallback, ...flattenMessages(active) };
+  // Compose onto a null prototype: spreading into `{}` would re-inherit
+  // Object.prototype, reviving the unmapped-builtin-key lookup hazard that
+  // flattenMessages avoids. This object becomes context.messages.
+  return Object.assign(
+    Object.create(null) as Record<string, string>,
+    fallback ?? {},
+    flattenMessages(active),
+  );
 }

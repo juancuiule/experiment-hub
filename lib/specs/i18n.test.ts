@@ -123,6 +123,35 @@ describe('buildMessages', () => {
       'survey.cta': 'Submit',
     });
   });
+
+  it('builds context.messages on a null prototype so unmapped builtin-named keys read as undefined', () => {
+    const messages = buildMessages(withDictionary, 'en')! as Record<
+      string,
+      unknown
+    >;
+    // Without a null prototype these would inherit Object.prototype members
+    // (a function / object), which the resolver would treat as a present
+    // message and then crash on.
+    expect(messages.toString).toBeUndefined();
+    expect(messages.constructor).toBeUndefined();
+    expect(messages.__proto__).toBeUndefined();
+    expect(Object.getPrototypeOf(messages)).toBeNull();
+  });
+
+  it('keeps a literal __proto__ message key as data without polluting Object.prototype', () => {
+    // Simulates a dictionary loaded from JSON, where "__proto__" is a real
+    // own key (JSON.parse uses defineProperty semantics).
+    const exp: ExperimentFlow = {
+      ...base,
+      defaultLocale: 'en',
+      dictionary: { en: JSON.parse('{"__proto__":"evil","greeting":"Hi"}') },
+    };
+    const messages = buildMessages(exp, 'en')!;
+    expect(messages['__proto__']).toBe('evil');
+    expect(messages['greeting']).toBe('Hi');
+    // No global pollution: a fresh object did not gain an "evil" property.
+    expect(({} as Record<string, unknown>).evil).toBeUndefined();
+  });
 });
 
 describe('flattenMessages', () => {
@@ -138,5 +167,11 @@ describe('flattenMessages', () => {
 
   it('returns an empty object for an empty tree', () => {
     expect(flattenMessages({})).toEqual({});
+  });
+
+  it('returns a null-prototype object so builtin-named keys do not leak', () => {
+    const flat = flattenMessages({ greeting: 'Hi' }) as Record<string, unknown>;
+    expect(Object.getPrototypeOf(flat)).toBeNull();
+    expect(flat.toString).toBeUndefined();
   });
 });

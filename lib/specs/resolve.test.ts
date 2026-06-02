@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { buildMessages } from '../i18n';
 import {
   getPath,
   getPrefixAndPath,
@@ -524,6 +525,26 @@ describe('resolveValuesInString', () => {
         data: { answer: '[[other]]' },
       };
       expect(resolveValuesInString('{{$$answer}}', ctx)).toBe('[[other]]');
+    });
+
+    it('treats a builtin-named key as missing instead of inheriting it', () => {
+      // context.messages is built by buildMessages (null prototype). A token
+      // like [[toString]] for an undefined key must render literal, not resolve
+      // to the inherited Object.prototype.toString function (which would crash
+      // the recursive replace).
+      const messages = buildMessages(
+        {
+          nodes: [],
+          edges: [],
+          defaultLocale: 'en',
+          dictionary: { en: { greeting: 'Hi' } },
+        },
+        'en',
+      );
+      const ctx = { messages };
+      expect(resolveValuesInString('[[toString]]', ctx)).toBe('[[toString]]');
+      expect(resolveValuesInString('[[__proto__]]', ctx)).toBe('[[__proto__]]');
+      expect(resolveValuesInString('[[greeting]]', ctx)).toBe('Hi');
     });
   });
 });
