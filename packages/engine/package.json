@@ -1,0 +1,24 @@
+{
+  "name": "@experiment-hub/engine",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./flow": "./flow/index.ts",
+    "./experiment-validation": "./experiment-validation/index.ts",
+    "./components": "./components/index.ts",
+    "./*": "./*.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@vitest/coverage-v8": "^4.1.5",
+    "typescript": "^5",
+    "vitest": "^4.0.18"
+  }
+}
