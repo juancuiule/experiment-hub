@@ -36,7 +36,18 @@ export function resolveValuesInString(
   // Dictionary ([[key]]) pass runs first so that a resolved message may itself
   // contain {{ }} answer-piping tokens, which the subsequent pass resolves.
   const withMessages = resolveMessagesInString(text, context, _depth);
-  return withMessages.replace(
+  return resolveTemplateTokens(withMessages, context, _depth);
+}
+
+// Replaces {{prefix.path}} answer-piping tokens with their resolved context value.
+// Unresolvable tokens are left literal so typos stay visible.
+function resolveTemplateTokens(
+  text: string,
+  context: Context,
+  _depth = 0,
+): string {
+  if (_depth > 10) return text;
+  return text.replace(
     TEMPLATE_TOKEN_RE,
     (match, prefix: RefPrefix, path: string) => {
       const resolved = getValue(`${prefix}${path}`, context, _depth + 1);
@@ -49,6 +60,8 @@ export function resolveValuesInString(
 // fallback is already merged into context.messages by the runtime). Missing
 // keys are left literal so typos are visible during development. Nested [[ ]]
 // inside a message are resolved recursively under the shared depth guard.
+// Keys may contain inner {{ }} tokens (e.g. [[experience.{{$drug}}]]); these
+// are resolved first to produce the plain dotted key before the lookup.
 function resolveMessagesInString(
   text: string,
   context: Context,
@@ -56,9 +69,19 @@ function resolveMessagesInString(
 ): string {
   const messages = context.messages;
   if (!messages || _depth > 10) return text;
-  return text.replace(DICTIONARY_TOKEN_RE, (match, key: string) => {
-    const message = messages[key];
-    if (message == null) return match;
+  return text.replace(DICTIONARY_TOKEN_RE, (_match, key: string) => {
+    // Resolve any {{ }} lexically inside the [[ ]] first, reducing a dynamic key
+    // like "experience.{{$screen.drug}}" to a plain "experience.lsd".
+    // Use resolveTemplateTokens (the {{ }} pass) directly, NOT resolveValuesInString:
+    // running the dictionary pass on the key fragment would let piped data forge a lookup.
+    const resolvedKey = key.includes('{{')
+      ? resolveTemplateTokens(key, context, _depth + 1)
+      : key;
+    const message = messages[resolvedKey];
+    // Missing (or unresolved-{{ }}) key: render the reduced literal so the author
+    // sees exactly which key was looked up. This deliberately does NOT re-scan the
+    // {{ }} pass output, preserving the participant-safety guarantee.
+    if (message == null) return `[[${resolvedKey}]]`;
     return resolveMessagesInString(message, context, _depth + 1);
   });
 }

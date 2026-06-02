@@ -89,9 +89,15 @@ export const BARE_DOUBLE_DOLLAR_RE = /\$\$([\w.\-]+)/g;
 
 // Matches [[key]] dictionary (i18n) tokens. Captures: [1] message key.
 // Keys share the same charset as data refs: word chars, dots, hyphens.
+// Keys may also contain an inner {{prefix+path}} token (e.g. [[experience.{{$drug}}]])
+// whose {{ }} segment is resolved against runtime context before the dictionary lookup,
+// reducing the key to a plain dotted string. The inner {{ }} is resolved first (pre-lookup)
+// so that participant data piped via {{ }} can never forge a dictionary lookup — the
+// dictionary pass runs only once and does not re-scan the {{ }} pass output.
 // Distinct from {{…}} answer-piping: these resolve against the active locale's
 // dictionary messages, not runtime context data.
 // Safe to share despite the /g flag: it is only used with String.replace and
 // String.matchAll, both of which reset lastIndex per call. Do not call .test()
 // or .exec() on it directly — those would carry lastIndex across calls.
-export const DICTIONARY_TOKEN_RE = /\[\[([\w.\-]+)\]\]/g;
+export const DICTIONARY_TOKEN_RE =
+  /\[\[((?:[\w.\-]|\{\{(?:\$\$|\$|@|#)[\w.\-]+\}\})+)\]\]/g;

@@ -477,5 +477,53 @@ describe('resolveValuesInString', () => {
       const ctx = { messages: { loop: '[[loop]]' } };
       expect(() => resolveValuesInString('[[loop]]', ctx)).not.toThrow();
     });
+
+    it('resolves a {{ }} data ref inside a [[ ]] key, then looks it up', () => {
+      const ctx = {
+        messages: { 'experience.lsd': 'Algo sobre el LSD' },
+        screenData: { drug: 'lsd' },
+      };
+      expect(
+        resolveValuesInString('[[experience.{{$drug}}]]', ctx),
+      ).toBe('Algo sobre el LSD');
+    });
+
+    it('renders the reduced literal when the computed key is missing', () => {
+      const ctx = {
+        messages: { 'experience.marijuana': 'x' },
+        screenData: { drug: 'lsd' },
+      };
+      expect(
+        resolveValuesInString('[[experience.{{$drug}}]]', ctx),
+      ).toBe('[[experience.lsd]]');
+    });
+
+    it('renders the unreduced literal when the inner {{ }} cannot resolve', () => {
+      const ctx = { messages: { 'experience.lsd': 'x' } };
+      expect(
+        resolveValuesInString('[[experience.{{$drug}}]]', ctx),
+      ).toBe('[[experience.{{$drug}}]]');
+    });
+
+    it('resolves a $$ data ref inside a [[ ]] key', () => {
+      const ctx = {
+        messages: { 'experience.lsd': 'About LSD' },
+        data: { drug: 'lsd' },
+      };
+      expect(
+        resolveValuesInString('[[experience.{{$$drug}}]]', ctx),
+      ).toBe('About LSD');
+    });
+
+    it('does NOT re-interpret a [[ ]] that surfaces from piped data', () => {
+      // $$answer holds participant text that happens to contain [[other]].
+      // It appears only AFTER the {{ }} pass, so it must stay literal:
+      // participant data can never forge a dictionary lookup.
+      const ctx = {
+        messages: { other: 'SECRET' },
+        data: { answer: '[[other]]' },
+      };
+      expect(resolveValuesInString('{{$$answer}}', ctx)).toBe('[[other]]');
+    });
   });
 });
