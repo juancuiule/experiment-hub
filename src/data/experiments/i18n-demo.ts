@@ -11,6 +11,12 @@ import { ExperimentFlow } from '@/lib/types';
  * It also shows that a dictionary message may itself contain {{ }} answer-piping:
  * `[[thanks.body]]` resolves to a string containing {{$$welcome.name}}, which the
  * second resolution pass fills with the name collected on the welcome screen.
+ *
+ * Finally, the thanks screen demonstrates a *dynamic* dictionary key:
+ * `[[feedback.{{$$survey.clarity}}]]`. The inner {{ }} resolves first to the
+ * survey answer (clear|ok|confusing), reducing the key to feedback.clear etc.,
+ * which is then looked up in the active locale — so the key itself is computed
+ * from a previous response.
  */
 const i18nDemo: ExperimentFlow = {
   defaultLocale: 'es',
@@ -35,7 +41,13 @@ const i18nDemo: ExperimentFlow = {
       },
       thanks: {
         title: '# ¡Gracias!',
-        body: 'Listo, {{$$welcome.name}}. Respondiste **{{$$survey.clarity}}**. ¡Gracias por participar!',
+        rating: 'Respondiste:',
+        body: 'Listo, {{$$welcome.name}}. ¡Gracias por participar!',
+      },
+      feedback: {
+        clear: 'Muy claro',
+        ok: 'Más o menos claro',
+        confusing: 'Confuso',
       },
     },
     en: {
@@ -56,7 +68,13 @@ const i18nDemo: ExperimentFlow = {
       },
       thanks: {
         title: '# Thank you!',
-        body: 'All done, {{$$welcome.name}}. You answered **{{$$survey.clarity}}**. Thanks for taking part!',
+        rating: 'You answered:',
+        body: 'All done, {{$$welcome.name}}. Thanks for taking part!',
+      },
+      feedback: {
+        clear: 'Very clear',
+        ok: 'Somewhat clear',
+        confusing: 'Confusing',
       },
     },
   },
@@ -139,6 +157,17 @@ const i18nDemo: ExperimentFlow = {
           componentFamily: 'content',
           template: 'rich-text',
           props: { content: '[[thanks.body]]' },
+        },
+        {
+          componentFamily: 'content',
+          template: 'rich-text',
+          // Dynamic dictionary key at the prop level (the canonical form from
+          // docs/i18n.md): the survey answer in $$survey.clarity (clear|ok|
+          // confusing) selects which feedback.<value> message to render, in the
+          // active locale. [[thanks.rating]] beside it is an ordinary static key.
+          props: {
+            content: '[[thanks.rating]] **[[feedback.{{$$survey.clarity}}]]**',
+          },
         },
       ],
     },
