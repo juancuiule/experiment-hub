@@ -236,14 +236,28 @@ async function enterStep(step: FlowStep): Promise<FlowStep> {
     };
   }
   if (step.state.type === 'in-path') {
-    const { node, children } = step.state;
+    const { node, children, innerState } = step.state;
+    const pathContext = mergeContext(step.context, {
+      paths: {
+        [node.id]: { order: children.map((child) => child.id) },
+      },
+    });
+
+    // Enter the first child so its own context writes propagate back.
+    // A loop at order 0 must write context.loops here, the same way
+    // traverseInPath does when entering subsequent (order ≥ 1) children.
+    const innerStep = await enterStep({
+      state: innerState,
+      experiment: step.experiment,
+      context: pathContext,
+      dataPath: [...(step.dataPath ?? []), node.id],
+      handlers: step.handlers,
+    });
+
     return {
       ...step,
-      context: mergeContext(step.context, {
-        paths: {
-          [node.id]: { order: children.map((child) => child.id) },
-        },
-      }),
+      state: { ...step.state, innerState: innerStep.state },
+      context: innerStep.context,
     };
   }
   if (shouldAutoTraverse(step)) return await traverse(step);

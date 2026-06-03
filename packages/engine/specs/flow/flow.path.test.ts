@@ -380,6 +380,59 @@ describe('loop as a path child', () => {
   });
 });
 
+describe('loop as the first child of a path (order: 0)', () => {
+  // Regression: when a loop is the literal first child (order: 0) of a path,
+  // context.loops[loopId] must be populated immediately after startExperiment —
+  // not only after advancing past a preceding screen.
+  const items = [
+    { id: '1', correctAnswer: 'yes' },
+    { id: '2', correctAnswer: 'yes' },
+  ];
+  const flow: ExperimentFlow = {
+    nodes: [
+      { id: 'start', type: 'start' },
+      { id: 'p', type: 'path', props: { name: 'P' } },
+      {
+        id: 'loop',
+        type: 'loop',
+        props: { type: 'static', values: items, itemKey: 'id' },
+      },
+      makeScreen('trial', 'trial'),
+      makeScreen('end-screen', 'end'),
+    ],
+    edges: [
+      seq('start', 'p'),
+      { type: 'path-contains', from: 'p', to: 'loop', order: 0 },
+      { type: 'loop-template', from: 'loop', to: 'trial' },
+      seq('p', 'end-screen'),
+    ],
+  };
+
+  it('context.loops[loopId] is defined immediately after startExperiment', async () => {
+    const step = await startExperiment(flow, 'start');
+    expect(step.context.loops?.['loop']).toBeDefined();
+    expect(step.context.loops?.['loop']?.order).toEqual(['1', '2']);
+  });
+
+  it('context.loops[loopId] remains populated throughout all iterations', async () => {
+    let step = await startExperiment(flow, 'start');
+    expect(step.context.loops?.['loop']?.order).toEqual(['1', '2']);
+    step = await traverse(step, {}); // trial(1) → trial(2)
+    expect(step.context.loops?.['loop']?.order).toEqual(['1', '2']);
+    step = await traverse(step, {}); // trial(2) → loop exits → path exits → end
+    expect((step.state as any).node.id).toBe('end-screen');
+  });
+
+  it('iterates through all loop values and exits path correctly', async () => {
+    let step = await startExperiment(flow, 'start');
+    expect(step.state.type).toBe('in-path');
+    expect((step.state as any).innerState.type).toBe('in-loop');
+    step = await traverse(step, { answer: 'yes' }); // trial(1) → trial(2)
+    step = await traverse(step, { answer: 'yes' }); // trial(2) → exit loop → end
+    expect((step.state as any).node.id).toBe('end-screen');
+  });
+});
+
 describe('path with branch-default pointing to a later path child', () => {
   // Regression: when branch-default navigates to a node that is also a path
   // child at a later index, that child must not be shown twice.
