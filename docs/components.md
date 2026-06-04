@@ -137,6 +137,7 @@ Collects a single selection from a dropdown list.
   - `` `@field` `` — field from the current loop iteration value
   - `` `$field` `` — current screen's live form value
   - `` `%name` `` — named shared option set defined in `ExperimentFlow.options`
+  - `{ source: DataRef; labelKey: string }` — maps collected string values to dictionary labels. `source` is any `$$`, `@`, or `$` reference that resolves to a string array; `labelKey` is a dictionary namespace prefix. For each value `v`, the displayed label is `[[labelKey.v]]`, resolved from the active locale. Use this when options come from a previous selection (e.g. checkboxes) and the values need human-readable labels from the dictionary.
 - `randomize?: boolean` — if true, the order of options is shuffled for each participant.
 - `reshuffleInLoop?: boolean` — when used inside a loop and `randomize: true`, controls whether the options are reshuffled on each loop iteration (`true`, default) or keep the first shuffled order (`false`).
 

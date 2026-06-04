@@ -65,6 +65,83 @@ describe('resolveOptionsSource', () => {
     const ctx = { data: { notList: 'scalar' } };
     expect(resolveOptionsSource('$$notList', ctx)).toEqual([]);
   });
+
+  describe('{ source, labelKey } object form', () => {
+    it('maps string values to [[labelKey.value]] label tokens', () => {
+      const ctx = {
+        data: { substances: ['marijuana', 'alcohol'] },
+      };
+      expect(
+        resolveOptionsSource(
+          { source: '$$substances', labelKey: 'sub' },
+          ctx,
+        ),
+      ).toEqual([
+        { label: '[[sub.marijuana]]', value: 'marijuana' },
+        { label: '[[sub.alcohol]]', value: 'alcohol' },
+      ]);
+    });
+
+    it('resolves [[labelKey.value]] tokens when context.messages is present', () => {
+      const ctx = {
+        data: { substances: ['marijuana', 'alcohol'] },
+        messages: Object.assign(Object.create(null), {
+          'sub.marijuana': 'Marihuana',
+          'sub.alcohol': 'Alcohol',
+        }) as Record<string, string>,
+      };
+      const opts = resolveOptionsSource(
+        { source: '$$substances', labelKey: 'sub' },
+        ctx,
+      );
+      // Labels are [[...]] tokens; Label component resolves them at render time.
+      // resolveOptionsSource itself returns the template strings.
+      expect(opts[0].label).toBe('[[sub.marijuana]]');
+      expect(opts[1].label).toBe('[[sub.alcohol]]');
+    });
+
+    it('passes through Option objects from the source unchanged', () => {
+      const ctx = {
+        data: {
+          choices: [
+            { label: 'One', value: '1' },
+            { label: 'Two', value: '2' },
+          ],
+        },
+      };
+      expect(
+        resolveOptionsSource(
+          { source: '$$choices', labelKey: 'ignored' },
+          ctx,
+        ),
+      ).toEqual([
+        { label: 'One', value: '1' },
+        { label: 'Two', value: '2' },
+      ]);
+    });
+
+    it('returns [] when source does not resolve to an array', () => {
+      const ctx = { data: { scalar: 'notAnArray' } };
+      expect(
+        resolveOptionsSource({ source: '$$scalar', labelKey: 'x' }, ctx),
+      ).toEqual([]);
+    });
+
+    it('works with @ loop source', () => {
+      const ctx = {
+        loopData: { 'loop-drugs': { value: ['lsd', 'mdma'], index: 0 } },
+      };
+      expect(
+        resolveOptionsSource(
+          { source: '@loop-drugs.value', labelKey: 'drugs' },
+          ctx,
+        ),
+      ).toEqual([
+        { label: '[[drugs.lsd]]', value: 'lsd' },
+        { label: '[[drugs.mdma]]', value: 'mdma' },
+      ]);
+    });
+  });
 });
 
 describe('resolveInterpolatedImageUrl', () => {

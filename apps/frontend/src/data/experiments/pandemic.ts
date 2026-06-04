@@ -635,7 +635,10 @@ const pandemic: ExperimentFlow = {
           template: 'radio',
           props: {
             label: '',
-            options: '$$psychedelics-options.psychedelic-substances',
+            options: {
+              source: '$$psychedelics-options.psychedelic-substances',
+              labelKey: 'psychedelics-substances',
+            },
             dataKey: 'psychedelic-most-impactful',
             required: true,
           },
