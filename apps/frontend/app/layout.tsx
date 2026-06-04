@@ -1,10 +1,8 @@
+import { ThemeProvider } from '@/src/theme-provider';
 import type { Metadata } from 'next';
 import { Montserrat, Overpass_Mono } from 'next/font/google';
 import { twMerge } from 'tailwind-merge';
 import './globals.css';
-import { ThemeProvider } from '@/src/theme-provider';
-import { ThemeToggle } from '@/src/ThemeToggle';
-import Image from 'next/image';
 
 const montserrat = Montserrat({
   variable: '--font-sans',
@@ -40,19 +38,7 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <main className="relative mx-auto flex min-h-screen w-full max-w-lg flex-col items-center justify-start p-6">
-            <nav className="flex w-full flex-row items-center justify-between gap-3">
-              <Image
-                width="48"
-                height="48"
-                src="/experiment-hub-logo.png"
-                className="h-12 w-auto"
-                alt="Experiment Hub logo with text"
-              />
-              <ThemeToggle />
-            </nav>
-            <div className="flex w-full flex-1 flex-col">{children}</div>
-          </main>
+          {children}
         </ThemeProvider>
       </body>
     </html>

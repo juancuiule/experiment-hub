@@ -6,6 +6,7 @@ import pandemic from './pandemic';
 import tribalismo from './tribalismo';
 import pecados from './pecados';
 import i18nDemo from './i18n-demo';
+import alteredXperience from './axp';
 
 export const EXPERIMENTS: Record<string, ExperimentFlow> = {
   experiment: pandemic,
@@ -15,6 +16,7 @@ export const EXPERIMENTS: Record<string, ExperimentFlow> = {
   ocean,
   pecados,
   tribalismo,
+  axp: alteredXperience,
   test: {
     nodes: [
       { id: 'start', type: 'start' },

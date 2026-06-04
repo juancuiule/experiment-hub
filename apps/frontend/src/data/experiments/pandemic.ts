@@ -3,7 +3,7 @@ import { ExperimentFlow } from '@experiment-hub/engine/types';
 const pandemic: ExperimentFlow = {
   dictionary: {
     es: {
-      frecuency: {
+      frequency: {
         daily: 'Todos los días',
         weekly: 'Una o varias veces a la semana',
         monthly: 'Una o varias veces al mes',
@@ -38,11 +38,11 @@ const pandemic: ExperimentFlow = {
   defaultLocale: 'es',
   options: {
     frequency: [
-      { label: '[[frecuency.daily]]', value: 'daily' },
-      { label: '[[frecuency.weekly]]', value: 'weekly' },
-      { label: '[[frecuency.monthly]]', value: 'monthly' },
-      { label: '[[frecuency.sporadically]]', value: 'sporadically' },
-      { label: '[[frecuency.never]]', value: 'never' },
+      { label: '[[frequency.daily]]', value: 'daily' },
+      { label: '[[frequency.weekly]]', value: 'weekly' },
+      { label: '[[frequency.monthly]]', value: 'monthly' },
+      { label: '[[frequency.sporadically]]', value: 'sporadically' },
+      { label: '[[frequency.never]]', value: 'never' },
     ],
     'yes-no': [
       { label: '[[yes-no.yes]]', value: 'yes' },
@@ -72,6 +72,39 @@ const pandemic: ExperimentFlow = {
       { label: '[[psychoactive-substances.alcohol]]', value: 'alcohol' },
       { label: '[[psychoactive-substances.mdma]]', value: 'mdma' },
       { label: '[[psychoactive-substances.otro]]', value: 'otro' },
+    ],
+    'stai-intensity-scale': [
+      { label: 'Nada', value: 'nothing' },
+      { label: 'Algo', value: 'something' },
+      { label: 'Bastante', value: 'quite_a_bit' },
+      { label: 'Mucho', value: 'very_much' },
+    ],
+    'stai-frequency-scale': [
+      { label: 'Casi nunca', value: 'almost_never' },
+      { label: 'A veces', value: 'sometimes' },
+      { label: 'A menudo', value: 'often' },
+      { label: 'Casi siempre', value: 'almost_always' },
+    ],
+    'panas-scale': [
+      { label: 'Nada', value: 'nothing' },
+      { label: '', value: 'a_little' }, // Un poco
+      { label: 'Moderado', value: 'moderately' },
+      { label: '', value: 'quite_a_bit' }, // Bastante
+      { label: 'Mucho', value: 'extremely' },
+    ],
+    'agreement-scale': [
+      { label: 'No estoy de acuerdo', value: 'disagree' },
+      { label: 'Ni de acuerdo ni en desacuerdo', value: 'neutral' },
+      { label: 'Estoy de acuerdo', value: 'agree' },
+    ],
+    'resilience-scale': [
+      { label: 'No estoy de acuerdo', value: 'strongly_disagree' },
+      { label: '', value: 'disagree' },
+      { label: '', value: 'slightly_disagree' },
+      { label: 'Ni de acuerdo ni en desacuerdo', value: 'neutral' },
+      { label: '', value: 'slightly_agree' },
+      { label: '', value: 'agree' },
+      { label: 'Estoy de acuerdo', value: 'strongly_agree' },
     ],
   },
   nodes: [
@@ -198,6 +231,31 @@ const pandemic: ExperimentFlow = {
       props: { slug: 'psychoactive-quarantine-change' },
     },
     {
+      id: 'screen-stai-state',
+      type: 'screen',
+      props: { slug: 'stai-state' },
+    },
+    {
+      id: 'screen-stai-trait',
+      type: 'screen',
+      props: { slug: 'stai-trait' },
+    },
+    {
+      id: 'screen-panas',
+      type: 'screen',
+      props: { slug: 'panas' },
+    },
+    {
+      id: 'screen-bieps',
+      type: 'screen',
+      props: { slug: 'bieps' },
+    },
+    {
+      id: 'screen-cd-risc',
+      type: 'screen',
+      props: { slug: 'cd-risc' },
+    },
+    {
       id: 'screen-thanks',
       type: 'screen',
       props: { slug: 'thanks' },
@@ -288,11 +346,36 @@ const pandemic: ExperimentFlow = {
     {
       type: 'branch-default',
       from: 'branch-psychoactives',
-      to: 'screen-thanks',
+      to: 'screen-stai-state',
     },
     {
       type: 'sequential',
       from: 'screen-psychoactive-quarantine-change',
+      to: 'screen-stai-state',
+    },
+    {
+      type: 'sequential',
+      from: 'screen-stai-state',
+      to: 'screen-stai-trait',
+    },
+    {
+      type: 'sequential',
+      from: 'screen-stai-trait',
+      to: 'screen-panas',
+    },
+    {
+      type: 'sequential',
+      from: 'screen-panas',
+      to: 'screen-bieps',
+    },
+    {
+      type: 'sequential',
+      from: 'screen-bieps',
+      to: 'screen-cd-risc',
+    },
+    {
+      type: 'sequential',
+      from: 'screen-cd-risc',
       to: 'screen-thanks',
     },
     { type: 'sequential', from: 'screen-thanks', to: 'end' },
@@ -570,7 +653,7 @@ const pandemic: ExperimentFlow = {
           template: 'radio',
           props: {
             label:
-              '¿Realizás o realizaste un prorama sostenido de microdosificación de psicodélicos?',
+              '¿Realizás o realizaste un programa sostenido de microdosificación de psicodélicos?',
             dataKey: 'psychedelic-microdosing',
             options: '%yes-no',
           },
@@ -770,11 +853,31 @@ const pandemic: ExperimentFlow = {
           },
         },
         {
-          componentFamily: 'layout',
-          template: 'button',
+          componentFamily: 'control',
+          template: 'conditional',
           props: {
-            text: 'Continuar',
-            alignBottom: true,
+            if: {
+              type: 'simple',
+              dataKey: '$psychoactive-substances',
+              operator: 'length-gt',
+              value: 0,
+            },
+            then: {
+              componentFamily: 'layout',
+              template: 'button',
+              props: {
+                text: 'Continuar',
+                alignBottom: true,
+              },
+            },
+            else: {
+              componentFamily: 'layout',
+              template: 'button',
+              props: {
+                text: 'Nunca consumí estas sustancias',
+                alignBottom: true,
+              },
+            },
           },
         },
       ],
@@ -855,13 +958,510 @@ const pandemic: ExperimentFlow = {
       ],
     },
     {
+      slug: 'stai-state',
+      components: [
+        {
+          componentFamily: 'content',
+          template: 'rich-text',
+          props: {
+            content:
+              '### ¿Cómo te sentís en este momento? \n\n Marcá como te estás sintiendo en relación a cada frase.',
+          },
+        },
+        {
+          componentFamily: 'control',
+          template: 'for-each',
+          props: {
+            id: 'for-each-sentiment',
+            type: 'static',
+            values: [
+              { question: 'Me siento calmado/a', id: 'calm' },
+              { question: 'Me siento seguro/a', id: 'secure' },
+              { question: 'Estoy tenso/a', id: 'tense' },
+              { question: 'Me siento disgustado/a', id: 'upset' },
+              { question: 'Me siento "como pez en el agua"', id: 'at_ease' },
+              { question: 'Me siento alterado/a', id: 'disturbed' },
+              {
+                question:
+                  'En este momento estoy preocupado/a por algún posible problema',
+                id: 'worried',
+              },
+              { question: 'Me siento satisfecho/a', id: 'satisfied' },
+              { question: 'Me siento asustado/a', id: 'frightened' },
+              { question: 'Me siento cómodo/a', id: 'comfortable' },
+              { question: 'Tengo confianza en mí mismo/a', id: 'confident' },
+              { question: 'Me siento nervioso/a', id: 'nervous' },
+              { question: 'Me siento agitado/a', id: 'agitated' },
+              { question: 'Me siento indeciso/a', id: 'indecisive' },
+              { question: 'Me siento tranquilo/a', id: 'relaxed' },
+              { question: 'Me siento "a gusto"', id: 'content' },
+              { question: 'Estoy preocupado/a', id: 'anxious' },
+              { question: 'Me siento aturdido/a', id: 'confused' },
+              { question: 'Me siento equilibrado/a', id: 'balanced' },
+              { question: 'Me siento bien', id: 'good' },
+            ],
+            component: {
+              componentFamily: 'layout',
+              template: 'group',
+              props: {
+                name: 'sentiment-{{#for-each-sentiment.value.id}}',
+                components: [
+                  {
+                    componentFamily: 'response',
+                    template: 'radio',
+                    props: {
+                      required: false, // TODO: remove, just for testing
+                      label: '{{#for-each-sentiment.value.question}}',
+                      dataKey: 'sentiment-{{#for-each-sentiment.value.id}}',
+                      options: '%stai-intensity-scale',
+                    },
+                  },
+                ],
+              },
+            },
+          },
+        },
+        {
+          componentFamily: 'layout',
+          template: 'button',
+          props: {
+            text: 'Continuar',
+            alignBottom: true,
+          },
+        },
+      ],
+    },
+    {
+      slug: 'stai-trait',
+      components: [
+        {
+          componentFamily: 'content',
+          template: 'rich-text',
+          props: {
+            content:
+              '### Y generalmente, ¿cómo te sentís? \n\n Marcá cómo te sentís generalmente en relación a cada frase. No estés mucho tiempo pensando cada frase, no hay respuestas buenas o malas.',
+          },
+        },
+        {
+          componentFamily: 'control',
+          template: 'for-each',
+          props: {
+            id: 'for-each-trait-sentiment',
+            type: 'static',
+            values: [
+              { question: 'Me siento bien', id: 'feeling_good' },
+              {
+                question: 'Me siento "a gusto" conmigo mismo/a',
+                id: 'at_ease_with_self',
+              },
+              {
+                question:
+                  'Quisiera ser tan feliz como otras personas parecen serlo',
+                id: 'wish_happier',
+              },
+              { question: 'Siento que fallo', id: 'feel_failure' },
+              { question: 'Me siento descansado/a', id: 'feel_rested' },
+              {
+                question: 'Soy una persona tranquila, serena y calmada',
+                id: 'calm_person',
+              },
+              {
+                question:
+                  'Siento que las dificultades se amontonan y no las puedo superar',
+                id: 'overwhelmed',
+              },
+              {
+                question: 'Me preocupo demasiado por cosas sin importancia',
+                id: 'worry_trivial',
+              },
+              { question: 'Soy feliz', id: 'happy' },
+              { question: 'Tengo malos pensamientos', id: 'bad_thoughts' },
+              {
+                question: 'Me falta confianza en mí mismo/a',
+                id: 'lack_confidence',
+              },
+              { question: 'Me siento seguro/a', id: 'feel_secure' },
+              { question: 'Puedo decidirme rápidamente', id: 'decide_quickly' },
+              { question: 'Me siento fuera de lugar', id: 'feel_out_of_place' },
+              { question: 'Me siento satisfecho/a', id: 'feel_satisfied' },
+              {
+                question:
+                  'Algunas cosas poco importantes ocupan mi cabeza y me molestan',
+                id: 'trivial_thoughts_bother',
+              },
+              {
+                question:
+                  'Los desengaños me afectan tanto que no me los puedo sacar de la cabeza',
+                id: 'disappointments_linger',
+              },
+              { question: 'Soy una persona estable', id: 'stable_person' },
+              {
+                question:
+                  'Cuando pienso en las cosas que tengo entre manos me pongo nervioso/a y tenso/a',
+                id: 'nervous_about_tasks',
+              },
+            ],
+            component: {
+              componentFamily: 'layout',
+              template: 'group',
+              props: {
+                name: 'trait-sentiment-{{#for-each-trait-sentiment.value.id}}',
+                components: [
+                  {
+                    componentFamily: 'response',
+                    template: 'radio',
+                    props: {
+                      required: false, // TODO: remove, just for testing
+                      label: '{{#for-each-trait-sentiment.value.question}}',
+                      dataKey:
+                        'trait-sentiment-{{#for-each-trait-sentiment.value.id}}',
+                      options: '%stai-frequency-scale',
+                    },
+                  },
+                ],
+              },
+            },
+          },
+        },
+        {
+          componentFamily: 'layout',
+          template: 'button',
+          props: {
+            text: 'Continuar',
+            alignBottom: true,
+          },
+        },
+      ],
+    },
+    {
+      slug: 'panas',
+      components: [
+        {
+          componentFamily: 'content',
+          template: 'rich-text',
+          props: {
+            content:
+              '### ¿Cómo te sentiste durante la última semana?\n\nMarcá como te sentiste durante la última semana, incluyendo hoy, en relación a cada frase.',
+          },
+        },
+        {
+          componentFamily: 'control',
+          template: 'for-each',
+          props: {
+            id: 'for-each-panas',
+            type: 'static',
+            values: [
+              { question: 'Interesado/a por las cosas', id: 'interested' },
+              { question: 'Angustiado/a', id: 'distressed' },
+              { question: 'Ilusionado/a o emocionado/a', id: 'excited' },
+              { question: 'Afectado/a', id: 'upset' },
+              { question: 'Fuerte', id: 'strong' },
+              { question: 'Culpable', id: 'guilty' },
+              { question: 'Asustado/a', id: 'scared' },
+              { question: 'Agresivo/a', id: 'hostile' },
+              { question: 'Entusiasmado/a', id: 'enthusiastic' },
+              { question: 'Satisfecho/a consigo mismo/a', id: 'proud' },
+              { question: 'Irritable', id: 'irritable' },
+              { question: 'Despierto/a', id: 'alert' },
+              { question: 'Avergonzado/a', id: 'ashamed' },
+              { question: 'Inspirado/a', id: 'inspired' },
+              { question: 'Nervioso/a', id: 'nervous' },
+              { question: 'Decidido/a', id: 'determined' },
+              { question: 'Concentrado/a', id: 'attentive' },
+              { question: 'Agitado/a', id: 'jittery' },
+              { question: 'Activo/a', id: 'active' },
+              { question: 'Miedoso/a', id: 'afraid' },
+            ],
+            component: {
+              componentFamily: 'layout',
+              template: 'group',
+              props: {
+                name: 'panas-{{#for-each-panas.value.id}}',
+                components: [
+                  {
+                    componentFamily: 'response',
+                    template: 'likert-scale',
+                    props: {
+                      label: '{{#for-each-panas.value.question}}',
+                      dataKey: 'panas-{{#for-each-panas.value.id}}',
+                      options: '%panas-scale',
+                    },
+                  },
+                ],
+              },
+            },
+          },
+        },
+        {
+          componentFamily: 'layout',
+          template: 'button',
+          props: {
+            text: 'Siguiente',
+            alignBottom: true,
+          },
+        },
+      ],
+    },
+    {
+      slug: 'bieps',
+      components: [
+        {
+          componentFamily: 'content',
+          template: 'rich-text',
+          props: {
+            content:
+              '### ¿Qué pensaste y sentiste durante el último mes?\n\nMarcá qué pensaste y cómo te sentiste durante el último mes. Recordá, no hay respuestas buenas o malas: todo sirve.',
+          },
+        },
+        {
+          componentFamily: 'control',
+          template: 'for-each',
+          props: {
+            id: 'for-each-bieps',
+            type: 'static',
+            values: [
+              {
+                question: 'Creo que sé lo que quiero hacer con mi vida.',
+                id: 'life_purpose',
+              },
+              {
+                question: 'Si algo me sale mal puedo aceptarlo, admitirlo.',
+                id: 'self_acceptance',
+              },
+              {
+                question: 'Me importa pensar qué haré en el futuro.',
+                id: 'future_orientation',
+              },
+              {
+                question: 'Puedo decir lo que pienso sin mayores problemas.',
+                id: 'autonomy_expression',
+              },
+              {
+                question: 'Generalmente le caigo bien a la gente.',
+                id: 'social_bonds',
+              },
+              {
+                question: 'Siento que podré lograr las metas que me proponga.',
+                id: 'self_efficacy',
+              },
+              {
+                question: 'Cuento con personas que me ayudan si lo necesito.',
+                id: 'social_support',
+              },
+              {
+                question:
+                  'En general hago lo que quiero, soy poco influenciable.',
+                id: 'autonomy_independence',
+              },
+              {
+                question:
+                  'Soy una persona capaz de pensar en un proyecto para mi vida.',
+                id: 'project_capacity',
+              },
+              {
+                question:
+                  'Puedo aceptar mis equivocaciones y tratar de mejorar.',
+                id: 'error_acceptance',
+              },
+              {
+                question: 'Puedo tomar decisiones sin dudar mucho.',
+                id: 'decisiveness',
+              },
+              {
+                question:
+                  'Encaro sin mayores problemas mis obligaciones diarias.',
+                id: 'daily_functioning',
+              },
+            ],
+            component: {
+              componentFamily: 'layout',
+              template: 'group',
+              props: {
+                name: 'bieps-{{#for-each-bieps.value.id}}',
+                components: [
+                  {
+                    componentFamily: 'response',
+                    template: 'likert-scale',
+                    props: {
+                      label: '{{#for-each-bieps.value.question}}',
+                      dataKey: 'bieps-{{#for-each-bieps.value.id}}',
+                      options: '%agreement-scale',
+                    },
+                  },
+                ],
+              },
+            },
+          },
+        },
+        {
+          componentFamily: 'layout',
+          template: 'button',
+          props: {
+            text: 'Siguiente',
+            alignBottom: true,
+          },
+        },
+      ],
+    },
+    {
+      slug: 'cd-risc',
+      components: [
+        {
+          componentFamily: 'content',
+          template: 'rich-text',
+          props: {
+            content:
+              '### ¿Cómo te representa cada frase?\n\nMarcá cómo creés que mejor te representa cada una de las siguientes frases.',
+          },
+        },
+        {
+          componentFamily: 'control',
+          template: 'for-each',
+          props: {
+            id: 'for-each-cdrisc',
+            type: 'static',
+            values: [
+              {
+                question: 'Soy capaz de adaptarme cuando surgen cambios.',
+                id: 'able_to_adapt',
+              },
+              {
+                question: 'Usualmente manejo los problemas de distintos modos.',
+                id: 'multiple_coping',
+              },
+              {
+                question:
+                  'Puedo alcanzar mis objetivos aunque haya obstáculos.',
+                id: 'goal_persistence',
+              },
+              {
+                question:
+                  'No me doy por vencido/a aunque las cosas parezcan no tener solución.',
+                id: 'perseverance',
+              },
+              {
+                question:
+                  'Los éxitos del pasado me dan confianza para enfrentarme a nuevos desafíos.',
+                id: 'past_success',
+              },
+              {
+                question:
+                  'Cuando me enfrento a los problemas intento ver su lado cómico.',
+                id: 'finds_humor',
+              },
+              {
+                question:
+                  'Enfrentarme a las dificultades puede hacerme más fuerte.',
+                id: 'stress_strengthens',
+              },
+              {
+                question:
+                  'Tengo tendencia a recuperarme pronto luego de enfermedades o dificultades.',
+                id: 'bounces_back',
+              },
+              {
+                question:
+                  'Siempre me esfuerzo sin importar cuál pueda ser el resultado.',
+                id: 'self_disciplined',
+              },
+              {
+                question: 'Sé a quién acudir para buscar ayuda.',
+                id: 'social_support',
+              },
+              {
+                question:
+                  'Soy capaz de manejar sentimientos desagradables como tristeza, temor o enfado.',
+                id: 'emotional_regulation',
+              },
+              {
+                question: 'Tengo el control de mi vida.',
+                id: 'sense_of_control',
+              },
+              { question: 'Me gustan los retos.', id: 'likes_challenges' },
+              {
+                question: 'Trabajo para conseguir mis objetivos.',
+                id: 'goal_orientation',
+              },
+              {
+                question: 'Estoy orgulloso/a de mis logros.',
+                id: 'proud_of_achievements',
+              },
+              {
+                question: 'Sea como sea, doy lo mejor de mí.',
+                id: 'gives_best',
+              },
+              {
+                question: 'Soy capaz de adaptarme a los cambios.',
+                id: 'adaptability',
+              },
+              {
+                question:
+                  'Veo el lado positivo de las cosas aunque no vayan como quisiera.',
+                id: 'positive_appraisal',
+              },
+              {
+                question:
+                  'La confianza en mí mismo/a me permite pasar los tiempos difíciles.',
+                id: 'self_confidence_resilience',
+              },
+              {
+                question:
+                  'Cuando estoy en una situación difícil generalmente encuentro una salida.',
+                id: 'finds_way_out',
+              },
+              {
+                question:
+                  'Generalmente tengo energía para hacer aquello que tengo que hacer.',
+                id: 'has_energy',
+              },
+            ],
+            component: {
+              componentFamily: 'layout',
+              template: 'group',
+              props: {
+                name: 'cdrisc-{{#for-each-cdrisc.value.id}}',
+                components: [
+                  {
+                    componentFamily: 'response',
+                    template: 'likert-scale',
+                    props: {
+                      label: '{{#for-each-cdrisc.value.question}}',
+                      dataKey: 'cdrisc-{{#for-each-cdrisc.value.id}}',
+                      options: '%resilience-scale',
+                    },
+                  },
+                ],
+              },
+            },
+          },
+        },
+        {
+          componentFamily: 'layout',
+          template: 'button',
+          props: {
+            text: 'Siguiente',
+            alignBottom: true,
+          },
+        },
+      ],
+    },
+    {
       slug: 'thanks',
       components: [
         {
           componentFamily: 'content',
           template: 'rich-text',
           props: {
-            content: '# ¡Gracias por participar!',
+            content:
+              '# ¡Gracias por participar! \n\n Cuando los resultados estés analizados, vas a poder verlos en [https://elgatoylacaja.com.ar/labs](https://elgatoylacaja.com.ar/labs) Ahí encontrás también otros experimentos, sus resultados y las publicaciones en las que se convirtieron.',
+          },
+        },
+        {
+          componentFamily: 'content',
+          template: 'rich-text',
+          props: {
+            content:
+              '### Queremos entender las conciencias en su diversidad. Mientras más personas participen, más vamos a aprender.',
           },
         },
       ],
