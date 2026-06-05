@@ -63,6 +63,28 @@ export const EXPERIMENTS: Record<string, ExperimentFlow> = {
             },
           },
           {
+            componentFamily: 'response',
+            template: 'radio',
+            props: {
+              label: 'Alguna cosa con radios horizonatles',
+              dataKey: 'algo',
+              options: [
+                {
+                  label: 'Nada',
+                  value: 'nothing',
+                  tooltip: 'Alguna cosa para esta opción en particular',
+                },
+                { label: 'Algo', value: 'something' },
+                { label: 'Algo', value: 'something2' },
+                { label: 'Algo', value: 'something3' },
+                { label: 'Bastante', value: 'quite_a_bit' },
+                { label: 'Mucho', value: 'very_much' },
+              ],
+              direction: 'vertical',
+              randomize: true,
+            },
+          },
+          {
             componentFamily: 'control',
             template: 'for-each',
             id: 'for-each-fruit',
