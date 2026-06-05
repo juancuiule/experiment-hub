@@ -29,7 +29,7 @@ export function Radio({ component, form, context, sharedOptions }: Props) {
       defaultValue=""
       render={({ field }) => (
         <div className="flex flex-col gap-1">
-          <Label context={context}>{component.props.label}</Label>
+          <Label context={context} tooltip={component.props.labelTooltip}>{component.props.label}</Label>
           <RadioGroupPrimitive.Root
             value={field.value}
             onValueChange={field.onChange}

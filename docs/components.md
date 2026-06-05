@@ -49,6 +49,7 @@ Response components collect data from the participant. All response components s
 - `dataKey: string` — the key under which the collected value will be stored
 - `required?: boolean` — whether the field must be filled before advancing
 - `errorMessage?: string` — fallback error message shown when `required` is not met. Individual validation rules (e.g. `minLength`, `pattern`) each carry their own `errorMessage` and take precedence over this one.
+- `labelTooltip?: string` — when set, renders an info icon next to the component's label; hovering the icon reveals this tooltip text.
 
 ### `slider`
 

@@ -22,7 +22,7 @@ export function TimeInput({ component, form, context }: Props) {
 
   return (
     <div className="flex flex-col gap-1">
-      <Label htmlFor={dataKey} context={context}>
+      <Label htmlFor={dataKey} context={context} tooltip={component.props.labelTooltip}>
         {component.props.label}
       </Label>
       <Input id={dataKey} {...register(dataKey)} type="time" />

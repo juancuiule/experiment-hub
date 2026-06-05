@@ -4,6 +4,16 @@ const emociones: ExperimentFlow = {
   nodes: [
     { id: 'start', type: 'start' },
     {
+      id: 'config-data',
+      type: 'data',
+      props: {
+        name: 'config',
+        data: {
+          'number-of-images': 4,
+        },
+      },
+    },
+    {
       id: 'compute-sample-items',
       type: 'compute',
       props: {
@@ -417,7 +427,7 @@ const emociones: ExperimentFlow = {
                   ],
                 },
               ],
-              n: 2,
+              n: '$$config-data.number-of-images',
             },
           },
         ],
@@ -457,14 +467,6 @@ const emociones: ExperimentFlow = {
       props: {
         name: 'compute-correct',
         computations: [
-          {
-            outputKey: 'total',
-            formula: {
-              type: 'loop-aggregate',
-              loopId: 'loop-miradas',
-              op: 'count',
-            },
-          },
           {
             outputKey: 'total-correct',
             formula: {
@@ -552,7 +554,8 @@ const emociones: ExperimentFlow = {
     { id: 'end', type: 'end' },
   ],
   edges: [
-    { type: 'sequential', from: 'start', to: 'compute-sample-items' },
+    { type: 'sequential', from: 'start', to: 'config-data' },
+    { type: 'sequential', from: 'config-data', to: 'compute-sample-items' },
     { type: 'sequential', from: 'compute-sample-items', to: 'screen-terms' },
     { type: 'sequential', from: 'screen-terms', to: 'screen-intro' },
     { type: 'sequential', from: 'screen-intro', to: 'loop-miradas' },
@@ -572,7 +575,7 @@ const emociones: ExperimentFlow = {
           template: 'rich-text',
           props: {
             content:
-              '# Antes de empezar \n\n El objetivo de este experimento es aprender más sobre los factores que afectan la forma en la que reconocemos emociones en los rostros de las personas. \n\n Vas a ver 12 fotos de pares de ojos. Para cada uno, elegí y hace click sobre la palabra que mejor describa lo que la persona en la fotografía está pensando o sintiendo. Las definiciones de estas palabras están estandarizadas y se pueden ver durante el experimento. \n\n El experimento completo dura unos 5 minutos. Tu participación es absolutamente voluntaria y te podés bajar en cualquier momento. No esperamos ningún tipo de inconveniente o riesgo por participar. Los datos son confidenciales y anónimos. \n\nSi tenés cualquier tipo de duda, nos mandás un mail a [labs@elgatoylacaja.com](mailto:labs@elgatoylacaja.com). Si la pregunta se nos escapa, o querés hacer otro tipo de comentario, tené en mente que podés contactarte con el Comité de Ética en Investigación, Centro de Educación Médica e Investigaciones Clínicas “Norberto Quirno”. Hospital Universitario sede Saavedra, Av. Galván 4102. Ciudad de Buenos Aires, (C1425DQK) - República Argentina. Tel: 5299-0100, interno 2879. \n\n Apenas esté el análisis de estos datos vamos (como siempre) a publicar los resultados en [www.elgatoylacaja.com](https://elgatoylacaja.com) para conversar sobre lo que aprendimos gracias a tu participación.',
+              '# Antes de empezar \n\n El objetivo de este experimento es aprender más sobre los factores que afectan la forma en la que reconocemos emociones en los rostros de las personas. \n\n Vas a ver {{$$config-data.number-of-images}} fotos de pares de ojos. Para cada uno, elegí y hace click sobre la palabra que mejor describa lo que la persona en la fotografía está pensando o sintiendo. Las definiciones de estas palabras están estandarizadas y se pueden ver durante el experimento. \n\n El experimento completo dura unos 5 minutos. Tu participación es absolutamente voluntaria y te podés bajar en cualquier momento. No esperamos ningún tipo de inconveniente o riesgo por participar. Los datos son confidenciales y anónimos. \n\nSi tenés cualquier tipo de duda, nos mandás un mail a [labs@elgatoylacaja.com](mailto:labs@elgatoylacaja.com). Si la pregunta se nos escapa, o querés hacer otro tipo de comentario, tené en mente que podés contactarte con el Comité de Ética en Investigación, Centro de Educación Médica e Investigaciones Clínicas “Norberto Quirno”. Hospital Universitario sede Saavedra, Av. Galván 4102. Ciudad de Buenos Aires, (C1425DQK) - República Argentina. Tel: 5299-0100, interno 2879. \n\n Apenas esté el análisis de estos datos vamos (como siempre) a publicar los resultados en [www.elgatoylacaja.com](https://elgatoylacaja.com) para conversar sobre lo que aprendimos gracias a tu participación.',
           },
         },
         {
@@ -904,7 +907,7 @@ const emociones: ExperimentFlow = {
           template: 'rich-text',
           props: {
             content:
-              '## ¡Gracias por participar!\n\nRespuestas correctas: {{$$compute-correct.total-correct}} / {{$$compute-correct.total}} \n\n {{$$compute-correct.feedback-text}}',
+              '## ¡Gracias por participar!\n\nRespuestas correctas: {{$$compute-correct.total-correct}} / {{$$config-data.number-of-images}} \n\n {{$$compute-correct.feedback-text}}',
           },
         },
         {

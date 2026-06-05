@@ -1,5 +1,5 @@
 import { Condition } from './conditions';
-import { DataPrefix, ScreenPrefix } from './tokens';
+import { DataPrefix, RefPrefix, ScreenPrefix } from './tokens';
 
 export type NodeType =
   | 'start'
@@ -10,6 +10,7 @@ export type NodeType =
   | 'loop'
   | 'checkpoint'
   | 'compute'
+  | 'data'
   | 'end';
 
 interface BaseNode {
@@ -247,7 +248,7 @@ export type LookupFormula = {
 export type SampleFormula = {
   type: 'sample';
   input: FormulaInput | any[];
-  n: number;
+  n: number | `${RefPrefix}${string}`;
 };
 
 /**
@@ -399,6 +400,22 @@ export interface ComputeNode extends BaseNode {
   };
 }
 
+/**
+ * Injects static data into the experiment context. `props.data` is written
+ * into `context.data` under the node id (same nesting rules as compute nodes),
+ * so every key becomes reachable downstream as `$$<nodeId>.<key>`. Values may
+ * be of any type (strings, numbers, arrays, nested objects). Auto-traversed
+ * (no participant UI).
+ */
+export interface DataNode extends BaseNode {
+  type: 'data';
+  props: {
+    name: string;
+    description?: string;
+    data: Record<string, unknown>;
+  };
+}
+
 /** Terminates the flow. Auto-traversed; has no props and no participant UI. */
 export interface EndNode extends BaseNode {
   type: 'end';
@@ -413,6 +430,7 @@ export type FrameworkNode =
   | ForkNode
   | LoopNode
   | ComputeNode
+  | DataNode
   | EndNode;
 
 const AUTO_TRAVERSE_TYPES = [
@@ -421,6 +439,7 @@ const AUTO_TRAVERSE_TYPES = [
   'branch',
   'fork',
   'compute',
+  'data',
   'end',
 ] as const;
 type AutoTraverseNodeType = (typeof AUTO_TRAVERSE_TYPES)[number];

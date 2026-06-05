@@ -79,6 +79,8 @@ export const EXPERIMENTS: Record<string, ExperimentFlow> = {
                   min: 0,
                   max: 10,
                   tooltip: true,
+                  labelTooltip:
+                    'Candidato a ser la **fruta** _favorita_ de {{@loop-city.value}}',
                 },
               },
             },

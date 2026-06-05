@@ -9,6 +9,7 @@ type ResponseComponentBaseProps = {
   dataKey: string;
   required?: boolean;
   errorMessage?: string;
+  labelTooltip?: string;
 };
 
 /**
