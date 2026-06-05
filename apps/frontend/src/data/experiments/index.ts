@@ -62,6 +62,20 @@ export const EXPERIMENTS: Record<string, ExperimentFlow> = {
                 "# What's your favorite fruit in {{@loop-city.value}}? \n\n ## Alguna cosa \n\n ### Un h3 \n\n #### Un h4 para probar \n\n ##### Otro título, ahora h5",
             },
           },
+
+          {
+            componentFamily: 'response',
+            template: 'range-slider',
+            props: {
+              label: 'Rango de algo {{$range-something}}',
+              dataKey: 'range-something',
+              min: 0,
+              max: 100,
+              labelTooltip:
+                'Un tooltip para el rango de algo en {{@loop-city.value}}',
+              tooltip: true,
+            },
+          },
           {
             componentFamily: 'control',
             template: 'for-each',
