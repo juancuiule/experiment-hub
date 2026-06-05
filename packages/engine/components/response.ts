@@ -150,16 +150,29 @@ export type Option = {
 };
 
 /**
- * Where a choice component gets its options. Either an inline `Option[]` or a
- * reference: `$$` experiment-wide data, `@` current loop item, `$` live form
- * value, or `%` a named shared set from `ExperimentFlow.options`.
+ * Object-form options source that maps collected string values to dictionary
+ * labels. `source` is a data reference (`$$`, `@`, or `$`) that resolves to a
+ * string array; `labelKey` is a dictionary namespace prefix — for each value
+ * `v`, the displayed label is `[[labelKey.v]]`, resolved at render time.
+ */
+export type DataOptionsSource = {
+  source: `$$${string}` | `@${string}` | `$${string}`;
+  labelKey: string;
+};
+
+/**
+ * Where a choice component gets its options. Either an inline `Option[]`, a
+ * reference (`$$` experiment-wide data, `@` current loop item, `$` live form
+ * value, `%` a named shared set from `ExperimentFlow.options`), or an object
+ * form `{ source, labelKey }` that maps collected values to dictionary labels.
  */
 export type OptionsSource =
   | Option[]
   | `$$${string}`
   | `@${string}`
   | `$${string}`
-  | `%${string}`;
+  | `%${string}`
+  | DataOptionsSource;
 
 /**
  * Single selection from a dropdown list. `options` accepts any `OptionsSource`.

@@ -102,6 +102,15 @@ export function resolveOptionsSource(
   sharedOptions?: Record<string, Option[]>,
 ): Option[] {
   if (Array.isArray(options)) return options;
+  if (typeof options === 'object') {
+    const value = getValue(options.source, context);
+    if (!Array.isArray(value)) return [];
+    return value.map((item: unknown) =>
+      typeof item === 'string'
+        ? { label: `[[${options.labelKey}.${item}]]`, value: item }
+        : (item as Option),
+    );
+  }
   if (options.startsWith('%')) {
     const name = options.slice(1);
     const key = resolveValuesInString(name, context);
