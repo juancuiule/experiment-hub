@@ -79,7 +79,13 @@ export function evaluateFormula(
         ? formula.input
         : getFormulaInputValue(formula.input, context, nodeOutputs);
       if (!Array.isArray(pool)) return [];
-      return shuffle(pool).slice(0, formula.n);
+
+      const n =
+        typeof formula.n === 'number'
+          ? formula.n
+          : getFormulaInputValue(formula.n, context, nodeOutputs);
+      console.log({ n });
+      return shuffle(pool).slice(0, n);
     }
     case 'split': {
       const list = Array.isArray(formula.input)

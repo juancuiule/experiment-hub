@@ -88,8 +88,11 @@ function referencesInFormula(formula: Formula): string[] {
       // validate. loopId is checked separately.
       return [];
     case 'sample':
-    case 'split':
-      return Array.isArray(formula.input) ? [] : [formula.input];
+    case 'split': {
+      const n =
+        typeof formula.n === 'string' && parseRef(formula.n) ? [formula.n] : [];
+      return Array.isArray(formula.input) ? [...n] : [formula.input, ...n];
+    }
     default:
       return [];
   }
@@ -553,6 +556,18 @@ export function checkReferences(experiment: ExperimentFlow): ValidationError[] {
 
         if (nextSeqId) return walkFrom(nextSeqId, computeAvailable, dataPath);
         return computeAvailable;
+      }
+      case 'data': {
+        const prefix = [...dataPath, node.id].join('.');
+        const newAvailable: Available = {
+          ...available,
+          dataKeys: new Set([
+            ...available.dataKeys,
+            ...Object.keys(node.props.data).map((k) => `${prefix}.${k}`),
+          ]),
+        };
+        if (nextSeqId) return walkFrom(nextSeqId, newAvailable, dataPath);
+        return newAvailable;
       }
       case 'fork': {
         edgesFrom.filter(isForkEdge).forEach((fork) => {
