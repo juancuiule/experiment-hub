@@ -1,5 +1,5 @@
 import { Condition } from './conditions';
-import { DataPrefix, ScreenPrefix } from './tokens';
+import { DataPrefix, RefPrefix, ScreenPrefix } from './tokens';
 
 export type NodeType =
   | 'start'
@@ -248,7 +248,7 @@ export type LookupFormula = {
 export type SampleFormula = {
   type: 'sample';
   input: FormulaInput | any[];
-  n: number;
+  n: number | `${RefPrefix}${string}`;
 };
 
 /**

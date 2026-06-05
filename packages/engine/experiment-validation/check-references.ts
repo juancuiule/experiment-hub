@@ -88,8 +88,11 @@ function referencesInFormula(formula: Formula): string[] {
       // validate. loopId is checked separately.
       return [];
     case 'sample':
-    case 'split':
-      return Array.isArray(formula.input) ? [] : [formula.input];
+    case 'split': {
+      const n =
+        typeof formula.n === 'string' && parseRef(formula.n) ? [formula.n] : [];
+      return Array.isArray(formula.input) ? [...n] : [formula.input, ...n];
+    }
     default:
       return [];
   }

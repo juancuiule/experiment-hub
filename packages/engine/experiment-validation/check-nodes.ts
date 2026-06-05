@@ -87,7 +87,9 @@ function checkComputeNodes(nodes: FrameworkNode[]): ValidationError[] {
 
         if (
           formula.type === 'sample' &&
-          (!Number.isInteger(formula.n) || formula.n <= 0)
+          typeof formula.n === 'number' &&
+          Number.isInteger(formula.n) &&
+          formula.n <= 0
         ) {
           errors.push({
             code: 'invalid-sample-size',
