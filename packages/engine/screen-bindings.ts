@@ -1,5 +1,5 @@
 import { ScreenComponent } from './components';
-import { defaultPerTemplate } from './components/response';
+import { defaultPerTemplate, ResponseComponent } from './components/response';
 import {
   Field,
   collectFields,
@@ -7,7 +7,7 @@ import {
   isOrderMarker,
   iterateLoops,
 } from './fields';
-import { resolveValuesInString } from './resolve';
+import { getValue, resolveValuesInString } from './resolve';
 import { buildSchemaFromFields } from './screen-schema';
 import { Context, ContextData } from './types';
 
@@ -55,6 +55,19 @@ function appendShuffledOrders(
   return { ...data, ...optionOrders, ...foreachOrders };
 }
 
+function resolveDefault(source: ResponseComponent, context: Context): unknown {
+  const { initialValue } = source.props;
+  if (initialValue !== undefined) {
+    try {
+      const resolved = getValue(initialValue, context);
+      if (resolved !== undefined && resolved !== null) return resolved;
+    } catch {
+      // invalid key format or unresolvable reference — fall through
+    }
+  }
+  return defaultPerTemplate(source);
+}
+
 function defaultsFromFields(
   fields: Field[],
   context: Context,
@@ -65,11 +78,11 @@ function defaultsFromFields(
     if (isOrderMarker(source)) continue;
     if (isButtonPayload(source)) continue;
     if (field.kind === 'static') {
-      entries.push([field.key, defaultPerTemplate(source)]);
+      entries.push([field.key, resolveDefault(source, context)]);
     } else {
       iterateLoops(field.loops, context, (loopCtx) => {
         const key = resolveValuesInString(field.keyTemplate, loopCtx);
-        entries.push([key, defaultPerTemplate(source)]);
+        entries.push([key, resolveDefault(source, loopCtx)]);
       });
     }
   }

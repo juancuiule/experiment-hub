@@ -197,3 +197,125 @@ describe('buildScreenBindings — defaults, dynamic for-each', () => {
     });
   });
 });
+
+describe('buildScreenBindings — initialValue resolution', () => {
+  it('uses $$data reference as default for slider', () => {
+    const components: ScreenComponent[] = [
+      {
+        componentFamily: 'response',
+        template: 'slider',
+        props: {
+          dataKey: 'rating',
+          label: 'Rating',
+          initialValue: '$$priorScore',
+        },
+      },
+    ];
+    expect(
+      defaultValues(components, makeContext({ data: { priorScore: 72 } })),
+    ).toEqual({ rating: 72 });
+  });
+
+  it('uses $$data reference as default for numeric-input', () => {
+    const components: ScreenComponent[] = [
+      {
+        componentFamily: 'response',
+        template: 'numeric-input',
+        props: {
+          dataKey: 'age',
+          label: 'Age',
+          initialValue: '$$previousAge',
+        },
+      },
+    ];
+    expect(
+      defaultValues(
+        components,
+        makeContext({ data: { previousAge: 25 } }),
+      ),
+    ).toEqual({ age: 25 });
+  });
+
+  it('uses $$data reference as default for radio', () => {
+    const components: ScreenComponent[] = [
+      {
+        componentFamily: 'response',
+        template: 'radio',
+        props: {
+          dataKey: 'choice',
+          label: 'Choice',
+          options: [],
+          initialValue: '$$lastChoice',
+        },
+      },
+    ];
+    expect(
+      defaultValues(
+        components,
+        makeContext({ data: { lastChoice: 'option-a' } }),
+      ),
+    ).toEqual({ choice: 'option-a' });
+  });
+
+  it('falls back to template default when reference is unresolvable', () => {
+    const components: ScreenComponent[] = [
+      {
+        componentFamily: 'response',
+        template: 'slider',
+        props: {
+          dataKey: 'rating',
+          label: 'Rating',
+          initialValue: '$$missing',
+        },
+      },
+    ];
+    expect(defaultValues(components, makeContext())).toEqual({ rating: null });
+  });
+
+  it('falls back to template default when resolved value is null', () => {
+    const components: ScreenComponent[] = [
+      {
+        componentFamily: 'response',
+        template: 'slider',
+        props: {
+          dataKey: 'rating',
+          label: 'Rating',
+          initialValue: '$$priorScore',
+        },
+      },
+    ];
+    // null stored from a previously untouched slider
+    expect(
+      defaultValues(components, makeContext({ data: { priorScore: null } })),
+    ).toEqual({ rating: null });
+  });
+
+  it('resolves initialValue per iteration inside dynamic for-each', () => {
+    const components: ScreenComponent[] = [
+      {
+        componentFamily: 'control',
+        template: 'for-each',
+        props: {
+          id: 'item',
+          type: 'dynamic',
+          dataKey: '$$items',
+          component: {
+            componentFamily: 'response',
+            template: 'slider',
+            props: {
+              dataKey: 'rating-{{#item.value}}',
+              label: 'Rating',
+              initialValue: '$$priorScore',
+            },
+          },
+        },
+      },
+    ];
+    expect(
+      defaultValues(
+        components,
+        makeContext({ data: { items: ['a', 'b'], priorScore: 50 } }),
+      ),
+    ).toEqual({ 'rating-a': 50, 'rating-b': 50 });
+  });
+});
