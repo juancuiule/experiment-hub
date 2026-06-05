@@ -119,6 +119,47 @@ describe('rendering', () => {
     expect(screen.getByText('Extra info for A')).toBeInTheDocument();
   });
 
+  it('renders radio group with horizontal layout when direction is horizontal', () => {
+    renderScreen([
+      {
+        componentFamily: 'response',
+        template: 'radio',
+        props: {
+          dataKey: 'choice',
+          label: 'Pick one',
+          options: [
+            { label: 'Yes', value: 'yes' },
+            { label: 'No', value: 'no' },
+          ],
+          direction: 'horizontal',
+        },
+      },
+    ]);
+    const radioGroup = screen.getByRole('radiogroup');
+    expect(radioGroup.className).toContain('grid');
+    expect(radioGroup.className).not.toContain('flex-col');
+  });
+
+  it('renders radio group with vertical layout by default', () => {
+    renderScreen([
+      {
+        componentFamily: 'response',
+        template: 'radio',
+        props: {
+          dataKey: 'choice',
+          label: 'Pick one',
+          options: [
+            { label: 'Yes', value: 'yes' },
+            { label: 'No', value: 'no' },
+          ],
+        },
+      },
+    ]);
+    const radioGroup = screen.getByRole('radiogroup');
+    expect(radioGroup.className).toContain('flex-col');
+    expect(radioGroup.className).not.toContain('flex-row');
+  });
+
   it('renders tooltip text for checkbox options that have a tooltip', () => {
     renderScreen([
       {

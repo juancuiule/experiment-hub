@@ -182,7 +182,8 @@ export type DropdownComponent = BaseResponseComponent<
 /**
  * Single selection shown as a radio-button list. Same `options`/`randomize`/
  * `reshuffleInLoop` semantics as `dropdown` (shuffled order recorded under
- * `<dataKey>:order`).
+ * `<dataKey>:order`). `direction` controls layout: `'vertical'` (default) or
+ * `'horizontal'` (wrapping row, useful for short labels).
  *
  * Collected value: `string` (the selected option's `value`).
  */
@@ -193,6 +194,7 @@ export type RadioComponent = BaseResponseComponent<
     options: OptionsSource;
     randomize?: boolean;
     reshuffleInLoop?: boolean;
+    direction?: 'horizontal' | 'vertical';
   }
 >;
 
