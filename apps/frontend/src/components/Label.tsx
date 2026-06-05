@@ -4,10 +4,12 @@ import { resolveValuesInString } from '@experiment-hub/engine/resolve';
 import { Context } from '@experiment-hub/engine/types';
 import Markdown from 'react-markdown';
 import { twMerge } from 'tailwind-merge';
+import { OptionTooltip } from './primitives';
 
 interface Props extends React.LabelHTMLAttributes<HTMLLabelElement> {
   children: string;
   context?: Context;
+  tooltip?: string;
 }
 
 const allowedElements = [
@@ -23,8 +25,8 @@ const allowedElements = [
   'p',
 ];
 
-export function Label({ children, context, ...props }: Props) {
-  return (
+export function Label({ children, context, tooltip, ...props }: Props) {
+  const label = (
     <label {...props}>
       <Markdown
         allowedElements={allowedElements}
@@ -49,4 +51,15 @@ export function Label({ children, context, ...props }: Props) {
       </Markdown>
     </label>
   );
+
+  if (tooltip) {
+    return (
+      <div className="flex items-center gap-1">
+        {label}
+        <OptionTooltip text={tooltip} />
+      </div>
+    );
+  }
+
+  return label;
 }

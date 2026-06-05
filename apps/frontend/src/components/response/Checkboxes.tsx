@@ -35,7 +35,7 @@ export function Checkboxes({ component, form, context, sharedOptions }: Props) {
       defaultValue={defaultPerTemplate(component)}
       render={({ field }) => (
         <div className="flex flex-col gap-1">
-          <Label context={context}>{component.props.label}</Label>
+          <Label context={context} tooltip={component.props.labelTooltip}>{component.props.label}</Label>
           <div className="flex flex-col gap-2">
             {resolveOptions(
               component.props.options,

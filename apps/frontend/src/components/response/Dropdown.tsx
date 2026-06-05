@@ -34,7 +34,7 @@ export function Dropdown({ component, form, context, sharedOptions }: Props) {
       defaultValue={defaultPerTemplate(component)}
       render={({ field }) => (
         <div className="flex flex-col gap-1">
-          <Label htmlFor={dataKey} context={context}>
+          <Label htmlFor={dataKey} context={context} tooltip={component.props.labelTooltip}>
             {component.props.label}
           </Label>
           <SelectPrimitive.Root

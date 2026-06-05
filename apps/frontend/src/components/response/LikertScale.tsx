@@ -43,7 +43,7 @@ export function LikertScale({
       defaultValue={defaultPerTemplate(component)}
       render={({ field }) => (
         <div className="flex flex-col gap-1">
-          <Label id={`${dataKey}-label`} context={context}>
+          <Label id={`${dataKey}-label`} context={context} tooltip={component.props.labelTooltip}>
             {component.props.label}
           </Label>
           <RadioGroupPrimitive.Root
