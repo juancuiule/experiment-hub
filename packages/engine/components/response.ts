@@ -282,6 +282,7 @@ export type RangeSliderComponent = BaseResponseComponent<
     minLabel?: string;
     maxLabel?: string;
     showValue?: boolean;
+    tooltip?: true | TooltipConfig;
   }
 >;
 
