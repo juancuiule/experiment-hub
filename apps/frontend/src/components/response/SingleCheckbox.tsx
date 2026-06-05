@@ -53,6 +53,7 @@ export function SingleCheckbox({ component, form, context }: Props) {
               context={context}
               className="text-sm leading-tight"
               htmlFor={`${dataKey}`}
+              tooltip={component.props.labelTooltip}
             >
               {component.props.label}
             </Label>
