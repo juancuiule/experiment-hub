@@ -1,14 +1,29 @@
 import { BaseComponent } from '.';
 
 /**
+ * A reference to a context value — any of the four runtime prefixes.
+ * Used by `initialValue` to pre-fill a response field from a prior
+ * answer (`$$key`), current screen value (`$key`), loop item (`@key`),
+ * or for-each item (`#key`).
+ */
+export type InitialValueSource =
+  | `$$${string}`
+  | `$${string}`
+  | `@${string}`
+  | `#${string}`;
+
+/**
  * Props shared by every response component. `dataKey` is where the collected
  * value is stored; `required` blocks advancing until filled; `errorMessage` is
  * the fallback message for the `required` check (per-rule messages override it).
+ * `initialValue` pre-fills the field from a prior answer or computation using
+ * a context reference string (e.g. `$$priorScore`).
  */
 type ResponseComponentBaseProps = {
   dataKey: string;
   required?: boolean;
   errorMessage?: string;
+  initialValue?: InitialValueSource;
 };
 
 /**
