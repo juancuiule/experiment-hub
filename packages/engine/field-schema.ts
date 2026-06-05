@@ -125,6 +125,30 @@ export function buildFieldSchema(component: ResponseComponent): z.ZodTypeAny {
       return z.union([z.null(), buildCoerceBase()]);
     }
 
+    case 'range-slider': {
+      const { min = 0, max = 100 } = component.props;
+      const pairSchema = z
+        .tuple([z.number().min(min).max(max), z.number().min(min).max(max)])
+        .refine(([lo, hi]) => lo <= hi, {
+          message: 'Lower bound must not exceed upper bound',
+        });
+
+      if (required) {
+        return z
+          .preprocess(
+            (v) => v,
+            z
+              .any()
+              .refine((v) => v !== undefined && v !== null && Array.isArray(v), {
+                message: msg,
+              }),
+          )
+          .pipe(pairSchema as z.ZodTypeAny) as z.ZodTypeAny;
+      }
+
+      return z.union([z.null(), pairSchema]);
+    }
+
     case 'single-checkbox': {
       const { shouldBe } = component.props;
       if (shouldBe !== undefined) {

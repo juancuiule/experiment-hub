@@ -261,9 +261,33 @@ export type LikertScaleComponent = BaseResponseComponent<
   }
 >;
 
+/**
+ * Collects a numeric range via a two-handle drag slider. The participant drags
+ * a lower and upper thumb to define a [min, max] interval. `defaultValue` sets
+ * the visual starting positions — the participant must move at least one handle
+ * for a value to be submitted, so an untouched slider collects `null` (and
+ * `required` means "must have interacted").
+ *
+ * Collected value: `[number, number] | null` — `[lowerBound, upperBound]`.
+ */
+export type RangeSliderComponent = BaseResponseComponent<
+  'range-slider',
+  {
+    label: string;
+    min?: number;
+    max?: number;
+    step?: number;
+    defaultValue?: [number, number];
+    minLabel?: string;
+    maxLabel?: string;
+    showValue?: boolean;
+  }
+>;
+
 /** Union of every `response`-family component. */
 export type ResponseComponent =
   | SliderComponent
+  | RangeSliderComponent
   | SingleCheckboxComponent
   | TextInputComponent
   | TextAreaComponent
@@ -322,6 +346,7 @@ export function defaultPerTemplate(
     case 'single-checkbox':
       return component.props.defaultValue ?? false;
     case 'slider':
+    case 'range-slider':
       return null;
     case 'numeric-input':
       return component.props.defaultValue ?? null;

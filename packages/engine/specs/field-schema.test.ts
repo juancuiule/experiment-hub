@@ -448,6 +448,110 @@ describe('slider', () => {
   });
 });
 
+describe('range-slider', () => {
+  it('passes a valid [lo, hi] tuple within range', () => {
+    const schema = buildFieldSchema({
+      componentFamily: 'response',
+      template: 'range-slider',
+      props: { dataKey: 'range', label: 'Range', min: 0, max: 100 },
+    });
+    expect(schema.safeParse([20, 80]).success).toBe(true);
+  });
+
+  it('passes [min, max] boundary values', () => {
+    const schema = buildFieldSchema({
+      componentFamily: 'response',
+      template: 'range-slider',
+      props: { dataKey: 'range', label: 'Range', min: 0, max: 100 },
+    });
+    expect(schema.safeParse([0, 100]).success).toBe(true);
+  });
+
+  it('fails when lo > hi', () => {
+    const schema = buildFieldSchema({
+      componentFamily: 'response',
+      template: 'range-slider',
+      props: { dataKey: 'range', label: 'Range', min: 0, max: 100 },
+    });
+    expect(schema.safeParse([80, 20]).success).toBe(false);
+  });
+
+  it('passes when lo === hi', () => {
+    const schema = buildFieldSchema({
+      componentFamily: 'response',
+      template: 'range-slider',
+      props: { dataKey: 'range', label: 'Range', min: 0, max: 100 },
+    });
+    expect(schema.safeParse([50, 50]).success).toBe(true);
+  });
+
+  it('fails when a value is above max', () => {
+    const schema = buildFieldSchema({
+      componentFamily: 'response',
+      template: 'range-slider',
+      props: { dataKey: 'range', label: 'Range', min: 0, max: 100 },
+    });
+    expect(schema.safeParse([50, 101]).success).toBe(false);
+  });
+
+  it('fails when a value is below min', () => {
+    const schema = buildFieldSchema({
+      componentFamily: 'response',
+      template: 'range-slider',
+      props: { dataKey: 'range', label: 'Range', min: 0, max: 100 },
+    });
+    expect(schema.safeParse([-1, 50]).success).toBe(false);
+  });
+
+  it('rejects null when required (slider not touched)', () => {
+    const schema = buildFieldSchema({
+      componentFamily: 'response',
+      template: 'range-slider',
+      props: { dataKey: 'range', label: 'Range', required: true },
+    });
+    expect(schema.safeParse(null).success).toBe(false);
+  });
+
+  it('rejects undefined when required', () => {
+    const schema = buildFieldSchema({
+      componentFamily: 'response',
+      template: 'range-slider',
+      props: { dataKey: 'range', label: 'Range', required: true },
+    });
+    expect(schema.safeParse(undefined).success).toBe(false);
+  });
+
+  it('accepts null when optional (slider not touched)', () => {
+    const schema = buildFieldSchema({
+      componentFamily: 'response',
+      template: 'range-slider',
+      props: { dataKey: 'range', label: 'Range', required: false },
+    });
+    expect(schema.safeParse(null).success).toBe(true);
+  });
+
+  it('uses custom errorMessage when required fails', () => {
+    const schema = buildFieldSchema({
+      componentFamily: 'response',
+      template: 'range-slider',
+      props: { dataKey: 'range', label: 'Range', required: true, errorMessage: 'Please set a range' },
+    });
+    const result = schema.safeParse(null);
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error.issues[0].message).toBe('Please set a range');
+  });
+
+  it('uses default min/max (0–100) when not specified', () => {
+    const schema = buildFieldSchema({
+      componentFamily: 'response',
+      template: 'range-slider',
+      props: { dataKey: 'range', label: 'Range' },
+    });
+    expect(schema.safeParse([0, 100]).success).toBe(true);
+    expect(schema.safeParse([-1, 50]).success).toBe(false);
+  });
+});
+
 describe('single-checkbox', () => {
   it('passes true when required', () => {
     const schema = buildFieldSchema({

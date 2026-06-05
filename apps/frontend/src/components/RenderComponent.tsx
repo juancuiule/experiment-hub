@@ -19,6 +19,7 @@ import { LikertScale } from './response/LikertScale';
 import { NumericInput } from './response/NumericInput';
 import { Radio } from './response/Radio';
 import { SingleCheckbox } from './response/SingleCheckbox';
+import { RangeSlider } from './response/RangeSlider';
 import { Slider } from './response/Slider';
 import { TextArea } from './response/TextArea';
 import { TextInput } from './response/TextInput';
@@ -86,6 +87,8 @@ export function RenderComponent({
           return <Dropdown {...props} />;
         case 'slider':
           return <Slider {...props} />;
+        case 'range-slider':
+          return <RangeSlider {...props} />;
         case 'likert-scale':
           return <LikertScale {...props} />;
       }

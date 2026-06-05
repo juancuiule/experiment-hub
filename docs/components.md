@@ -71,6 +71,24 @@ Validation (each with its own `errorMessage`):
 
 Collected value: `number | null` (null when the participant has not yet moved the slider)
 
+### `range-slider`
+
+Collects a numeric range via a two-handle drag slider. The participant drags a lower and upper thumb to define a `[lowerBound, upperBound]` interval. Like `slider`, an untouched range slider collects `null`, so `required` means "the participant must have moved at least one handle."
+
+- `label: string`
+- `min?: number`
+- `max?: number`
+- `step?: number`
+- `defaultValue?: [number, number]` — sets the visual starting positions of the two thumbs; does **not** pre-fill the form value. The participant must still interact for a value to be submitted.
+- `minLabel?: string` — label shown at the minimum end
+- `maxLabel?: string` — label shown at the maximum end
+- `showValue?: boolean` — whether to display the current `lowerBound – upperBound` values once the participant has interacted
+
+Validation:
+- `required?: boolean` — when `true`, the participant must interact with the slider before advancing (null check)
+
+Collected value: `[number, number] | null` — `[lowerBound, upperBound]` where `lowerBound ≤ upperBound`. Null when the participant has not yet moved the slider.
+
 ### `single-checkbox`
 
 Collects a boolean value from a single checkbox.
