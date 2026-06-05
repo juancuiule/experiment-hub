@@ -85,28 +85,29 @@ function checkComputeNodes(nodes: FrameworkNode[]): ValidationError[] {
           }
         }
 
-        if (
-          formula.type === 'sample' &&
-          typeof formula.n === 'number' &&
-          Number.isInteger(formula.n) &&
-          formula.n <= 0
-        ) {
-          errors.push({
-            code: 'invalid-sample-size',
-            category: 'node',
-            nodeType: 'compute',
-            message: `Compute "${node.id}" output "${outputKey}" has sample size n="${formula.n}", but n must be a positive integer`,
-          });
+        if (formula.type === 'sample') {
+          if (typeof formula.n === 'number') {
+            if (!Number.isInteger(formula.n) || formula.n <= 0) {
+              errors.push({
+                code: 'invalid-sample-size',
+                category: 'node',
+                nodeType: 'compute',
+                message: `Compute "${node.id}" output "${outputKey}" has sample size n="${formula.n}", but n must be a positive integer`,
+              });
+            }
+          }
         }
 
         if (formula.type === 'split') {
           if (!Number.isInteger(formula.n) || formula.n <= 0) {
-            errors.push({
-              code: 'invalid-split-size',
-              category: 'node',
-              nodeType: 'compute',
-              message: `Compute "${node.id}" output "${outputKey}" has split n="${formula.n}", but it must be a positive integer`,
-            });
+            if (typeof formula.n === 'number') {
+              errors.push({
+                code: 'invalid-split-size',
+                category: 'node',
+                nodeType: 'compute',
+                message: `Compute "${node.id}" output "${outputKey}" has split n="${formula.n}", but it must be a positive integer`,
+              });
+            }
           } else if (
             formula.mode === 'into' &&
             Array.isArray(formula.input) &&
