@@ -42,6 +42,13 @@ Both `url` and `alt` support answer piping interpolation. For security, interpol
 - `loop?: boolean` — whether the audio should loop when it ends
 - `controls?: boolean` — whether to show playback controls to the participant
 
+### `accordion`
+
+A collapsible expand/collapse block. The `title` is always visible; clicking it reveals the `body`.
+
+- `title: string` — summary line rendered as markdown; supports answer piping
+- `body: string` — body content rendered as markdown; supports answer piping
+
 ## Response Components
 
 Response components collect data from the participant. All response components share these base props in addition to their own:
