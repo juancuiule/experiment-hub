@@ -92,7 +92,9 @@ export function Label({ children, context, tooltip, ...props }: Props) {
     return (
       <div className="flex items-center gap-2">
         {label}
-        <Tooltip>{tooltip}</Tooltip>
+        <Tooltip>
+          <RenderText context={context}>{tooltip}</RenderText>
+        </Tooltip>
       </div>
     );
   }
