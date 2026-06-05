@@ -115,6 +115,7 @@ function initialState(
     case 'checkpoint':
     case 'screen':
     case 'compute':
+    case 'data':
     case 'branch':
     case 'fork': {
       return { type: 'in-node' as const, node };
@@ -253,6 +254,21 @@ async function enterStep(step: FlowStep): Promise<FlowStep> {
       dataPath: [...(step.dataPath ?? []), node.id],
       handlers: step.handlers,
     });
+
+    // If the first child immediately auto-traversed to end (e.g. a compute
+    // or data node with no outgoing sequential edge), advance past it now so
+    // the path never rests in an innerState=end position at startup — which
+    // would make isEnded() incorrectly report the experiment as finished.
+    if (innerStep.state.type === 'end') {
+      return traverseInPath(
+        {
+          ...step,
+          state: { ...step.state, innerState: innerStep.state },
+          context: innerStep.context,
+        },
+        {},
+      );
+    }
 
     return {
       ...step,
@@ -476,6 +492,24 @@ export async function traverseInNode(
         step.dataPath,
         state.node.id,
         nodeOutputs,
+      );
+      const nNode = getNextSequentialNode(experiment, state.node.id);
+      if (!nNode) return { ...step, context: nContext, state: { type: 'end' } };
+      const nState = initialState(experiment, nContext, nNode);
+      return await enterStep({
+        state: nState,
+        experiment,
+        context: nContext,
+        dataPath: step.dataPath,
+        handlers: step.handlers,
+      });
+    }
+    case 'data': {
+      const nContext = nestData(
+        context,
+        step.dataPath,
+        state.node.id,
+        state.node.props.data,
       );
       const nNode = getNextSequentialNode(experiment, state.node.id);
       if (!nNode) return { ...step, context: nContext, state: { type: 'end' } };

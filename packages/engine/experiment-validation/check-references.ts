@@ -554,6 +554,18 @@ export function checkReferences(experiment: ExperimentFlow): ValidationError[] {
         if (nextSeqId) return walkFrom(nextSeqId, computeAvailable, dataPath);
         return computeAvailable;
       }
+      case 'data': {
+        const prefix = [...dataPath, node.id].join('.');
+        const newAvailable: Available = {
+          ...available,
+          dataKeys: new Set([
+            ...available.dataKeys,
+            ...Object.keys(node.props.data).map((k) => `${prefix}.${k}`),
+          ]),
+        };
+        if (nextSeqId) return walkFrom(nextSeqId, newAvailable, dataPath);
+        return newAvailable;
+      }
       case 'fork': {
         edgesFrom.filter(isForkEdge).forEach((fork) => {
           walkFrom(fork.to, available, dataPath);
