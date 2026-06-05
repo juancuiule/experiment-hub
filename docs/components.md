@@ -155,6 +155,7 @@ Collects a single selection displayed as a radio button list.
 - `options: OptionsSource` — the option list. Accepts the same variants as `dropdown` above, including `anchor` and `tooltip` on individual `Option` objects.
 - `randomize?: boolean` — if true, the order of options is shuffled for each participant.
 - `reshuffleInLoop?: boolean` — when used inside a loop and `randomize: true`, controls whether the options are reshuffled on each loop iteration (`true`, default) or keep the first shuffled order (`false`).
+- `direction?: "vertical" | "horizontal"` — layout direction for the option list. Defaults to `"vertical"` (stacked). Use `"horizontal"` for short, repetitive labels where a wrapping row layout saves vertical space.
 
 Collected value: `string` — the `value` of the selected option. Reference as `$$screenSlug.dataKey`. When `randomize: true`, the shuffled order is stored as `dataKey:order`.
 

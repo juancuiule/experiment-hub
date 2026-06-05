@@ -20,7 +20,7 @@ export function Radio({ component, form, context, sharedOptions }: Props) {
     control,
     formState: { errors },
   } = form;
-  const { dataKey } = component.props;
+  const { dataKey, direction = 'vertical' } = component.props;
 
   return (
     <Controller
@@ -33,7 +33,11 @@ export function Radio({ component, form, context, sharedOptions }: Props) {
           <RadioGroupPrimitive.Root
             value={field.value}
             onValueChange={field.onChange}
-            className="mt-2 flex flex-col gap-2"
+            className={
+              direction === 'horizontal'
+                ? 'mt-2 flex flex-row flex-wrap gap-x-4 gap-y-2'
+                : 'mt-2 flex flex-col gap-2'
+            }
           >
             {resolveOptions(
               component.props.options,
