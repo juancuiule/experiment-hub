@@ -136,7 +136,7 @@ describe('rendering', () => {
       },
     ]);
     const radioGroup = screen.getByRole('radiogroup');
-    expect(radioGroup.className).toContain('flex-row');
+    expect(radioGroup.className).toContain('grid');
     expect(radioGroup.className).not.toContain('flex-col');
   });
 
