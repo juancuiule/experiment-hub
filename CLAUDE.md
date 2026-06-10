@@ -12,106 +12,136 @@ An adaptive experiment runner for behavioral research. Researchers define branch
 - Tailwind CSS 4, Radix UI primitives
 - Zustand 5 (experiment state), react-hook-form + Zod (per-screen validation)
 - Vitest 4 + happy-dom (unit tests), Playwright (e2e)
-- pnpm 9 is the canonical package manager (CI uses it; ignore `package-lock.json`)
+- pnpm 9 is the canonical package manager (CI uses it)
 
 ## Essential commands
 
 ```bash
-pnpm dev           # start dev server
+pnpm dev           # start dev server (runs from repo root)
 pnpm build         # Next.js production build
 pnpm lint          # eslint (eslint.config.mjs)
-pnpm test          # vitest run — all unit tests
+pnpm test          # vitest run — all unit tests (engine + frontend)
 pnpm test:watch    # vitest — watch mode
 pnpm test:e2e      # playwright test — e2e suite
+pnpm typecheck     # tsc --noEmit across all workspace packages (pnpm -r typecheck)
 ```
 
 Run a single test file:
 ```bash
-pnpm vitest run lib/specs/flow.test.ts
-pnpm vitest run lib/specs/flow-validation.test.ts
+pnpm --filter @experiment-hub/engine exec vitest run specs/conditions.test.ts
+pnpm --filter @experiment-hub/frontend exec vitest run src/specs/store.test.ts
 ```
 
-Vitest accepts a file path or pattern as a positional argument. Test files live under `lib/specs/` (engine) and `src/specs/` (React components).
+Vitest accepts a file path or pattern as a positional argument. Test files live under `packages/engine/specs/` (engine) and `apps/frontend/src/specs/` (React components). E2E tests live under `apps/frontend/e2e/`.
 
 ## Architecture
 
-The codebase has two distinct layers that must stay decoupled:
+This is a pnpm workspace with two packages that must stay decoupled:
 
 ```
-lib/           # Pure TypeScript engine — zero React imports
-  flow.ts      # State machine: traverse(), enterStep(), traverseInPath/Loop()
-  types.ts     # ExperimentFlow, FlowStep, State, Context — all core types
-  nodes.ts     # Node type interfaces (start, checkpoint, screen, branch, path, fork, loop, compute)
-  edges.ts     # Edge type definitions (sequential, branch-*, path-contains, loop-template, fork-edge)
-  conditions.ts       # Condition evaluation
-  resolve.ts          # Data key resolution and {{ }} string interpolation
-  flow-validation.ts  # validateExperiment() — static graph validator, 15 error codes
-  screen-schema.ts    # buildSchema() — Zod schema builder for per-screen form validation
-  field-schema.ts     # Field schema extraction from screen component definitions
-  fields.ts           # collectFields() — flat field descriptor list from screen components
-  component-walker.ts # flatMap() — tree-shaped traversal over screen components
-  components/         # Component type definitions (content, response, layout, control)
-  specs/              # Unit tests for the engine
+packages/engine/             # Pure TypeScript engine — zero React imports
+                             # Published in-workspace as @experiment-hub/engine
+  flow/                      # State machine (directory)
+    traverse.ts              # traverse(), enterStep(), traverseInPath/Loop()
+    graph.ts                 # Graph helpers
+    context.ts               # Context construction
+    formulas.ts              # Formula evaluation
+    timing.ts                # Timing utilities
+    shuffles.ts              # Shuffle helpers
+    visibility.ts            # Visibility evaluation
+    index.ts                 # Re-exports
+  experiment-validation/     # Static graph validator (directory)
+    index.ts                 # validateExperiment() — exports ValidationError[]
+    check-*.ts               # 10 individual check modules
+    validate-condition-structure.ts
+  types.ts                   # ExperimentFlow, FlowStep, State, Context — all core types
+  nodes.ts                   # Node type interfaces (start, checkpoint, screen, branch,
+                             #   path, fork, loop, compute, data)
+  edges.ts                   # Edge type definitions (sequential, branch-*, path-contains,
+                             #   loop-template, fork-edge)
+  conditions.ts              # Condition evaluation
+  resolve.ts                 # Data key resolution and {{ }} string interpolation
+  screen-schema.ts           # buildSchema() — Zod schema builder for per-screen form validation
+  screen-bindings.ts         # Screen binding helpers
+  field-schema.ts            # Field schema extraction from screen component definitions
+  fields.ts                  # collectFields() — flat field descriptor list from screen components
+  component-walker.ts        # flatMap() — tree-shaped traversal over screen components
+  tokens.ts                  # Token definitions
+  i18n.ts                    # i18n helpers
+  utils.ts                   # Shared utilities incl. shuffleAnchored()
+  screen.ts                  # Screen-level utilities
+  components/                # Component type definitions (content, response, layout, control)
+  specs/                     # Unit tests for the engine
 
-src/           # Next.js React application
-  Experiment.tsx         # Runner: reads store, dispatches start()/next(), renders Screen
-  Screen.tsx             # Per-screen form: react-hook-form + zodResolver(buildSchema(...))
-  data/
-    experiment.ts        # EXPERIMENTS record keyed by slug — all active experiment configs
-    store.ts             # Zustand store with start(startNodeId?, experimentOverride?) and next(data?)
-  components/
-    RenderComponent.tsx  # Dispatcher: routes by componentFamily + template to concrete components
-    content/             # RichText, Image, Video, Audio
-    response/            # 11 response input components (slider, radio, checkboxes, etc.)
-    layout/              # Button, Group
-    control/             # Conditional, ForEach
+apps/frontend/               # Next.js React application
+                             # Published in-workspace as @experiment-hub/frontend
+  app/
+    (experiments-layout)/
+      experiments/[slug]/
+        page.tsx             # Validates experiment, selects start node, mounts Experiment
+    page.tsx / layout.tsx
+  src/
+    Experiment.tsx           # Runner: reads store, dispatches start()/next(), renders Screen
+    Screen.tsx               # Per-screen form: react-hook-form + zodResolver(buildSchema(...))
+    data/
+      experiments/           # EXPERIMENTS record — one file per experiment
+        index.ts             # Exports the EXPERIMENTS record keyed by slug
+        ocean.ts, emociones.ts, pandemic.ts, …
+      store.ts               # Zustand store with start(experiment, startNodeId?, locale?) and next(data?)
+      send.ts                # send() stub — checkpoint nodes call this to persist data
+    components/
+      RenderComponent.tsx    # Dispatcher: routes by componentFamily + template to concrete components
+      content/               # RichText, Image, Video, Audio
+      response/              # 12 response input components (slider, radio, checkboxes, etc.)
+      layout/                # Button, Group
+      control/               # Conditional, ForEach
+    specs/                   # Unit tests for React components
+  e2e/                       # Playwright tests
 
-app/                     # Next.js App Router
-  experiments/[slug]/page.tsx  # Validates experiment, selects start node, mounts Experiment
-  page.tsx / layout.tsx
-e2e/                     # Playwright tests
-docs/                    # Reference documentation (see below)
+docs/                        # Reference documentation (see below)
+agents.sh                    # Fan-out script (see Agent workflow below) (untracked)
 ```
 
-The flow engine (`lib/`) has no React dependency and is fully unit-tested. The React layer drives it by calling `startExperiment()` once and `traverse(step, formData)` on each screen submission.
+The flow engine (`packages/engine/`) has no React dependency and is fully unit-tested. The React layer drives it by calling `startExperiment()` once and `traverse(step, formData)` on each screen submission.
 
 ## How experiments are defined
 
-All experiments live in `src/data/experiment.ts` as entries in the `EXPERIMENTS` record:
+All experiments live in `apps/frontend/src/data/experiments/` as entries in the `EXPERIMENTS` record. The `index.ts` file exports the record; each experiment is defined in its own file:
 
 ```ts
+// apps/frontend/src/data/experiments/index.ts
 export const EXPERIMENTS: Record<string, ExperimentFlow> = {
   "my-study": { nodes: [...], edges: [...], screens: [...], options: {...} }
 };
 ```
 
-The route `app/experiments/[slug]/page.tsx` looks up `EXPERIMENTS[slug]`, calls `validateExperiment()`, and renders `<ValidationErrors>` if any errors are returned — so misconfigured graphs are caught before the participant sees anything.
+The route `apps/frontend/app/(experiments-layout)/experiments/[slug]/page.tsx` looks up `EXPERIMENTS[slug]`, calls `validateExperiment()`, and renders `<ValidationErrors>` if any errors are returned — so misconfigured graphs are caught before the participant sees anything.
 
 Start node selection is driven by query-string params: `?condition=A` matches a `StartNode` whose `props.param` equals `{ key: "condition", value: "A" }`. This enables within-experiment condition assignment without separate URLs.
 
 ## Non-obvious conventions
 
-**`shouldUnregister: true`** in `Screen.tsx`'s `useForm` call is intentional: unmounted components (those hidden by `conditional`) do not retain their values in the submitted form data.
+**`shouldUnregister: true`** in `apps/frontend/src/Screen.tsx`'s `useForm` call is intentional: unmounted components (those hidden by `conditional`) do not retain their values in the submitted form data.
 
-**`Zustand persist` is commented out** in `src/data/store.ts`. Browser refresh resets the experiment. This is a known limitation, not a bug to fix casually — re-enabling it requires implementing session resume logic.
+**`Zustand persist` is not enabled** in `apps/frontend/src/data/store.ts`. Browser refresh resets the experiment. This is a known limitation, not a bug to fix casually — re-enabling it requires implementing session resume logic.
 
-**`send()` in `lib/utils.ts` is a stub.** `checkpoint` nodes call `send(context)` to persist data — currently a 100ms `setTimeout`. Replace with a real API POST before running participant-facing studies.
+**`send()` in `apps/frontend/src/data/send.ts` is a stub.** `checkpoint` nodes call `send(context)` to persist data — currently a 100ms `setTimeout`. Replace with a real API POST before running participant-facing studies.
 
-**Debug panels are always visible.** `<StateDebug>`, `<DataDebug>`, and the form data `<DataSection>` in `Screen.tsx` render as `<details>` elements with no dev-only guard. They expose raw JSON to participants in the current state.
+**Debug panels are gated behind `process.env.NODE_ENV === 'development'`** (build-time in Next.js production builds). Keep that gate intact when touching `apps/frontend/app/(experiments-layout)/experiments/[slug]/page.tsx` or `apps/frontend/src/Screen.tsx`.
 
-**Option anchoring** — response options accept `anchor: "first" | "last"` to pin specific choices to the ends of a shuffled list. Handled by `shuffleAnchored()` in `lib/utils.ts`.
+**Option anchoring** — response options accept `anchor: "first" | "last"` to pin specific choices to the ends of a shuffled list. Handled by `shuffleAnchored()` in `packages/engine/utils.ts`.
 
-**pnpm is the canonical package manager.** A `package-lock.json` exists in the repo but is stale. Always use `pnpm`; the CI pipeline uses pnpm 9 exclusively.
+**pnpm is the canonical package manager.** Always use `pnpm`; the CI pipeline uses pnpm 9 exclusively.
 
 ## Anti-patterns
 
-**Do not import React anywhere inside `lib/`.** The engine is deliberately framework-agnostic. Tests in `lib/specs/` run without a DOM renderer. Any React import in that layer breaks the isolation.
+**Do not import React anywhere inside `packages/engine/`.** The engine is deliberately framework-agnostic. Tests in `packages/engine/specs/` run without a DOM renderer. Any React import in that layer breaks the isolation.
 
-**Do not use `$fieldName` references outside `RenderComponent`.** `RenderComponent.tsx` merges `form.watch()` into context before resolving props. The engine's `resolve.ts` and condition evaluator never have access to live form state — `$` references in branch conditions or loop `dataKey` fields silently resolve to nothing.
+**Do not use `$fieldName` references outside `RenderComponent`.** `apps/frontend/src/components/RenderComponent.tsx` merges `form.watch()` into context before resolving props. The engine's `resolve.ts` and condition evaluator never have access to live form state — `$` references in branch conditions or loop `dataKey` fields silently resolve to nothing.
 
-**Do not uncomment `Zustand persist` without implementing session resume.** Restoring persisted state mid-experiment requires knowing which step to re-enter and which context to restore. It's not a one-line change.
+**Do not enable `Zustand persist` without implementing session resume.** Restoring persisted state mid-experiment requires knowing which step to re-enter and which context to restore. It's not a one-line change.
 
-**Do not ship the current UI to participants without removing debug panels.** There is no environment flag guarding `<StateDebug>` or `<DataSection>`. They must be explicitly removed or conditionally gated before any participant-facing deployment.
+**Do not remove or bypass the `process.env.NODE_ENV === 'development'` guard** on debug panels. In production Next.js builds this dead-code-eliminates the panels; removing the guard exposes raw JSON context to participants.
 
 ## Agent workflow
 
@@ -124,6 +154,10 @@ When picking up an issue:
 5. Open a PR against `main` with `gh pr create`, referencing the issue number.
 6. CI runs `pnpm test` and `pnpm test:e2e` automatically — both must pass before merge.
 
+**`agents.sh`** at the repo root (untracked; present only in the maintainer's local checkout) is a fan-out script that launches one Claude Code agent per GitHub issue in a tmux grid, each in its own git worktree, for parallel multi-issue development.
+
+**Workspace filter commands**: use `pnpm --filter @experiment-hub/engine <script>` or `pnpm --filter @experiment-hub/frontend <script>` to run scripts in a single package without affecting the other.
+
 ## Commit and branch conventions
 
 From git history:
@@ -135,16 +169,16 @@ From git history:
 
 ## Environment variables
 
-The application reads no environment variables at runtime. The E2E CI job sets `NODE_ENV=test`. There is no `.env.example` or any `process.env` access in the codebase.
+The application reads no environment variables at runtime. The E2E CI job sets `NODE_ENV=test`. There is no `.env.example` or any `process.env` access in the codebase outside the debug-panel guards.
 
 ## Sensitive files
 
 Changing these incorrectly breaks participant-facing behavior:
 
-- `src/data/experiment.ts` — the `EXPERIMENTS` dict; removing or renaming a key breaks its route
-- `lib/flow.ts` — the traversal state machine; affects path step counting and all data nesting
-- `lib/flow-validation.ts` — any regression here silently allows malformed experiments through
-- `lib/screen-schema.ts` — `buildSchema()` failing silently disables all per-screen form validation
+- `apps/frontend/src/data/experiments/index.ts` — the `EXPERIMENTS` dict; removing or renaming a key breaks its route
+- `packages/engine/flow/traverse.ts` — the traversal state machine; affects path step counting and all data nesting
+- `packages/engine/experiment-validation/` — any regression here silently allows malformed experiments through
+- `packages/engine/screen-schema.ts` — `buildSchema()` failing silently disables all per-screen form validation
 
 ## Documentation
 
@@ -153,7 +187,7 @@ The `docs/` folder contains precise reference documentation — use it before re
 | File | Contents |
 |---|---|
 | `docs/experiment.md` | `ExperimentFlow` top-level structure |
-| `docs/nodes.md` | All 7 node types with full property docs |
+| `docs/nodes.md` | Node type reference (currently covers 7 of the 9 node types; compute and data are not yet documented) |
 | `docs/edges.md` | All edge types and node-to-edge validation rules |
 | `docs/components.md` | All component types and their props (content, response, layout, control) |
 | `docs/data-keys.md` | The 5 reference prefixes: `$$`, `@`, `$`, `#`, `%` |
@@ -165,12 +199,12 @@ The `docs/` folder contains precise reference documentation — use it before re
 
 | Question | Start here |
 |---|---|
-| How the state machine works | `lib/flow.ts` — `traverse()`, `enterStep()`, `traverseInNode/Path/Loop()` |
-| All core type definitions | `lib/types.ts` — `ExperimentFlow`, `State`, `Context`, `FlowStep` |
-| What node types exist | `lib/nodes.ts` |
-| What validation checks run | `lib/flow-validation.ts` — `validateExperiment()` |
-| How a screen form is wired | `src/Screen.tsx` — `useForm` + `buildSchema` + `buildDefaultValues` |
-| How a component gets rendered | `src/components/RenderComponent.tsx` — switch on `componentFamily` + `template` |
-| Where experiments are registered | `src/data/experiment.ts` — `EXPERIMENTS` |
-| How a URL maps to an experiment | `app/experiments/[slug]/page.tsx` |
-| Engine behavior examples | `lib/specs/flow/` — traversal tests covering branch, path, loop, fork |
+| How the state machine works | `packages/engine/flow/traverse.ts` — `traverse()`, `enterStep()`, `traverseInNode/Path/Loop()` |
+| All core type definitions | `packages/engine/types.ts` — `ExperimentFlow`, `State`, `Context`, `FlowStep` |
+| What node types exist | `packages/engine/nodes.ts` |
+| What validation checks run | `packages/engine/experiment-validation/index.ts` — `validateExperiment()` |
+| How a screen form is wired | `apps/frontend/src/Screen.tsx` — `useForm` + `buildSchema` + `buildDefaultValues` |
+| How a component gets rendered | `apps/frontend/src/components/RenderComponent.tsx` — switch on `componentFamily` + `template` |
+| Where experiments are registered | `apps/frontend/src/data/experiments/index.ts` — `EXPERIMENTS` |
+| How a URL maps to an experiment | `apps/frontend/app/(experiments-layout)/experiments/[slug]/page.tsx` |
+| Engine behavior examples | `packages/engine/specs/flow/` — traversal tests covering branch, path, loop, fork |
