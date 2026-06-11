@@ -13,7 +13,7 @@ conditions, and update your row when done.
 | 002 | Bump next ≥16.2.5 / @vitest/browser ≥4.1.6 (security) | P1 | S | — | DONE (PR #104, `fad510b`) |
 | 003 | Surface screen-submit failures + remove stray console.log | P1 | S | — | DONE (`873d404`, main) |
 | 004 | Reset experiment store when the experiment changes | P1 | S | 003 (soft) | DONE (`8db3403`, main) |
-| 005 | Stop per-keystroke full-tree re-renders | P2 | M | 003, 004 (merge order) | TODO |
+| 005 | Stop per-keystroke full-tree re-renders | P2 | M | 003, 004 (merge order) | DONE (`91b6e22`, main) |
 | 006 | Formula `$` prefix: document + validate | P2 | M | — | TODO |
 | 007 | CI lint/typecheck gates + repo-root cleanup | P2 | S | — | TODO |
 | 008 | Deterministic (seeded) randomization tests | P2 | M | — | TODO |
