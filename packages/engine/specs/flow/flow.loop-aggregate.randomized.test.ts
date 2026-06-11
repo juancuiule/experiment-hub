@@ -63,6 +63,18 @@ describe("loop-aggregate — count over a randomized loop", () => {
     screens: [{ slug: "trial", components: [] }, { slug: "end", components: [] }],
   };
 
+  it("counts only the correct subset when some answers are wrong", async () => {
+    let step = await startExperiment(flow, "start");
+    // Reversed order: [c, b, a]; give correct answers for c and a, wrong for b
+    const correct: Record<string, string> = { a: "A", c: "C" };
+    while (step.state.type === "in-loop") {
+      const item = (step.context.loopData as any)?.["loop"]?.value;
+      step = await traverse(step, { answer: correct[item.id] ?? "WRONG" });
+    }
+    expect(step.context.loops?.["loop"]?.order).toEqual(["c", "b", "a"]);
+    expect(step.context.data?.["score"]?.["total"]).toBe(2);
+  });
+
   it("presents items reversed but still scores every correct answer", async () => {
     let step = await startExperiment(flow, "start");
     while (step.state.type === "in-loop") {

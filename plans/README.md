@@ -16,7 +16,7 @@ conditions, and update your row when done.
 | 005 | Stop per-keystroke full-tree re-renders | P2 | M | 003, 004 (merge order) | DONE (`91b6e22`, main) |
 | 006 | Formula `$` prefix: document + validate | P2 | M | — | DONE (`8cd5c6c`, main) |
 | 007 | CI lint/typecheck gates + repo-root cleanup | P2 | S | — | DONE (`bea8dbd`+`73c1767`, main) |
-| 008 | Deterministic (seeded) randomization tests | P2 | M | — | TODO |
+| 008 | Deterministic (seeded) randomization tests | P2 | M | — | DONE |
 | 009 | E2E coverage: loop, fork, compute, data nodes | P2 | L | — | TODO |
 | 010 | Slider tooltip dedup, typed merges, explicit exports | P3 | M | 005 (same file) | TODO |
 | 011 | Docs: `data` node + `%` shared-options prefix | P3 | S | 006 (same file, soft) | TODO |

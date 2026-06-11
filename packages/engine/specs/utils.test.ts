@@ -1,7 +1,10 @@
-import { describe, it, expect } from 'vitest';
+import { afterEach, describe, it, expect, vi } from 'vitest';
 import { isDefined, shuffle, shuffleAnchored } from '@experiment-hub/engine/utils';
+import { seedRandom } from './test-helpers';
 
 describe('shuffleAnchored', () => {
+  afterEach(() => vi.restoreAllMocks());
+
   it('places anchor:last options at the end', () => {
     const options = [
       { label: 'A', value: 'a' },
@@ -71,6 +74,18 @@ describe('shuffleAnchored', () => {
     expect(result[1].value).toBe('l');
   });
 
+  it('shuffles the middle in seeded order while keeping anchors pinned', () => {
+    seedRandom(42);
+    const options = [
+      { value: 'b', anchor: 'first' as const },
+      { value: 'a' },
+      { value: 'c' },
+      { value: 'd' },
+      { value: 'e', anchor: 'last' as const },
+    ];
+    expect(shuffleAnchored(options).map((o) => o.value)).toEqual(['b', 'c', 'd', 'a', 'e']);
+  });
+
   it('leaves a fully-unanchored array with all items present', () => {
     const options = [
       { label: 'A', value: 'a' },
@@ -86,6 +101,8 @@ describe('shuffleAnchored', () => {
 });
 
 describe('shuffle', () => {
+  afterEach(() => vi.restoreAllMocks());
+
   it('returns a new array containing all original elements', () => {
     const input = [1, 2, 3, 4, 5];
     const result = shuffle(input);
@@ -106,6 +123,11 @@ describe('shuffle', () => {
 
   it('returns a single-element array unchanged', () => {
     expect(shuffle([42])).toEqual([42]);
+  });
+
+  it('produces a deterministic permutation under seed 42', () => {
+    seedRandom(42);
+    expect(shuffle([1, 2, 3, 4, 5])).toEqual([3, 4, 5, 1, 2]);
   });
 });
 

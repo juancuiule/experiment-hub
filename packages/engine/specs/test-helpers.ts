@@ -1,4 +1,13 @@
+import { vi } from 'vitest';
 import { ExperimentFlow } from "../types";
+
+export function seedRandom(seed = 42) {
+  let s = seed >>> 0;
+  return vi.spyOn(Math, 'random').mockImplementation(() => {
+    s = (1664525 * s + 1013904223) >>> 0;
+    return s / 2 ** 32;
+  });
+}
 
 export function makeScreen(
   id: string,

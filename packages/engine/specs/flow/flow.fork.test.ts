@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { startExperiment, traverse } from "@experiment-hub/engine/flow";
 import { ExperimentFlow } from "@experiment-hub/engine/types";
-import { makeScreen, seq } from "../test-helpers";
+import { makeScreen, seedRandom, seq } from "../test-helpers";
 
 describe("fork", () => {
   afterEach(() => vi.restoreAllMocks());
@@ -101,6 +101,13 @@ describe("fork", () => {
     let step = await startExperiment(flow, "start"); // on screen-a
     step = await traverse(step, { answer: 42 }); // → screen-end
     expect((step.state as any).node.id).toBe("screen-end");
+  });
+
+  it("selects groupA deterministically under seed 42 (first LCG rand ≈ 0.25)", async () => {
+    seedRandom(42);
+    const step = await startExperiment(flow, "start");
+    expect((step.state as any).node.id).toBe("screen-a");
+    expect(step.context.forks?.["fork-group"]).toBe("groupA");
   });
 
   it("throws when no fork-edge exists for the selected fork id", async () => {

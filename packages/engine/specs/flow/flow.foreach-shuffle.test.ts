@@ -1,8 +1,8 @@
 import { ScreenComponent } from '@experiment-hub/engine/components';
 import { startExperiment, traverse } from '@experiment-hub/engine/flow';
 import { ExperimentFlow } from '@experiment-hub/engine/types';
-import { describe, expect, it } from 'vitest';
-import { seq } from '../test-helpers';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { seedRandom, seq } from '../test-helpers';
 
 const VALUES = ['tennis', 'golf', 'squash'];
 
@@ -63,6 +63,16 @@ function makeFlow(
 }
 
 describe('randomized for-each presentation order', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it('produces an exact known presentation order under seed 42', async () => {
+    seedRandom(42);
+    const flow = makeFlow([foreach({ randomized: true })]);
+    const step = await startExperiment(flow, 'start');
+    const order = step.context.screenData?.shuffledForeachOrders?.['sport-items'];
+    expect(order).toEqual(['golf', 'squash', 'tennis']);
+  });
+
   it('emits a stable shuffled order containing all static values', async () => {
     const flow = makeFlow([foreach({ randomized: true })]);
     const step = await startExperiment(flow, 'start');

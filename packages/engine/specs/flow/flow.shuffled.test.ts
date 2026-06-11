@@ -2,8 +2,8 @@ import { ScreenComponent } from '@experiment-hub/engine/components';
 import { Option } from '@experiment-hub/engine/components/response';
 import { startExperiment, traverse } from '@experiment-hub/engine/flow';
 import { ExperimentFlow } from '@experiment-hub/engine/types';
-import { describe, expect, it } from 'vitest';
-import { seq } from '../test-helpers';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { seedRandom, seq } from '../test-helpers';
 
 const OPTIONS = [
   { label: 'A', value: 'a' },
@@ -115,6 +115,8 @@ describe('option anchoring', () => {
 });
 
 describe('shuffled options injected by enterStep', () => {
+  afterEach(() => vi.restoreAllMocks());
+
   it('injects a shuffled permutation for randomize:true radio', async () => {
     const flow = makeFlow([
       {
@@ -284,6 +286,25 @@ describe('shuffled options injected by enterStep', () => {
     const order2 = step2.context.screenData?.shuffledOptions?.['choice'];
 
     expect(order2).toBe(order1);
+  });
+
+  it('produces an exact known permutation under seed 42', async () => {
+    seedRandom(42);
+    const flow = makeFlow([
+      {
+        componentFamily: 'response',
+        template: 'radio',
+        props: {
+          dataKey: 'choice',
+          label: 'Choice',
+          options: OPTIONS,
+          randomize: true,
+        },
+      },
+    ]);
+    const step = await startExperiment(flow, 'start');
+    const shuffled = step.context.screenData?.shuffledOptions?.['choice'];
+    expect(shuffled?.map((o: Option) => o.value)).toEqual(['b', 'c', 'a']);
   });
 
   it('reshuffles across loop iterations when reshuffleInLoop:true', async () => {
