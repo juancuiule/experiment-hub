@@ -7,6 +7,7 @@ import { Option } from '@experiment-hub/engine/components/response';
 import { FrameworkScreen } from '@experiment-hub/engine/screen';
 import { augmentSubmitData, buildScreenBindings } from '@experiment-hub/engine/screen-bindings';
 import { Context, ContextData } from '@experiment-hub/engine/types';
+import { useExperimentStore } from './data/store';
 import { RenderComponent } from './components/RenderComponent';
 import { DataSection } from './debug/DataTree';
 
@@ -35,10 +36,10 @@ export function Screen({
     shouldUnregister: true,
   });
 
+  const error = useExperimentStore((s) => s.error);
+
   const onSubmit = (data: ContextData) => {
-    onNext(augmentSubmitData(data, context)).catch((err) =>
-      console.error('Failed to advance experiment:', err),
-    );
+    onNext(augmentSubmitData(data, context));
   };
 
   return (
@@ -63,6 +64,11 @@ export function Screen({
           />
         ))}
       </form>
+      {error && (
+        <p className="text-error my-2" role="alert">
+          {error}
+        </p>
+      )}
       {process.env.NODE_ENV === 'development' && (
         <details className="my-2">
           <summary className="text-content-secondary cursor-pointer text-xs">

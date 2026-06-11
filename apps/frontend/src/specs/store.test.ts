@@ -1,6 +1,9 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ExperimentFlow, InNodeState } from '@experiment-hub/engine/types';
 import { useExperimentStore } from '@/src/data/store';
+
+vi.mock('@/src/data/send', () => ({ send: vi.fn().mockResolvedValue(undefined) }));
+import { send } from '@/src/data/send';
 
 const flow: ExperimentFlow = {
   nodes: [
@@ -20,7 +23,8 @@ const nodeId = (state: InNodeState | unknown) => (state as InNodeState).node.id;
 
 describe('useExperimentStore', () => {
   beforeEach(() => {
-    useExperimentStore.setState({ step: null, isLoading: false });
+    useExperimentStore.setState({ step: null, isLoading: false, error: null });
+    vi.mocked(send).mockResolvedValue(undefined);
   });
 
   it('starts on a null step that is not loading', () => {
@@ -70,5 +74,42 @@ describe('useExperimentStore', () => {
     expect(useExperimentStore.getState().isLoading).toBe(true);
     await promise;
     expect(useExperimentStore.getState().isLoading).toBe(false);
+  });
+});
+
+const flowWithCheckpointAfterFirst: ExperimentFlow = {
+  nodes: [
+    { id: 'start', type: 'start' },
+    { id: 'screen-1', type: 'screen', props: { slug: 'one' } },
+    { id: 'cp-mid', type: 'checkpoint', props: { name: 'mid' } },
+    { id: 'screen-2', type: 'screen', props: { slug: 'two' } },
+  ],
+  edges: [
+    { type: 'sequential', from: 'start', to: 'screen-1' },
+    { type: 'sequential', from: 'screen-1', to: 'cp-mid' },
+    { type: 'sequential', from: 'cp-mid', to: 'screen-2' },
+  ],
+};
+
+describe('error state', () => {
+  beforeEach(() => {
+    useExperimentStore.setState({ step: null, isLoading: false, error: null });
+    vi.mocked(send).mockResolvedValue(undefined);
+  });
+
+  it('next() failure sets error and resets isLoading to false', async () => {
+    await useExperimentStore.getState().start(flowWithCheckpointAfterFirst);
+    vi.mocked(send).mockRejectedValueOnce(new Error('network error'));
+    await useExperimentStore.getState().next({ one: 'answer' });
+    const { error, isLoading } = useExperimentStore.getState();
+    expect(error).toBe('Something went wrong while saving your answer. Please try again.');
+    expect(isLoading).toBe(false);
+  });
+
+  it('a subsequent successful next() clears the error', async () => {
+    await useExperimentStore.getState().start(flow);
+    useExperimentStore.setState({ error: 'previous error' });
+    await useExperimentStore.getState().next({ one: 'answer' });
+    expect(useExperimentStore.getState().error).toBeNull();
   });
 });

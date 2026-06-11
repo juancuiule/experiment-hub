@@ -10,6 +10,7 @@ import { create } from 'zustand';
 type ExperimentStore = {
   step: FlowStep | null;
   isLoading: boolean;
+  error: string | null;
   start: (
     experiment: ExperimentFlow,
     startNodeId?: string,
@@ -21,12 +22,13 @@ type ExperimentStore = {
 export const useExperimentStore = create<ExperimentStore>()((set, get) => ({
   step: null,
   isLoading: false,
+  error: null,
   start: async (
     experiment: ExperimentFlow,
     startNodeId?: string,
     locale?: string,
   ) => {
-    set({ isLoading: true });
+    set({ isLoading: true, error: null });
     try {
       const step = await startExperiment(
         experiment,
@@ -39,6 +41,9 @@ export const useExperimentStore = create<ExperimentStore>()((set, get) => ({
         locale,
       ).then(recordEnteredAt);
       set({ step });
+    } catch (err) {
+      console.error('Failed to load experiment:', err);
+      set({ error: 'Something went wrong while loading the experiment.' });
     } finally {
       set({ isLoading: false });
     }
@@ -46,12 +51,15 @@ export const useExperimentStore = create<ExperimentStore>()((set, get) => ({
   next: async (data?: Context['data']) => {
     const { step } = get();
     if (!step) return;
-    set({ isLoading: true });
+    set({ isLoading: true, error: null });
     try {
       const nextStep = await traverseWithTiming(step, data).then(
         recordEnteredAt,
       );
       set({ step: nextStep });
+    } catch (err) {
+      console.error('Failed to advance experiment:', err);
+      set({ error: 'Something went wrong while saving your answer. Please try again.' });
     } finally {
       set({ isLoading: false });
     }

@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Screen } from '../Screen';
+import { useExperimentStore } from '../data/store';
 import { FrameworkScreen } from '@experiment-hub/engine/screen';
 
 const noop = vi.fn().mockResolvedValue(undefined);
@@ -1373,5 +1374,23 @@ describe('shared options (%name)', () => {
     );
     expect(screen.getByText('Yes')).toBeInTheDocument();
     expect(screen.getByText('No')).toBeInTheDocument();
+  });
+});
+
+describe('submit error display', () => {
+  beforeEach(() => {
+    useExperimentStore.setState({ step: null, isLoading: false, error: null });
+  });
+
+  it('renders an alert when the store has an error', () => {
+    useExperimentStore.setState({ error: 'Something went wrong while saving your answer. Please try again.' });
+    renderScreen([]);
+    expect(screen.getByRole('alert')).toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent('Something went wrong while saving your answer. Please try again.');
+  });
+
+  it('does not render an alert when error is null', () => {
+    renderScreen([]);
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 });

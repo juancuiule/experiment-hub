@@ -84,7 +84,6 @@ export function evaluateFormula(
         typeof formula.n === 'number'
           ? formula.n
           : getFormulaInputValue(formula.n, context, nodeOutputs);
-      console.log({ n });
       return shuffle(pool).slice(0, n);
     }
     case 'split': {
