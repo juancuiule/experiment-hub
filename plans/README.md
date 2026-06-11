@@ -14,7 +14,7 @@ conditions, and update your row when done.
 | 003 | Surface screen-submit failures + remove stray console.log | P1 | S | — | DONE (`873d404`, main) |
 | 004 | Reset experiment store when the experiment changes | P1 | S | 003 (soft) | DONE (`8db3403`, main) |
 | 005 | Stop per-keystroke full-tree re-renders | P2 | M | 003, 004 (merge order) | DONE (`91b6e22`, main) |
-| 006 | Formula `$` prefix: document + validate | P2 | M | — | TODO |
+| 006 | Formula `$` prefix: document + validate | P2 | M | — | DONE (`8cd5c6c`, main) |
 | 007 | CI lint/typecheck gates + repo-root cleanup | P2 | S | — | TODO |
 | 008 | Deterministic (seeded) randomization tests | P2 | M | — | TODO |
 | 009 | E2E coverage: loop, fork, compute, data nodes | P2 | L | — | TODO |
