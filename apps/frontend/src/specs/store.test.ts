@@ -75,6 +75,18 @@ describe('useExperimentStore', () => {
     await promise;
     expect(useExperimentStore.getState().isLoading).toBe(false);
   });
+
+  it('reset() clears step, isLoading, and error after a start()', async () => {
+    await useExperimentStore.getState().start(flow);
+    expect(useExperimentStore.getState().step).not.toBeNull();
+
+    useExperimentStore.getState().reset();
+
+    const { step, isLoading, error } = useExperimentStore.getState();
+    expect(step).toBeNull();
+    expect(isLoading).toBe(false);
+    expect(error).toBeNull();
+  });
 });
 
 const flowWithCheckpointAfterFirst: ExperimentFlow = {

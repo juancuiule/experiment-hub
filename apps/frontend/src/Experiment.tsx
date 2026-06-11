@@ -15,14 +15,18 @@ type Props = {
 export default function Experiment(props: Props) {
   const { startingNode, experiment, locale } = props;
   const { step, isLoading, start, next } = useExperimentStore();
+  const reset = useExperimentStore((s) => s.reset);
 
   useEffect(() => {
-    if (!step) {
+    if (!step || step.experiment !== experiment) {
       start(experiment, startingNode, locale);
     }
-  }, [step, startingNode, experiment, locale]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [experiment, startingNode, locale]);
 
-  if (!step) {
+  useEffect(() => reset, [reset]);
+
+  if (!step || step.experiment !== experiment) {
     return <div className="flex-1"></div>;
   }
 

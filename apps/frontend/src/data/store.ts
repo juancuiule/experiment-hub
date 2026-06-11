@@ -11,6 +11,7 @@ type ExperimentStore = {
   step: FlowStep | null;
   isLoading: boolean;
   error: string | null;
+  reset: () => void;
   start: (
     experiment: ExperimentFlow,
     startNodeId?: string,
@@ -23,6 +24,7 @@ export const useExperimentStore = create<ExperimentStore>()((set, get) => ({
   step: null,
   isLoading: false,
   error: null,
+  reset: () => set({ step: null, isLoading: false, error: null }),
   start: async (
     experiment: ExperimentFlow,
     startNodeId?: string,
