@@ -17,4 +17,17 @@ We will also be using `$` (a single dollar sign) to reference values from the cu
 | `$`    | Current screen         | `$hasChildren`                      |
 | `#`    | For-each item (by for-each component ID) | `#foreach-sport.value`, `#foreach-sport.index` |
 
+### Inside compute formulas
+
+Inside a **compute node**, the `$` prefix has a different meaning: `$name` refers to an output named `name` that was declared **earlier in the same compute node**, not to screen data. `$$` still means experiment-wide collected data as usual.
+
+```ts
+// compute node example
+{ outputKey: 'total', formula: { type: 'sum', inputs: ['$$q.score'] } },
+{ outputKey: 'level', formula: { type: 'conditional', condition: { type: 'simple', dataKey: '$total', operator: 'gte', value: 10 }, then: 'high', else: 'low' } }
+//                                                                                        ^ refers to the 'total' output above, not screen data
+```
+
+The validator enforces this: a `$name` in a formula input must match an output key declared earlier in the same node, or a `unknown-compute-output-reference` error is reported.
+
 Localized static copy uses a separate token, `[[key]]`, which resolves against the active locale's dictionary rather than runtime data. It is wrapped in `[[ ]]` (not `{{ }}`) and is documented in [i18n](./i18n.md).

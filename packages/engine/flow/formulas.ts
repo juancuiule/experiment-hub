@@ -6,6 +6,8 @@ import { Context, ContextData } from '../types';
 import { shuffle } from '../utils';
 import { mergeContext } from './context';
 
+// Inside compute formulas, `$name` means "the output named `name` produced
+// earlier in this same compute node" — NOT current-screen data. See docs/data-keys.md.
 function getFormulaInputValue(
   input: string,
   context: Context,

@@ -495,12 +495,21 @@ export function checkReferences(experiment: ExperimentFlow): ValidationError[] {
         node.props.computations.forEach((computation) => {
           referencesInFormula(computation.formula).forEach((ref) => {
             if (!isAvailable(ref, computeAvailable)) {
-              rawErrors.push(
-                unavailableRefError(
-                  ref,
-                  `Compute "${node.id}" output "${computation.outputKey}"`,
-                ),
-              );
+              const parsed = parseRef(ref);
+              if (parsed?.prefix === PREFIX.SCREEN) {
+                rawErrors.push({
+                  code: 'unknown-compute-output-reference',
+                  category: 'reference',
+                  message: `Compute "${node.id}" output "${computation.outputKey}" uses "${ref}" but "${parsed.path.split('.')[0]}" is not an output declared earlier in this compute node`,
+                });
+              } else {
+                rawErrors.push(
+                  unavailableRefError(
+                    ref,
+                    `Compute "${node.id}" output "${computation.outputKey}"`,
+                  ),
+                );
+              }
             }
           });
 

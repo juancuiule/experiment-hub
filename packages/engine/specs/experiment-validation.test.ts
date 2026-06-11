@@ -1992,7 +1992,7 @@ describe('compute node reference checks', () => {
     expect(codes(flow)).toEqual([]);
   });
 
-  it('reports unavailable-reference when $outputKey references a key not yet defined in the same node', () => {
+  it('reports unknown-compute-output-reference when $outputKey references a key not yet defined in the same node', () => {
     const flow: ExperimentFlow = {
       nodes: [
         start,
@@ -2041,7 +2041,7 @@ describe('compute node reference checks', () => {
         { slug: 'end', components: [] },
       ],
     };
-    expect(codes(flow)).toContain('unavailable-reference');
+    expect(codes(flow)).toContain('unknown-compute-output-reference');
   });
 
   it('passes when $outputKey references an earlier output in the same node', () => {
@@ -2093,6 +2093,178 @@ describe('compute node reference checks', () => {
       ],
     };
     expect(codes(flow)).toEqual([]);
+  });
+
+  it('unknown-compute-output-reference: $nonexistent never declared in the node → error', () => {
+    const flow: ExperimentFlow = {
+      nodes: [
+        start,
+        makeScreen('s1', 'q'),
+        makeCompute('c1', [
+          {
+            outputKey: 'total',
+            formula: { type: 'sum', inputs: ['$ghost'] },
+          },
+        ]),
+        end,
+      ],
+      edges: [seq('start', 's1'), seq('s1', 'c1'), seq('c1', 'end')],
+      screens: [
+        {
+          slug: 'q',
+          components: [
+            {
+              componentFamily: 'response',
+              template: 'numeric-input',
+              props: { dataKey: 'score', label: 'Score' },
+            },
+          ],
+        },
+      ],
+    };
+    expect(codes(flow)).toContain('unknown-compute-output-reference');
+  });
+
+  it('unknown-compute-output-reference: $later references output declared after current one → error', () => {
+    const flow: ExperimentFlow = {
+      nodes: [
+        start,
+        makeScreen('s1', 'q'),
+        makeCompute('c1', [
+          {
+            outputKey: 'level',
+            formula: {
+              type: 'conditional',
+              condition: {
+                type: 'simple',
+                operator: 'gte',
+                dataKey: '$total',
+                value: 10,
+              },
+              then: 'high',
+              else: 'low',
+            },
+          },
+          {
+            outputKey: 'total',
+            formula: { type: 'sum', inputs: ['$$q.score'] },
+          },
+        ]),
+        end,
+      ],
+      edges: [seq('start', 's1'), seq('s1', 'c1'), seq('c1', 'end')],
+      screens: [
+        {
+          slug: 'q',
+          components: [
+            {
+              componentFamily: 'response',
+              template: 'numeric-input',
+              props: { dataKey: 'score', label: 'Score' },
+            },
+          ],
+        },
+      ],
+    };
+    expect(codes(flow)).toContain('unknown-compute-output-reference');
+  });
+
+  it('unknown-compute-output-reference: $earlier referencing a prior output → no error', () => {
+    const flow: ExperimentFlow = {
+      nodes: [
+        start,
+        makeScreen('s1', 'q'),
+        makeCompute('c1', [
+          {
+            outputKey: 'total',
+            formula: { type: 'sum', inputs: ['$$q.score'] },
+          },
+          {
+            outputKey: 'level',
+            formula: {
+              type: 'conditional',
+              condition: {
+                type: 'simple',
+                operator: 'gte',
+                dataKey: '$total',
+                value: 10,
+              },
+              then: 'high',
+              else: 'low',
+            },
+          },
+        ]),
+        end,
+      ],
+      edges: [seq('start', 's1'), seq('s1', 'c1'), seq('c1', 'end')],
+      screens: [
+        {
+          slug: 'q',
+          components: [
+            {
+              componentFamily: 'response',
+              template: 'numeric-input',
+              props: { dataKey: 'score', label: 'Score' },
+            },
+          ],
+        },
+      ],
+    };
+    expect(codes(flow)).not.toContain('unknown-compute-output-reference');
+  });
+
+  it('unknown-compute-output-reference: $$ inputs never trigger this code (unavailable-reference instead)', () => {
+    const flow: ExperimentFlow = {
+      nodes: [
+        start,
+        makeCompute('c1', [
+          {
+            outputKey: 'total',
+            formula: { type: 'sum', inputs: ['$$notwritten.score'] },
+          },
+        ]),
+        end,
+      ],
+      edges: [seq('start', 'c1'), seq('c1', 'end')],
+      screens: [],
+    };
+    const errorCodes = codes(flow);
+    expect(errorCodes).not.toContain('unknown-compute-output-reference');
+    expect(errorCodes).toContain('unavailable-reference');
+  });
+
+  it('unknown-compute-output-reference: $out.subpath into a prior output → no error (first segment checked)', () => {
+    const flow: ExperimentFlow = {
+      nodes: [
+        start,
+        makeScreen('s1', 'q'),
+        makeCompute('c1', [
+          {
+            outputKey: 'stats',
+            formula: { type: 'sum', inputs: ['$$q.score'] },
+          },
+          {
+            outputKey: 'derived',
+            formula: { type: 'sum', inputs: ['$stats.nested'] },
+          },
+        ]),
+        end,
+      ],
+      edges: [seq('start', 's1'), seq('s1', 'c1'), seq('c1', 'end')],
+      screens: [
+        {
+          slug: 'q',
+          components: [
+            {
+              componentFamily: 'response',
+              template: 'numeric-input',
+              props: { dataKey: 'score', label: 'Score' },
+            },
+          ],
+        },
+      ],
+    };
+    expect(codes(flow)).not.toContain('unknown-compute-output-reference');
   });
 
   it('adds compute outputs to the available set for downstream nodes', () => {

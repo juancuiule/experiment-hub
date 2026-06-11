@@ -165,7 +165,13 @@ An `@value` or `@index` token is only valid when the screen is a direct or indir
 
 - **Code:** `invalid-reference`
 
-### 5.3 `randomized` for-each must not use a `$`-prefixed `dataKey`
+### 5.3 `$`-prefixed formula input in a compute node must name an earlier output
+
+Inside a compute node, `$name` in a formula input refers to an output of the same node declared **before** the current computation. A reference to an output declared later, or to a name that is never declared in the node, is rejected. Use `$$nodeId.outputKey` to reference outputs from a different compute node.
+
+- **Code:** `unknown-compute-output-reference`
+
+### 5.4 `randomized` for-each must not use a `$`-prefixed `dataKey`
 
 A `for-each` component with `randomized: true` is shuffled once at screen entry, before render. A `dynamic` for-each whose `dataKey` uses the `$` prefix references live form state, which only exists inside React at render time — there is no stable list to shuffle at enter-step time. The `$$`, `@`, and `#` prefixes (and any `static` for-each) are resolvable at enter-step time and are supported.
 
@@ -238,6 +244,7 @@ Every node (other than `start` nodes themselves) must be reachable by following 
 | `duplicate-screen`      | Two screen definitions share the same slug                                                |
 | `unreferenced-screen`   | A screen definition is not referenced by any screen node                                  |
 | `unavailable-reference`   | A `$$` token references data not guaranteed to be written at that point |
+| `unknown-compute-output-reference` | A `$name` formula input in a compute node does not match any output declared earlier in that node |
 | `invalid-reference`       | An `@` token is used outside a loop context                                             |
 | `unknown-shared-options`  | A `%name` options reference has no matching entry in `ExperimentFlow.options`           |
 | `unwrapped-token`         | A `$$key` token appears without `{{ }}` wrapping and will not be interpolated at runtime |
