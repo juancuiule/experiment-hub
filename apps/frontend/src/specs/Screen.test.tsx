@@ -1377,6 +1377,70 @@ describe('shared options (%name)', () => {
   });
 });
 
+describe('live context propagation (hoisted form.watch)', () => {
+  it('answer piping updates rich-text as user types in a sibling field', async () => {
+    renderScreen([
+      {
+        componentFamily: 'response',
+        template: 'text-input',
+        props: { dataKey: 'name', label: 'Name' },
+      },
+      {
+        componentFamily: 'content',
+        template: 'rich-text',
+        props: { content: 'Hello {{$name}}!' },
+      },
+    ]);
+
+    await userEvent.type(screen.getByLabelText('Name'), 'Ana');
+    expect(screen.getByText('Hello Ana!')).toBeInTheDocument();
+  });
+
+  it('conditional inside a group toggles when a sibling field changes', async () => {
+    renderScreen([
+      {
+        componentFamily: 'response',
+        template: 'radio',
+        props: {
+          dataKey: 'show',
+          label: 'Show?',
+          options: [
+            { label: 'Yes', value: 'yes' },
+            { label: 'No', value: 'no' },
+          ],
+        },
+      },
+      {
+        componentFamily: 'layout',
+        template: 'group',
+        props: {
+          name: 'grp',
+          components: [
+            {
+              componentFamily: 'control',
+              template: 'conditional',
+              props: {
+                if: { type: 'simple', dataKey: '$show', operator: 'eq', value: 'yes' },
+                then: {
+                  componentFamily: 'content',
+                  template: 'rich-text',
+                  props: { content: 'Revealed!' },
+                },
+              },
+            },
+          ],
+        },
+      },
+    ]);
+
+    expect(screen.queryByText('Revealed!')).not.toBeInTheDocument();
+    await userEvent.click(screen.getByLabelText('Yes'));
+    expect(screen.getByText('Revealed!')).toBeInTheDocument();
+    await userEvent.click(screen.getByLabelText('No'));
+    expect(screen.queryByText('Revealed!')).not.toBeInTheDocument();
+  });
+});
+
 describe('submit error display', () => {
   beforeEach(() => {
     useExperimentStore.setState({ step: null, isLoading: false, error: null });

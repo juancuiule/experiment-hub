@@ -1,8 +1,10 @@
 'use client';
 
+import { useMemo } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 
+import { deepMerge } from '@experiment-hub/engine/flow';
 import { Option } from '@experiment-hub/engine/components/response';
 import { FrameworkScreen } from '@experiment-hub/engine/screen';
 import { augmentSubmitData, buildScreenBindings } from '@experiment-hub/engine/screen-bindings';
@@ -26,15 +28,21 @@ export function Screen({
   context,
   sharedOptions,
 }: ScreenProps) {
-  const { schema, defaultValues } = buildScreenBindings(
-    screen.components,
-    context,
+  const { schema, defaultValues } = useMemo(
+    () => buildScreenBindings(screen.components, context),
+    [screen, context],
   );
   const form = useForm<ContextData>({
     resolver: zodResolver(schema),
     defaultValues,
     shouldUnregister: true,
   });
+
+  const screenData = form.watch();
+  const liveContext = useMemo(
+    () => deepMerge(context, { screenData }),
+    [context, screenData],
+  );
 
   const error = useExperimentStore((s) => s.error);
 
@@ -58,7 +66,7 @@ export function Screen({
             }
             component={component}
             form={form}
-            context={context}
+            context={liveContext}
             isLoading={isLoading}
             sharedOptions={sharedOptions}
           />

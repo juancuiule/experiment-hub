@@ -1,5 +1,6 @@
 'use client';
 
+import { memo } from 'react';
 import { resolveCondition } from '@experiment-hub/engine/conditions';
 import { deepMerge } from '@experiment-hub/engine/flow';
 import { resolveValuesInString } from '@experiment-hub/engine/resolve';
@@ -25,16 +26,13 @@ import { TextArea } from './response/TextArea';
 import { TextInput } from './response/TextInput';
 import { TimeInput } from './response/TimeInput';
 
-export function RenderComponent({
+export const RenderComponent = memo(function RenderComponent({
   component,
   form,
-  context: propContext,
+  context,
   isLoading,
   sharedOptions,
 }: RenderProps) {
-  const screenData = form.watch(); // Watch all form values to have them available in context
-  const context = deepMerge(propContext, { screenData }); // Add form values to context for easier access in components
-
   const renderChild = (props: RenderProps) => (
     <RenderComponent {...props} sharedOptions={sharedOptions} />
   );
@@ -181,4 +179,4 @@ export function RenderComponent({
       <code>{JSON.stringify(component, null, 2)}</code>
     </pre>
   );
-}
+});

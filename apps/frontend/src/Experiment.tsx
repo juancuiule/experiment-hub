@@ -21,7 +21,6 @@ export default function Experiment(props: Props) {
     if (!step || step.experiment !== experiment) {
       start(experiment, startingNode, locale);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [experiment, startingNode, locale]);
 
   useEffect(() => reset, [reset]);
