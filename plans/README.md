@@ -11,7 +11,7 @@ conditions, and update your row when done.
 |------|-------|----------|--------|------------|--------|
 | 001 | Rewrite CLAUDE.md for the pnpm-workspace layout | P1 | S | — | DONE (merged to main in PR #103, `df3740e`) |
 | 002 | Bump next ≥16.2.5 / @vitest/browser ≥4.1.6 (security) | P1 | S | — | DONE (PR #104, `fad510b`) |
-| 003 | Surface screen-submit failures + remove stray console.log | P1 | S | — | TODO |
+| 003 | Surface screen-submit failures + remove stray console.log | P1 | S | — | DONE (`873d404`, main) |
 | 004 | Reset experiment store when the experiment changes | P1 | S | 003 (soft) | TODO |
 | 005 | Stop per-keystroke full-tree re-renders | P2 | M | 003, 004 (merge order) | TODO |
 | 006 | Formula `$` prefix: document + validate | P2 | M | — | TODO |
