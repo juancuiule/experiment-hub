@@ -4,6 +4,7 @@ import { memo } from 'react';
 import { resolveCondition } from '@experiment-hub/engine/conditions';
 import { deepMerge } from '@experiment-hub/engine/flow';
 import { resolveValuesInString } from '@experiment-hub/engine/resolve';
+import { Accordion } from './content/Accordion';
 import { Audio } from './content/Audio';
 import { Image as ImageRenderer } from './content/Image';
 import { RichText } from './content/RichText';
@@ -48,6 +49,8 @@ export const RenderComponent = memo(function RenderComponent({
           return <Video component={component} />;
         case 'audio':
           return <Audio component={component} />;
+        case 'accordion':
+          return <Accordion component={component} context={context} />;
       }
       return null;
     }

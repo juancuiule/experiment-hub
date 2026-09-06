@@ -59,9 +59,19 @@ export type AudioComponent = BaseContentComponent<
   }
 >;
 
+/**
+ * Renders a collapsible accordion. `title` is the always-visible summary;
+ * `body` is the content shown when expanded. Both support answer piping.
+ */
+export type AccordionComponent = BaseContentComponent<
+  'accordion',
+  { title: string; body: string }
+>;
+
 /** Union of every `content`-family component. */
 export type ContentComponent =
   | RichTextComponent
   | ImageComponent
   | VideoComponent
-  | AudioComponent;
+  | AudioComponent
+  | AccordionComponent;
