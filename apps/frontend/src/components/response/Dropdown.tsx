@@ -47,14 +47,14 @@ export function Dropdown({ component, form, context, sharedOptions }: Props) {
             >
               <SelectPrimitive.Value placeholder="Select one" />
               <SelectPrimitive.Icon>
-                <ChevronDown className="text-content-secondary size-4" />
+                <ChevronDown className="text-content-secondary size-4" strokeWidth={1.5} />
               </SelectPrimitive.Icon>
             </SelectPrimitive.Trigger>
             <SelectPrimitive.Portal>
               <SelectPrimitive.Content
                 position="popper"
                 sideOffset={4}
-                className="bg-background-surface border-border-default z-50 overflow-hidden rounded-sm border shadow-md"
+                className="bg-background-surface border-border-default z-50 overflow-hidden rounded-md border shadow-md"
                 style={{ minWidth: 'var(--radix-select-trigger-width)' }}
               >
                 <SelectPrimitive.Viewport className="p-1">

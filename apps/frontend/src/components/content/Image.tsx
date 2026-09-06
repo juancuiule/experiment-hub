@@ -24,7 +24,10 @@ export function Image({ component, context }: Props) {
       <img
         src={src ?? undefined}
         alt={alt}
-        className={twMerge('w-full', component.props.className)}
+        className={twMerge(
+          'w-full outline outline-1 outline-[oklch(0_0_0/0.1)] dark:outline-[oklch(1_0_0/0.1)]',
+          component.props.className,
+        )}
       />
     </div>
   );

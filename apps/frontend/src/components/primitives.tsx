@@ -18,7 +18,7 @@ export type RenderProps = {
 export function OptionTooltip({ text }: { text: string }) {
   return (
     <div className="group/tooltip relative flex items-center">
-      <Info className="text-content-secondary size-3.5 cursor-help" />
+      <Info className="text-content-secondary size-3.5 cursor-help" strokeWidth={1.5} />
       <div
         className={twMerge(
           'absolute bottom-full left-1/2 origin-bottom -translate-x-1/2',

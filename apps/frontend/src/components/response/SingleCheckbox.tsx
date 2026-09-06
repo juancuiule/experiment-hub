@@ -41,7 +41,7 @@ export function SingleCheckbox({ component, form, context }: Props) {
                 'border-border-default size-4 rounded-sm border',
                 'flex shrink-0 items-center justify-center',
                 'data-[state=checked]:bg-content-active data-[state=checked]:border-content-active',
-                'cursor-pointer transition duration-75 ease-out active:scale-95',
+                'cursor-pointer transition-[background-color,border-color,transform] duration-75 ease-out active:scale-[0.96]',
                 'translate-y-0.5',
               )}
             >

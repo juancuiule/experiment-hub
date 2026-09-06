@@ -68,7 +68,7 @@ export function LikertScale({
                         ? `${opt.value} — ${opt.label}`
                         : String(opt.value)
                     }
-                    className="border-border-default data-[state=checked]:border-content-active relative flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-full border transition duration-150 ease-out active:scale-95"
+                    className="border-border-default data-[state=checked]:border-content-active relative flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-full border transition-[border-color,transform] duration-150 ease-out active:scale-[0.96]"
                   >
                     <span className="text-content-secondary absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-xs">
                       <span className="ml-0.5">{i + 1}</span>

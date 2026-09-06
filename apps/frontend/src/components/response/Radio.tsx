@@ -54,18 +54,18 @@ export function Radio({ component, form, context, sharedOptions }: Props) {
                   key={opt.value}
                   htmlFor={`${dataKey}-${opt.value}`}
                   className={twMerge(
-                    'group flex flex-col items-start w-full gap-2 transition duration-150 ease-out',
+                    'group flex flex-col items-start w-full gap-2 transition-[background-color,border-color,transform] duration-150 ease-out',
                     'border-content-secondary bg-background-surface',
                     'has-data-[state=checked]:border-content-active has-data-[state=checked]:bg-content-active/10',
                     'rounded-md border p-2',
-                    'focus-within:ring-ring/50 focus-within:ring-2 active:scale-95',
+                    'focus-within:ring-ring/50 focus-within:ring-2 active:scale-[0.96]',
                     'cursor-pointer',
                   )}
                 >
                   <RadioGroupPrimitive.Item
                     id={`${dataKey}-${opt.value}`}
                     value={opt.value}
-                    className="border-content-secondary data-[state=checked]:border-content-active focus-visible:ring-ring/50 flex h-4 w-4 shrink-0 cursor-pointer items-center justify-center rounded-full border transition duration-150 ease-out focus-visible:ring-2 active:scale-90"
+                    className="border-content-secondary data-[state=checked]:border-content-active focus-visible:ring-ring/50 flex h-4 w-4 shrink-0 cursor-pointer items-center justify-center rounded-full border transition-[border-color,box-shadow,transform] duration-150 ease-out focus-visible:ring-2 active:scale-[0.96]"
                   >
                     <RadioGroupPrimitive.Indicator className="bg-content-active h-2 w-2 rounded-full" />
                   </RadioGroupPrimitive.Item>
@@ -82,7 +82,7 @@ export function Radio({ component, form, context, sharedOptions }: Props) {
                   <RadioGroupPrimitive.Item
                     id={`${dataKey}-${opt.value}`}
                     value={opt.value}
-                    className="border-content-secondary data-[state=checked]:border-content-active focus-visible:ring-ring/50 flex h-4 w-4 shrink-0 cursor-pointer items-center justify-center rounded-full border transition duration-150 ease-out focus-visible:ring-2 active:scale-90"
+                    className="border-content-secondary data-[state=checked]:border-content-active focus-visible:ring-ring/50 flex h-4 w-4 shrink-0 cursor-pointer items-center justify-center rounded-full border transition-[border-color,box-shadow,transform] duration-150 ease-out focus-visible:ring-2 active:scale-[0.96]"
                   >
                     <RadioGroupPrimitive.Indicator className="bg-content-active h-2 w-2 rounded-full" />
                   </RadioGroupPrimitive.Item>
