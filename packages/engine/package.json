@@ -7,6 +7,7 @@
     "./flow": "./flow/index.ts",
     "./experiment-validation": "./experiment-validation/index.ts",
     "./components": "./components/index.ts",
+    "./codebook": "./codebook/index.ts",
     "./*": "./*.ts"
   },
   "scripts": {
