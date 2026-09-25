@@ -36,6 +36,9 @@ yarn-error.log*
 .env*
 !.env.example
 
+# cloudflared tunnel credentials (connector secret)
+.cloudflared/
+
 # backend dev artifacts
 apps/backend/dist/
 apps/backend/data/

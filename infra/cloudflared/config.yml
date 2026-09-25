@@ -1,0 +1,10 @@
+# Locally-managed tunnel — ingress lives here (versioned), not in the
+# Zero Trust dashboard. The connector authenticates with the credentials
+# file, which stays out of git (./.cloudflared/credentials.json).
+tunnel: 8da99634-0d07-4714-914e-a9295819cdb9
+credentials-file: /etc/cloudflared/credentials.json
+
+ingress:
+  - hostname: experiment-hub.com
+    service: http://nginx:80
+  - service: http_status:404

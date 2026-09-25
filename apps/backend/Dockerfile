@@ -4,7 +4,7 @@ COPY pnpm-workspace.yaml package.json pnpm-lock.yaml ./
 COPY apps/backend ./apps/backend
 RUN corepack enable && pnpm install
 RUN pnpm --filter @experiment-hub/backend build
-RUN pnpm --filter @experiment-hub/backend deploy --prod --legacy /app/deploy
+RUN pnpm --filter @experiment-hub/backend deploy --prod /app/deploy
 
 FROM node:24-alpine AS runtime
 WORKDIR /app

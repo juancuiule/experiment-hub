@@ -192,7 +192,11 @@ In dev, Next rewrites `/api/*` to the backend (`BACKEND_URL` env var overrides t
 
 ## Deploying
 
-`docker-compose.yml` runs the whole stack on a single host behind a Cloudflare Tunnel — `backend` (Effect + SQLite on a volume), `frontend` (Next standalone), `nginx` (single origin: `/` → frontend, `/api/*` → backend), `cloudflared` (only public ingress). Copy `.env.example` to `.env`, set `EXPORT_TOKEN` and `CLOUDFLARE_TUNNEL_TOKEN`, then:
+`docker-compose.yml` runs the whole stack on a single host behind a Cloudflare Tunnel — `backend` (Effect + SQLite on a volume), `frontend` (Next standalone), `nginx` (single origin: `/` → frontend, `/api/*` → backend), `cloudflared` (only public ingress).
+
+The tunnel is locally managed: ingress rules live in `infra/cloudflared/config.yml` and the connector authenticates with `./.cloudflared/credentials.json` — a gitignored copy of the `~/.cloudflared/<tunnel-id>.json` that `cloudflared tunnel create` produces (after `cloudflared tunnel login`). No dashboard config needed.
+
+Copy `.env.example` to `.env`, set `EXPORT_TOKEN`, place `credentials.json` in `.cloudflared/`, then:
 
 ```bash
 docker compose up -d --build

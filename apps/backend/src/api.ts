@@ -60,11 +60,13 @@ export class ExportApiGroup extends HttpApiGroup.make("export")
   .middleware(ExportToken)
   .prefix("/api") {}
 
-export class SystemApiGroup extends HttpApiGroup.make("system").add(
-  HttpApiEndpoint.get("health", "/health", {
-    success: Schema.Struct({ status: Schema.Literal("ok") }),
-  }),
-) {}
+export class SystemApiGroup extends HttpApiGroup.make("system")
+  .add(
+    HttpApiEndpoint.get("health", "/health", {
+      success: Schema.Struct({ status: Schema.Literal("ok") }),
+    }),
+  )
+  .prefix("/api") {}
 
 export class Api extends HttpApi.make("experiment-hub")
   .add(RunsApiGroup)
