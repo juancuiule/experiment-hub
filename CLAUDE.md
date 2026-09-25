@@ -201,7 +201,7 @@ From git history:
 
 The frontend reads no runtime env vars (`BACKEND_URL` in `next.config.ts` only affects the dev-server `/api/*` rewrite). The E2E CI job sets `NODE_ENV=test`.
 
-The backend reads `PORT`, `DB_PATH`, `NODE_ENV`, and `EXPORT_TOKEN` (required in production — gates the researcher export endpoint). `docker-compose.yml` additionally interpolates `EXPORT_TOKEN` and `CLOUDFLARE_TUNNEL_TOKEN` from a gitignored `.env`; see `.env.example`.
+The backend reads `PORT`, `DB_PATH`, `NODE_ENV`, and `EXPORT_TOKEN` (required in production — gates the researcher export endpoint). `docker-compose.yml` interpolates `EXPORT_TOKEN` from a gitignored `.env`; see `.env.example`. The Cloudflare Tunnel is locally managed — `infra/cloudflared/config.yml` holds the ingress rules and `.cloudflared/credentials.json` (gitignored) authenticates the connector.
 
 ## Sensitive files
 

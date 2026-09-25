@@ -32,6 +32,24 @@ const MigratorLive = SqliteMigrator.layer({
         ON checkpoints (experiment, run_id)
       `;
     }),
+    "0002_dedupe_hash": Effect.gen(function* () {
+      const sql = yield* SqlClient.SqlClient;
+      // Retried checkpoint POSTs carry a byte-identical context, so a hash of
+      // it distinguishes retries from legitimate repeat visits (whose context
+      // has grown). Existing rows get a unique placeholder so they can never
+      // be mistaken for duplicates of each other.
+      yield* sql`
+        ALTER TABLE checkpoints ADD COLUMN context_hash TEXT NOT NULL DEFAULT ''
+      `;
+      yield* sql`
+        UPDATE checkpoints SET context_hash = 'preexisting-' || id
+        WHERE context_hash = ''
+      `;
+      yield* sql`
+        CREATE UNIQUE INDEX idx_checkpoints_dedupe
+        ON checkpoints (run_id, checkpoint, context_hash)
+      `;
+    }),
   }),
 });
 

@@ -37,12 +37,19 @@ export class ExportToken extends HttpApiMiddleware.Service<ExportToken>()(
   },
 ) {}
 
+export class TooManyCheckpoints extends Schema.TaggedError<TooManyCheckpoints>()(
+  "TooManyCheckpoints",
+  { runId: Schema.String },
+  { httpApiStatus: 429 },
+) {}
+
 export class RunsApiGroup extends HttpApiGroup.make("runs")
   .add(
     HttpApiEndpoint.post("recordCheckpoint", "/runs/:runId/checkpoints", {
       params: { runId: Schema.NonEmptyString },
       payload: CheckpointPayload,
       success: Schema.Struct({ ok: Schema.Literal(true) }),
+      error: TooManyCheckpoints,
     }),
   )
   .prefix("/api") {}
@@ -51,9 +58,9 @@ export class ExportApiGroup extends HttpApiGroup.make("export")
   .add(
     HttpApiEndpoint.get("experiment", "/experiments/:slug/export", {
       params: { slug: Schema.NonEmptyString },
-      success: Schema.String.pipe(
-        HttpApiSchema.asText({ contentType: "application/x-ndjson" }),
-      ),
+      success: HttpApiSchema.StreamUint8Array({
+        contentType: "application/x-ndjson",
+      }),
       error: ExperimentNotFound,
     }),
   )
