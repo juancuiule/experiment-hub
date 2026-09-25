@@ -1,4 +1,4 @@
-import { Config, Context, Effect, Layer, Redacted } from "effect";
+import { Config, Context, Effect, Layer, Option, Redacted } from "effect";
 
 export class BackendConfig extends Context.Service<
   BackendConfig,
@@ -18,19 +18,25 @@ export class BackendConfig extends Context.Service<
       const dbPath = yield* Config.String("DB_PATH").pipe(
         Config.withDefault("./data/experiment-hub.sqlite"),
       );
-      const exportToken = yield* (
-        nodeEnv === "production"
-          ? Config.Redacted("EXPORT_TOKEN")
-          : Config.Redacted("EXPORT_TOKEN").pipe(
-              Config.withDefault(Redacted.make("dev-only-insecure-token")),
-            )
-      ).pipe(
-        Effect.mapError(
-          () =>
-            new Error(
-              "EXPORT_TOKEN must be set in production (used to gate the export endpoint)",
-            ),
-        ),
+      const exportToken = yield* Config.Redacted("EXPORT_TOKEN").pipe(
+        Config.option,
+        Effect.flatMap((token) => {
+          if (Option.isSome(token)) return Effect.succeed(token.value);
+          if (nodeEnv === "production") {
+            return Effect.fail(
+              new Error(
+                "EXPORT_TOKEN must be set in production (used to gate the export endpoint)",
+              ),
+            );
+          }
+          // No fixed dev credential: an unset token in a reachable
+          // dev-mode deployment would otherwise open every export.
+          return Effect.logWarning(
+            "EXPORT_TOKEN unset — generated an ephemeral token for this boot",
+          ).pipe(
+            Effect.as(Redacted.make(`dev-${crypto.randomUUID()}`)),
+          );
+        }),
       );
 
       return Layer.succeed(BackendConfig, {

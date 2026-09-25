@@ -43,13 +43,19 @@ export class TooManyCheckpoints extends Schema.TaggedError<TooManyCheckpoints>()
   { httpApiStatus: 429 },
 ) {}
 
+export class RunExperimentMismatch extends Schema.TaggedError<RunExperimentMismatch>()(
+  "RunExperimentMismatch",
+  { runId: Schema.String, experiment: Schema.String },
+  { httpApiStatus: 409 },
+) {}
+
 export class RunsApiGroup extends HttpApiGroup.make("runs")
   .add(
     HttpApiEndpoint.post("recordCheckpoint", "/runs/:runId/checkpoints", {
       params: { runId: Schema.NonEmptyString },
       payload: CheckpointPayload,
       success: Schema.Struct({ ok: Schema.Literal(true) }),
-      error: TooManyCheckpoints,
+      error: [TooManyCheckpoints, RunExperimentMismatch],
     }),
   )
   .prefix("/api") {}

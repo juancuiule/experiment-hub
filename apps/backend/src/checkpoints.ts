@@ -4,12 +4,17 @@ import {
   Effect,
   Layer,
   Option,
+  Predicate,
   Schema,
   Stream,
 } from "effect";
 import { SqlClient, SqlSchema } from "effect/unstable/sql";
 import { createHash } from "node:crypto";
-import { ExperimentNotFound, TooManyCheckpoints } from "./api.js";
+import {
+  ExperimentNotFound,
+  RunExperimentMismatch,
+  TooManyCheckpoints,
+} from "./api.js";
 import { BackendConfig } from "./config.js";
 import { SqlLive } from "./db.js";
 
@@ -23,6 +28,37 @@ export type RecordCheckpointInput = {
 
 const MAX_CHECKPOINTS_PER_RUN = 500;
 const EXPORT_BATCH_SIZE = 500;
+
+// Dedupe key for checkpoint retries. Volatile values (timing entries and
+// checkpoint timestamps change on every traversal attempt) are stripped to
+// their key sets; data and everything else is kept. A retry then hashes
+// identically to the original, while a genuine repeat visit differs in
+// collected data or in which screens/checkpoints have been recorded.
+const deepSort = (value: unknown): unknown => {
+  if (Array.isArray(value)) return value.map(deepSort);
+  if (Predicate.isObject(value)) {
+    return Object.fromEntries(
+      Object.keys(value)
+        .sort()
+        .map((key) => [key, deepSort(value[key])]),
+    );
+  }
+  return value;
+};
+
+const normalizedContextJson = (context: unknown): string => {
+  if (!Predicate.isObject(context)) return JSON.stringify(context);
+  const { checkpoints, timings, ...rest } = context;
+  return JSON.stringify(
+    deepSort({
+      ...rest,
+      checkpoints: Predicate.isObject(checkpoints)
+        ? Object.keys(checkpoints)
+        : checkpoints,
+      timings: Predicate.isObject(timings) ? Object.keys(timings) : timings,
+    }),
+  );
+};
 
 const RowSchema = Schema.Struct({
   id: Schema.Int,
@@ -59,6 +95,14 @@ const make = Effect.gen(function* () {
     `,
   });
 
+  const runExperiment = SqlSchema.findOneOption({
+    Request: Schema.Struct({ runId: Schema.String }),
+    Result: Schema.Struct({ experiment: Schema.String }),
+    execute: ({ runId }) => sql`
+      SELECT experiment FROM runs WHERE run_id = ${runId}
+    `,
+  });
+
   const record = Effect.fn("Checkpoints.record")(
     function* (input: RecordCheckpointInput) {
       const receivedAt = DateTime.formatIso(yield* DateTime.now);
@@ -66,18 +110,32 @@ const make = Effect.gen(function* () {
         JSON.stringify(input.context),
       );
       const contextHash = createHash("sha256")
-        .update(contextJson)
+        .update(normalizedContextJson(input.context))
         .digest("hex");
+
+      // A runId belongs to one experiment. Reject checkpoint writes that try
+      // to reuse a run under a different slug rather than silently mixing
+      // them into another experiment's export.
+      const registered = yield* runExperiment({ runId: input.runId });
+      if (Option.isSome(registered)) {
+        if (registered.value.experiment !== input.experiment) {
+          return yield* new RunExperimentMismatch({
+            runId: input.runId,
+            experiment: input.experiment,
+          });
+        }
+      } else {
+        yield* sql`
+          INSERT OR IGNORE INTO runs (run_id, experiment, first_seen_at)
+          VALUES (${input.runId}, ${input.experiment}, ${receivedAt})
+        `;
+      }
 
       const { n } = yield* countForRun({ runId: input.runId });
       if (n >= MAX_CHECKPOINTS_PER_RUN) {
         return yield* new TooManyCheckpoints({ runId: input.runId });
       }
 
-      yield* sql`
-        INSERT OR IGNORE INTO runs (run_id, experiment, first_seen_at)
-        VALUES (${input.runId}, ${input.experiment}, ${receivedAt})
-      `;
       yield* sql`
         INSERT OR IGNORE INTO checkpoints
           (run_id, experiment, checkpoint, at, received_at, context, context_hash)
@@ -136,7 +194,7 @@ export class Checkpoints extends Context.Service<
   {
     record: (
       input: RecordCheckpointInput,
-    ) => Effect.Effect<void, TooManyCheckpoints>;
+    ) => Effect.Effect<void, TooManyCheckpoints | RunExperimentMismatch>;
     exportByExperiment: (
       slug: string,
     ) => Effect.Effect<Stream.Stream<Uint8Array, unknown>, ExperimentNotFound>;

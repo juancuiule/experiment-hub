@@ -101,6 +101,49 @@ layer(Layer.mergeAll(HandlersLive, HttpServer.layerServices))(
       }).pipe(Effect.provide(AuthGood)),
     );
 
+    it.effect(
+      "dedupes a retry that differs only in volatile timing values",
+      () =>
+        Effect.gen(function* () {
+          const client = yield* makeClient;
+
+          yield* record(client, "run-t", "mid", "timing", {
+            data: { a: 1 },
+            timings: { s1: { submittedAt: "12:00:00" } },
+            checkpoints: { mid: "12:00:00" },
+          });
+          yield* record(client, "run-t", "mid", "timing", {
+            data: { a: 1 },
+            timings: { s1: { submittedAt: "12:00:03" } },
+            checkpoints: { mid: "12:00:03" },
+          });
+
+          const ndjson = yield* exportNdjson(client, "timing");
+          assert.strictEqual(ndjson.trim().split("\n").length, 1);
+        }).pipe(Effect.provide(AuthGood)),
+    );
+
+    it.effect("rejects reusing a runId under a different experiment", () =>
+      Effect.gen(function* () {
+        const client = yield* makeClient;
+
+        yield* record(client, "run-shared", "mid", "ocean");
+        const error = yield* record(
+          client,
+          "run-shared",
+          "mid",
+          "other-study",
+        ).pipe(Effect.flip);
+        assert.strictEqual(error._tag, "RunExperimentMismatch");
+
+        // The rejected write left nothing behind for the other slug.
+        const exportError = yield* client.export
+          .experiment({ params: { slug: "other-study" } })
+          .pipe(Effect.flip);
+        assert.strictEqual(exportError._tag, "ExperimentNotFound");
+      }).pipe(Effect.provide(AuthGood)),
+    );
+
     it.effect("keeps repeat visits whose context has grown", () =>
       Effect.gen(function* () {
         const client = yield* makeClient;
