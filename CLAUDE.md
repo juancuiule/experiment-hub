@@ -158,6 +158,20 @@ When picking up an issue:
 
 **Workspace filter commands**: use `pnpm --filter @experiment-hub/engine <script>` or `pnpm --filter @experiment-hub/frontend <script>` to run scripts in a single package without affecting the other.
 
+## Agent skills
+
+### Issue tracker
+
+Issues live in this repo's GitHub Issues (juancuiule/experiment-hub), using the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default canonical label vocabulary: needs-triage, needs-info, ready-for-agent, ready-for-human, wontfix. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: root `CONTEXT.md` + `docs/adr/`. See `docs/agents/domain.md`.
+
 ## Commit and branch conventions
 
 From git history:
@@ -194,6 +208,8 @@ The `docs/` folder contains precise reference documentation — use it before re
 | `docs/answer-piping.md` | String interpolation in labels and content (`{{ }}` syntax) |
 | `docs/i18n.md` | Localized message dictionary and the `[[ ]]` token |
 | `docs/validate.md` | All validation error codes with explanations |
+| `CONTEXT.md` | Domain glossary — canonical vocabulary for experiments, nodes, and runtime (repo root) |
+| `docs/agents/` | Agent conventions: issue tracker ops, triage labels, domain-doc consumption |
 
 ## Where to look first
 
