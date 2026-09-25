@@ -15,6 +15,9 @@ The available types of nodes are:
 - `path`
 - `fork`
 - `loop`
+- `compute`
+- `data`
+- `end`
 
 Each of those nodes has a specific configuration or series of props.
 
@@ -126,3 +129,21 @@ The result is read **from a later node** via `$$<computeId>.<outputKey>.<field>`
 ```
 
 It must be a separate downstream node: a compute node's own outputs aren't in `context.data` until all its computations have run, so the flattened object can't be referenced within the same node.
+
+## Compute Node
+
+The `compute` node derives values from data collected earlier in the run. It has a `name` prop, an optional `description` prop, and a `computations` prop — an array of `Computation` objects, each `{ outputKey, formula }`. Each computation evaluates its `formula` and stores the result under `outputKey`, reachable downstream as `$$<computeId>.<outputKey>`.
+
+The available formula types are `sum`, `mean`, `min`, `max`, `count`, `conditional`, `lookup`, `sample`, `split`, `loop-aggregate`, and `collect-loop`. The `split` and `collect-loop` formulas are documented under the loop node above, since their main use is paginating and recombining loop questionnaires.
+
+A compute node's own outputs are not visible to its sibling computations — a `$name` formula input can only reference an output declared earlier in the same node (see [Data Keys](./data-keys.md#inside-compute-formulas)), so chained derivations need separate compute nodes. Compute nodes are auto-traversed: they render no participant UI.
+
+## Data Node
+
+The `data` node injects static data into the experiment context. It has a `name` prop, an optional `description` prop, and a `data` prop (`Record<string, unknown>`) whose contents are written into `context.data` under the node id — every key becoming reachable downstream as `$$<nodeId>.<key>`.
+
+Use it for experiment configuration that belongs in context rather than inline in formulas or components — e.g. the number of stimuli to sample, fixed item lists, or scoring constants. Values may be strings, numbers, arrays, or nested objects. Auto-traversed (no participant UI).
+
+## End Node
+
+The `end` node terminates the flow. It takes no props, renders no participant UI, and is auto-traversed.

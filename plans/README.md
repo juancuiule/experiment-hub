@@ -19,7 +19,7 @@ conditions, and update your row when done.
 | 008 | Deterministic (seeded) randomization tests | P2 | M | — | DONE |
 | 009 | E2E coverage: loop, fork, compute, data nodes | P2 | L | — | TODO |
 | 010 | Slider tooltip dedup, typed merges, explicit exports | P3 | M | 005 (same file) | TODO |
-| 011 | Docs: `data` node + `%` shared-options prefix | P3 | S | 006 (same file, soft) | TODO |
+| 011 | Docs: `data` node + `%` shared-options prefix | P3 | S | 006 (same file, soft) | DONE (feature/agent-docs) |
 | 012 | Split traverse.ts (OPTIONAL — read its verdict) | P3 | L | 008, 009 | TODO |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (one-line reason) |

@@ -201,7 +201,7 @@ The `docs/` folder contains precise reference documentation — use it before re
 | File | Contents |
 |---|---|
 | `docs/experiment.md` | `ExperimentFlow` top-level structure |
-| `docs/nodes.md` | Node type reference (currently covers 7 of the 9 node types; compute and data are not yet documented) |
+| `docs/nodes.md` | Node type reference — all ten node types |
 | `docs/edges.md` | All edge types and node-to-edge validation rules |
 | `docs/components.md` | All component types and their props (content, response, layout, control) |
 | `docs/data-keys.md` | The 5 reference prefixes: `$$`, `@`, `$`, `#`, `%` |

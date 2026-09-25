@@ -8,6 +8,8 @@ Inside a `for-each` component, the current item is accessed with the `#` prefix 
 
 We will also be using `$` (a single dollar sign) to reference values from the current screen. This is useful to be able to use values from the current screen to show or hide another component in the same screen based on the interaction of the participant with the first component. For example if we ask a participant if they have children (with a yes/no boolean component) we may use that `$hasChildren` value to show a new component asking how many children do they have only if the answer to the first question is yes.
 
+The `%` prefix names a shared option set rather than runtime data: a `radio`, `checkboxes`, `dropdown`, or `likert-scale` component can set `options: "%agreement-scale"` to reference a named `Option[]` defined in `ExperimentFlow.options`. It is resolved against the experiment definition — it never appears inside `{{ }}` tokens and is not a context reference. The validator reports `unknown-shared-options` for any `%name` with no matching key.
+
 ## Summary
 
 | Prefix | Scope                  | Example                             |
@@ -16,6 +18,7 @@ We will also be using `$` (a single dollar sign) to reference values from the cu
 | `@`    | Loop item (by loop node ID) | `@loop-sports.value`, `@loop-sports.index` |
 | `$`    | Current screen         | `$hasChildren`                      |
 | `#`    | For-each item (by for-each component ID) | `#foreach-sport.value`, `#foreach-sport.index` |
+| `%`    | Shared option set (in `ExperimentFlow.options`) | `options: "%agreement-scale"` |
 
 ### Inside compute formulas
 
