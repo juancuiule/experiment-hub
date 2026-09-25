@@ -166,7 +166,7 @@ This project is an **early-stage working prototype**. The flow engine and compon
 
 **Session persistence**
 
-**Data submission** — `send()` in `lib/utils.ts` is a stub (100ms timeout). Checkpoint and end-of-experiment data never reaches any backend. Replacing this with a real POST to a configurable endpoint is the first required step before running real studies.
+**Data submission** — `checkpoint` nodes persist full-context snapshots via `send()` → `POST /api/runs/:runId/checkpoints`, served by `apps/backend` (Effect + SQLite). Export for researchers: `GET /api/experiments/:slug/export` (NDJSON, bearer-gated).
 
 **Visual flow builder** — Experiments are currently defined as TypeScript object literals in `src/data/experiment.ts`. A drag-and-drop canvas editor using `@xyflow/react` is planned but not started.
 
@@ -182,10 +182,21 @@ This project is an **early-stage working prototype**. The flow engine and compon
 
 ```bash
 pnpm install
-pnpm dev
+pnpm dev            # frontend on :3000
+pnpm dev:backend    # backend on :3100 (needed for checkpoint persistence)
 ```
 
-Open [http://localhost:3000](http://localhost:3000). The active experiment is defined in `src/data/experiment.ts`.
+Open [http://localhost:3000](http://localhost:3000). Experiments are defined in `apps/frontend/src/data/experiments/` and routed by slug (`/experiments/ocean`).
+
+In dev, Next rewrites `/api/*` to the backend (`BACKEND_URL` env var overrides the default `http://localhost:3100`).
+
+## Deploying
+
+`docker-compose.yml` runs the whole stack on a single host behind a Cloudflare Tunnel — `backend` (Effect + SQLite on a volume), `frontend` (Next standalone), `nginx` (single origin: `/` → frontend, `/api/*` → backend), `cloudflared` (only public ingress). Copy `.env.example` to `.env`, set `EXPORT_TOKEN` and `CLOUDFLARE_TUNNEL_TOKEN`, then:
+
+```bash
+docker compose up -d --build
+```
 
 ### Tests
 

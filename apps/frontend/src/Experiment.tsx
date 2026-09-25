@@ -10,18 +10,19 @@ type Props = {
   startingNode?: string;
   experiment: ExperimentFlow;
   locale?: string;
+  slug: string;
 };
 
 export default function Experiment(props: Props) {
-  const { startingNode, experiment, locale } = props;
+  const { startingNode, experiment, locale, slug } = props;
   const { step, isLoading, start, next } = useExperimentStore();
   const reset = useExperimentStore((s) => s.reset);
 
   useEffect(() => {
     if (!step || step.experiment !== experiment) {
-      start(experiment, startingNode, locale);
+      start(experiment, startingNode, locale, slug);
     }
-  }, [experiment, startingNode, locale]);
+  }, [experiment, startingNode, locale, slug]);
 
   useEffect(() => reset, [reset]);
 

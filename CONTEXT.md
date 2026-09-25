@@ -79,7 +79,7 @@ _Avoid_: finish, completion.
 ### Runtime — one participant's traversal
 
 **Run**:
-One participant's traversal of the experiment, from start-node selection to end. Held in the Zustand store; a browser refresh resets it.
+One participant's traversal of the experiment, from start-node selection to end. Held in the Zustand store; a browser refresh resets it. Identified by a client-minted UUID `runId` threaded onto every checkpoint POST.
 _Avoid_: session, playthrough.
 
 **FlowStep**:
@@ -123,3 +123,13 @@ _Avoid_: templating, mustache.
 **Dictionary**:
 The per-locale `MessageTree` sets on `ExperimentFlow.dictionary`. `defaultLocale` is both the `?lang=` fallback and the source of messages missing in the active locale; `[[dotted.key]]` tokens resolve against it.
 _Avoid_: translations, string table.
+
+### Persistence — the backend
+
+**Checkpoint record**:
+The durable form of hitting a checkpoint node: an append-only row (`run_id`, `experiment`, `checkpoint`, `at`, `received_at`, `context` JSON) written by `POST /api/runs/:runId/checkpoints`. A run may hit the same checkpoint name more than once inside a loop — records accumulate, never upsert.
+_Avoid_: save, submission.
+
+**Export**:
+The researcher-facing pull of collected data: `GET /api/experiments/:slug/export` streams all checkpoint records for a slug as NDJSON, gated by a bearer token (`EXPORT_TOKEN`).
+_Avoid_: download, dump.

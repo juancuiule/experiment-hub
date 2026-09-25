@@ -9,6 +9,7 @@ import { create } from 'zustand';
 
 type ExperimentStore = {
   step: FlowStep | null;
+  runId: string | null;
   isLoading: boolean;
   error: string | null;
   reset: () => void;
@@ -16,28 +17,36 @@ type ExperimentStore = {
     experiment: ExperimentFlow,
     startNodeId?: string,
     locale?: string,
+    slug?: string,
   ) => Promise<void>;
   next: (data?: Context['data']) => Promise<void>;
 };
 
 export const useExperimentStore = create<ExperimentStore>()((set, get) => ({
   step: null,
+  runId: null,
   isLoading: false,
   error: null,
-  reset: () => set({ step: null, isLoading: false, error: null }),
+  reset: () => set({ step: null, runId: null, isLoading: false, error: null }),
   start: async (
     experiment: ExperimentFlow,
     startNodeId?: string,
     locale?: string,
+    slug?: string,
   ) => {
-    set({ isLoading: true, error: null });
+    const runId = crypto.randomUUID();
+    set({ isLoading: true, error: null, runId });
     try {
       const step = await startExperiment(
         experiment,
         startNodeId,
         {
-          onCheckpoint: async (context) => {
-            await send(context);
+          onCheckpoint: async (context, name) => {
+            await send(context, {
+              runId,
+              experiment: slug ?? 'unknown',
+              checkpoint: name,
+            });
           },
         },
         locale,

@@ -12,15 +12,17 @@ An adaptive experiment runner for behavioral research. Researchers define branch
 - Tailwind CSS 4, Radix UI primitives
 - Zustand 5 (experiment state), react-hook-form + Zod (per-screen validation)
 - Vitest 4 + happy-dom (unit tests), Playwright (e2e)
+- Effect 4 RC (`effect`, `@effect/platform-node`, `@effect/sql-sqlite-node`) for `apps/backend`; Vitest 5 + `@effect/vitest` there
 - pnpm 9 is the canonical package manager (CI uses it)
 
 ## Essential commands
 
 ```bash
 pnpm dev           # start dev server (runs from repo root)
+pnpm dev:backend   # start backend dev server on :3100 (tsx watch)
 pnpm build         # Next.js production build
 pnpm lint          # eslint (eslint.config.mjs)
-pnpm test          # vitest run — all unit tests (engine + frontend)
+pnpm test          # vitest run — all unit tests (engine + frontend + backend)
 pnpm test:watch    # vitest — watch mode
 pnpm test:e2e      # playwright test — e2e suite
 pnpm typecheck     # tsc --noEmit across all workspace packages (pnpm -r typecheck)
@@ -87,8 +89,9 @@ apps/frontend/               # Next.js React application
       experiments/           # EXPERIMENTS record — one file per experiment
         index.ts             # Exports the EXPERIMENTS record keyed by slug
         ocean.ts, emociones.ts, pandemic.ts, …
-      store.ts               # Zustand store with start(experiment, startNodeId?, locale?) and next(data?)
-      send.ts                # send() stub — checkpoint nodes call this to persist data
+      store.ts               # Zustand store — start(experiment, startNodeId?, locale?, slug?)
+                             #   mints runId (crypto.randomUUID) and next(data?)
+      send.ts                # POSTs checkpoint snapshots to /api/runs/:runId/checkpoints
     components/
       RenderComponent.tsx    # Dispatcher: routes by componentFamily + template to concrete components
       content/               # RichText, Image, Video, Audio
@@ -98,6 +101,19 @@ apps/frontend/               # Next.js React application
     specs/                   # Unit tests for React components
   e2e/                       # Playwright tests
 
+apps/backend/                # Effect 4 HTTP API — checkpoint persistence + export
+  src/
+    api.ts                   # HttpApi contract: runs / export (bearer) / system groups
+    config.ts                # BackendConfig service — PORT, DB_PATH, EXPORT_TOKEN, NODE_ENV
+    db.ts                    # SqliteClient + SqliteMigrator (runs, checkpoints tables)
+    checkpoints.ts           # Checkpoints service — record + exportByExperiment
+    auth.ts                  # ExportToken middleware impl (timingSafeEqual)
+    handlers.ts              # HttpApiBuilder groups wiring services to routes
+    server.ts                # Entrypoint — HttpRouter.serve + NodeHttpServer + Layer.launch
+    checkpoints.test.ts      # HttpApiTest suite (in-memory :memory: sqlite)
+
+infra/nginx/default.conf     # Single-origin path split: / -> frontend, /api/* -> backend
+docker-compose.yml           # Pi deployment: backend + frontend + nginx + cloudflared
 docs/                        # Reference documentation (see below)
 agents.sh                    # Fan-out script (see Agent workflow below) (untracked)
 ```
@@ -125,7 +141,7 @@ Start node selection is driven by query-string params: `?condition=A` matches a 
 
 **`Zustand persist` is not enabled** in `apps/frontend/src/data/store.ts`. Browser refresh resets the experiment. This is a known limitation, not a bug to fix casually — re-enabling it requires implementing session resume logic.
 
-**`send()` in `apps/frontend/src/data/send.ts` is a stub.** `checkpoint` nodes call `send(context)` to persist data — currently a 100ms `setTimeout`. Replace with a real API POST before running participant-facing studies.
+**`send()` in `apps/frontend/src/data/send.ts` POSTs checkpoint snapshots to the backend.** `checkpoint` nodes call `send(context, { runId, experiment, checkpoint })`, which POSTs to `/api/runs/:runId/checkpoints`. The `runId` is a client-minted UUID set in `store.start()`. A failed POST throws — checkpoint traversal errors surface as the screen-level error state rather than silently dropping data. In dev, the backend must be running (`pnpm dev:backend`) or Next's `/api/*` rewrite has nothing to hit.
 
 **Debug panels are gated behind `process.env.NODE_ENV === 'development'`** (build-time in Next.js production builds). Keep that gate intact when touching `apps/frontend/app/(experiments-layout)/experiments/[slug]/page.tsx` or `apps/frontend/src/Screen.tsx`.
 
@@ -183,7 +199,9 @@ From git history:
 
 ## Environment variables
 
-The application reads no environment variables at runtime. The E2E CI job sets `NODE_ENV=test`. There is no `.env.example` or any `process.env` access in the codebase outside the debug-panel guards.
+The frontend reads no runtime env vars (`BACKEND_URL` in `next.config.ts` only affects the dev-server `/api/*` rewrite). The E2E CI job sets `NODE_ENV=test`.
+
+The backend reads `PORT`, `DB_PATH`, `NODE_ENV`, and `EXPORT_TOKEN` (required in production — gates the researcher export endpoint). `docker-compose.yml` additionally interpolates `EXPORT_TOKEN` and `CLOUDFLARE_TUNNEL_TOKEN` from a gitignored `.env`; see `.env.example`.
 
 ## Sensitive files
 
