@@ -8,11 +8,20 @@ import {
   HttpApiSecurity,
 } from "effect/unstable/httpapi";
 
+// Slugs are public (they're URL paths), so this can't verify identity — it
+// only bounds the shape so junk identifiers can't pollute exports.
+const SlugSchema = Schema.String.check(
+  Schema.isPattern(/^[a-z0-9][a-z0-9-_]{0,99}$/),
+);
+
+const BoundedString = (max: number) =>
+  Schema.String.check(Schema.isLengthBetween(1, max));
+
 export const CheckpointPayload = Schema.Struct({
-  experiment: Schema.NonEmptyString,
-  checkpoint: Schema.NonEmptyString,
+  experiment: SlugSchema,
+  checkpoint: BoundedString(200),
   context: Schema.Unknown,
-  at: Schema.NonEmptyString,
+  at: BoundedString(64),
 });
 export type CheckpointPayload = typeof CheckpointPayload.Type;
 
@@ -49,13 +58,19 @@ export class RunExperimentMismatch extends Schema.TaggedError<RunExperimentMisma
   { httpApiStatus: 409 },
 ) {}
 
+export class CheckpointTooLarge extends Schema.TaggedError<CheckpointTooLarge>()(
+  "CheckpointTooLarge",
+  { runId: Schema.String },
+  { httpApiStatus: 413 },
+) {}
+
 export class RunsApiGroup extends HttpApiGroup.make("runs")
   .add(
     HttpApiEndpoint.post("recordCheckpoint", "/runs/:runId/checkpoints", {
-      params: { runId: Schema.NonEmptyString },
+      params: { runId: BoundedString(200) },
       payload: CheckpointPayload,
       success: Schema.Struct({ ok: Schema.Literal(true) }),
-      error: [TooManyCheckpoints, RunExperimentMismatch],
+      error: [TooManyCheckpoints, RunExperimentMismatch, CheckpointTooLarge],
     }),
   )
   .prefix("/api") {}
@@ -63,7 +78,7 @@ export class RunsApiGroup extends HttpApiGroup.make("runs")
 export class ExportApiGroup extends HttpApiGroup.make("export")
   .add(
     HttpApiEndpoint.get("experiment", "/experiments/:slug/export", {
-      params: { slug: Schema.NonEmptyString },
+      params: { slug: SlugSchema },
       success: HttpApiSchema.StreamUint8Array({
         contentType: "application/x-ndjson",
       }),

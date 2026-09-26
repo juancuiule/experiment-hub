@@ -6,6 +6,9 @@ const nextConfig: NextConfig = {
   outputFileTracingRoot: path.join(import.meta.dirname, "../.."),
   transpilePackages: ["@experiment-hub/engine"],
   async rewrites() {
+    // Dev only: production traffic reaches /api via nginx, which owns the
+    // routing split — the frontend container should never proxy API calls.
+    if (process.env.NODE_ENV !== "development") return [];
     return [
       {
         source: "/api/:path*",

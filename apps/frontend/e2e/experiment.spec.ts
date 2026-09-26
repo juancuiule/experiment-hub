@@ -1,4 +1,5 @@
-import { expect, Page, test } from '@playwright/test';
+import { expect, Page } from '@playwright/test';
+import { test } from './fixture';
 
 async function completeConsent(page: Page) {
   await expect(page.getByLabel('I agree to participate')).toBeVisible();

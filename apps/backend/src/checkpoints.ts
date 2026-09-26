@@ -11,6 +11,7 @@ import {
 import { SqlClient, SqlSchema } from "effect/unstable/sql";
 import { createHash } from "node:crypto";
 import {
+  CheckpointTooLarge,
   ExperimentNotFound,
   RunExperimentMismatch,
   TooManyCheckpoints,
@@ -28,6 +29,11 @@ export type RecordCheckpointInput = {
 
 const MAX_CHECKPOINTS_PER_RUN = 500;
 const EXPORT_BATCH_SIZE = 500;
+// App-level bound so the cap holds even without the nginx edge in front
+// (e.g. direct access to a dev server). nginx allows 1m bodies on
+// /api/runs/* — comfortably above any realistic context snapshot, but
+// participants writing enormous free-text responses will 413 either way.
+const MAX_CONTEXT_BYTES = 1_048_576;
 
 // Dedupe key for checkpoint retries. Volatile values (timing entries and
 // checkpoint timestamps change on every traversal attempt) are stripped to
@@ -123,6 +129,9 @@ const make = Effect.gen(function* () {
       const contextJson = yield* Effect.sync(() =>
         JSON.stringify(input.context),
       );
+      if (Buffer.byteLength(contextJson, "utf8") > MAX_CONTEXT_BYTES) {
+        return yield* new CheckpointTooLarge({ runId: input.runId });
+      }
       const contextHash = createHash("sha256")
         .update(normalizedContextJson(input.context))
         .digest("hex");
@@ -218,7 +227,10 @@ export class Checkpoints extends Context.Service<
   {
     record: (
       input: RecordCheckpointInput,
-    ) => Effect.Effect<void, TooManyCheckpoints | RunExperimentMismatch>;
+    ) => Effect.Effect<
+      void,
+      TooManyCheckpoints | RunExperimentMismatch | CheckpointTooLarge
+    >;
     exportByExperiment: (
       slug: string,
     ) => Effect.Effect<Stream.Stream<Uint8Array, unknown>, ExperimentNotFound>;
