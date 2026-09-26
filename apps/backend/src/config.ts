@@ -20,6 +20,9 @@ export class BackendConfig extends Context.Service<
       );
       const exportToken = yield* Config.Redacted("EXPORT_TOKEN").pipe(
         Config.option,
+        // An empty string is not a credential — treat it as unset rather
+        // than accepting `Authorization: Bearer ` as a valid export key.
+        Effect.map(Option.filter((t) => Redacted.value(t).length > 0)),
         Effect.flatMap((token) => {
           if (Option.isSome(token)) return Effect.succeed(token.value);
           if (nodeEnv === "production") {

@@ -40,10 +40,16 @@ export const useExperimentStore = create<ExperimentStore>()((set, get) => ({
     locale?: string,
     slug?: string,
   ) => {
-    // Reuse the runId across start() retries: if the first checkpoint POST
-    // committed but its response was lost, minting a new id would orphan the
-    // earlier row into a second run.
-    const runId = get().runId ?? crypto.randomUUID();
+    // Reuse the runId only when retrying start() for the same experiment: if
+    // the first checkpoint POST committed but its response was lost, minting
+    // a new id would orphan the earlier row into a second run. A different
+    // slug means a genuinely different run — mint a fresh id so the backend's
+    // run/experiment binding doesn't reject the new experiment's writes.
+    const prev = get();
+    const runId =
+      prev.runId !== null && prev.slug === (slug ?? null)
+        ? prev.runId
+        : crypto.randomUUID();
     set({ isLoading: true, error: null, runId, slug: slug ?? null });
     try {
       const step = await startExperiment(
@@ -60,7 +66,9 @@ export const useExperimentStore = create<ExperimentStore>()((set, get) => ({
         },
         locale,
       ).then(recordEnteredAt);
-      set({ step });
+      // Persist before committing an ended step — a failed final POST must
+      // leave the run retryable rather than reporting "done" with unsaved
+      // data.
       if (isEnded(step)) {
         await send(step.context, {
           runId,
@@ -68,6 +76,7 @@ export const useExperimentStore = create<ExperimentStore>()((set, get) => ({
           checkpoint: END_CHECKPOINT,
         });
       }
+      set({ step });
     } catch (err) {
       console.error('Failed to load experiment:', err);
       set({ error: 'Something went wrong while loading the experiment.' });
@@ -83,9 +92,11 @@ export const useExperimentStore = create<ExperimentStore>()((set, get) => ({
       const nextStep = await traverseWithTiming(step, data).then(
         recordEnteredAt,
       );
-      set({ step: nextStep });
       // Experiments without checkpoint nodes would otherwise persist
-      // nothing: a completed run always writes its final context.
+      // nothing: a completed run always writes its final context. Persist
+      // before committing the ended step — if the POST fails, the current
+      // screen stays put and a resubmit retries (server-side dedupe makes
+      // a lost-response retry safe).
       if (isEnded(nextStep)) {
         await send(nextStep.context, {
           runId: runId ?? 'unknown',
@@ -93,6 +104,7 @@ export const useExperimentStore = create<ExperimentStore>()((set, get) => ({
           checkpoint: END_CHECKPOINT,
         });
       }
+      set({ step: nextStep });
     } catch (err) {
       console.error('Failed to advance experiment:', err);
       set({ error: 'Something went wrong while saving your answer. Please try again.' });

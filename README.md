@@ -192,6 +192,16 @@ In dev, Next rewrites `/api/*` to the backend (`BACKEND_URL` env var overrides t
 
 The tunnel is locally managed: ingress rules live in `infra/cloudflared/config.yml` and the connector authenticates with `./.cloudflared/credentials.json` — a gitignored copy of the `~/.cloudflared/<tunnel-id>.json` that `cloudflared tunnel create` produces (after `cloudflared tunnel login`). No dashboard config needed.
 
+**Provisioning a new deployment** (the committed `config.yml` references this project's tunnel id and hostname — substitute your own):
+
+```bash
+cloudflared tunnel login                            # browser auth, writes ~/.cloudflared/cert.pem
+cloudflared tunnel create <name>                    # writes ~/.cloudflared/<tunnel-id>.json
+cloudflared tunnel route dns <name> <your-domain>   # creates the CNAME for the apex/hostname
+```
+
+Then update `tunnel:` and `hostname:` in `infra/cloudflared/config.yml`, and copy `~/.cloudflared/<tunnel-id>.json` to `.cloudflared/credentials.json`.
+
 Copy `.env.example` to `.env`, set `EXPORT_TOKEN`, place `credentials.json` in `.cloudflared/`, then:
 
 ```bash

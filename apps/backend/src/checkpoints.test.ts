@@ -230,6 +230,16 @@ layer(Checkpoints.layerNoDeps.pipe(Layer.provide(makeSqlLive(":memory:"))))(
           })
           .pipe(Effect.flip);
         assert.strictEqual(error._tag, "TooManyCheckpoints");
+
+        // Retrying an already-saved checkpoint is a no-op, not a rejection —
+        // a lost response to the 500th write must not strand the participant.
+        yield* checkpoints.record({
+          runId: "big-run",
+          experiment: "ocean",
+          checkpoint: "cp-499",
+          context: { i: 499 },
+          at: "2026-09-25T12:00:00.000Z",
+        });
       }),
     );
   },

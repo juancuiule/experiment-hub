@@ -87,6 +87,43 @@ describe('useExperimentStore', () => {
     expect(isLoading).toBe(false);
     expect(error).toBeNull();
   });
+
+  it('reuses runId when retrying the same slug, mints a new one on change', async () => {
+    await useExperimentStore.getState().start(flow, undefined, undefined, 'a');
+    const first = useExperimentStore.getState().runId;
+
+    await useExperimentStore.getState().start(flow, undefined, undefined, 'a');
+    expect(useExperimentStore.getState().runId).toBe(first);
+
+    await useExperimentStore.getState().start(flow, undefined, undefined, 'b');
+    const second = useExperimentStore.getState().runId;
+    expect(second).not.toBe(first);
+  });
+
+  it('keeps the pre-end step retryable when the final persist fails', async () => {
+    const terminalFlow: ExperimentFlow = {
+      nodes: [
+        { id: 'start', type: 'start' },
+        { id: 'screen-1', type: 'screen', props: { slug: 'only' } },
+      ],
+      edges: [{ type: 'sequential', from: 'start', to: 'screen-1' }],
+    };
+    await useExperimentStore.getState().start(terminalFlow);
+
+    vi.mocked(send).mockRejectedValueOnce(new Error('network error'));
+    await useExperimentStore.getState().next({ only: 'answer' });
+    const { step, error } = useExperimentStore.getState();
+    expect(nodeId(step?.state)).toBe('screen-1');
+    expect(error).not.toBeNull();
+
+    await useExperimentStore.getState().next({ only: 'answer' });
+    const after = useExperimentStore.getState();
+    expect(after.error).toBeNull();
+    expect(send).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ checkpoint: 'end' }),
+    );
+  });
 });
 
 const flowWithCheckpointAfterFirst: ExperimentFlow = {

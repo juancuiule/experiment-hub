@@ -103,6 +103,20 @@ const make = Effect.gen(function* () {
     `,
   });
 
+  const existsForHash = SqlSchema.findOneOption({
+    Request: Schema.Struct({
+      runId: Schema.String,
+      checkpoint: Schema.String,
+      contextHash: Schema.String,
+    }),
+    Result: Schema.Struct({ id: Schema.Int }),
+    execute: ({ runId, checkpoint, contextHash }) => sql`
+      SELECT id FROM checkpoints
+      WHERE run_id = ${runId} AND checkpoint = ${checkpoint}
+        AND context_hash = ${contextHash}
+    `,
+  });
+
   const record = Effect.fn("Checkpoints.record")(
     function* (input: RecordCheckpointInput) {
       const receivedAt = DateTime.formatIso(yield* DateTime.now);
@@ -130,6 +144,16 @@ const make = Effect.gen(function* () {
           VALUES (${input.runId}, ${input.experiment}, ${receivedAt})
         `;
       }
+
+      // Dedupe before the cap: retrying an already-saved checkpoint on a full
+      // run is a no-op, not a rejection — otherwise a lost response to the
+      // 500th write would strand the participant.
+      const existing = yield* existsForHash({
+        runId: input.runId,
+        checkpoint: input.checkpoint,
+        contextHash,
+      });
+      if (Option.isSome(existing)) return;
 
       const { n } = yield* countForRun({ runId: input.runId });
       if (n >= MAX_CHECKPOINTS_PER_RUN) {
