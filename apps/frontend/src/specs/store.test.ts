@@ -335,3 +335,45 @@ describe('overlapping starts', () => {
   });
 });
 
+describe('overlapping submissions', () => {
+  beforeEach(resetStore);
+
+  it('a second next() while one is in flight is ignored', async () => {
+    await useExperimentStore.getState().start(flowWithCheckpointAfterFirst);
+    const pending = deferred<void>();
+    vi.mocked(send).mockImplementationOnce(() => pending.promise);
+
+    const first = useExperimentStore.getState().next({ one: 'first' });
+    await vi.waitFor(() => expect(send).toHaveBeenCalledTimes(1));
+    await useExperimentStore.getState().next({ one: 'second' });
+
+    // The second submit neither sent nor released the loading state.
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(useExperimentStore.getState().isLoading).toBe(true);
+
+    pending.resolve();
+    await first;
+
+    const [[context, meta]] = vi.mocked(send).mock.calls;
+    expect(meta.seq).toBe(0);
+    expect(context.data).toMatchObject({ one: { one: 'first' } });
+    const state = useExperimentStore.getState();
+    expect(nodeId(state.step?.state)).toBe('screen-2');
+    expect(state.seq).toBe(1);
+    expect(state.isLoading).toBe(false);
+  });
+
+  it('releases the lock after a failed attempt so the participant can retry', async () => {
+    await useExperimentStore.getState().start(flowWithCheckpointAfterFirst);
+    vi.mocked(send).mockRejectedValueOnce(new Error('network error'));
+
+    await useExperimentStore.getState().next({ one: 'answer' });
+    expect(useExperimentStore.getState().error).not.toBeNull();
+
+    await useExperimentStore.getState().next({ one: 'edited' });
+    expect(send).toHaveBeenCalledTimes(2);
+    expect(vi.mocked(send).mock.calls[1][1].seq).toBe(0);
+    expect(nodeId(useExperimentStore.getState().step?.state)).toBe('screen-2');
+  });
+});
+

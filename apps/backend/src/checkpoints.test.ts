@@ -114,19 +114,55 @@ layer(Layer.mergeAll(handlersLive(), HttpServer.layerServices))(
       }).pipe(Effect.provide(AuthGood)),
     );
 
-    it.effect("dedupes a retry of the same visit even if context changed", () =>
+    it.effect("a retry of the same visit keeps one row", () =>
       Effect.gen(function* () {
         const client = yield* makeClient;
         const run = yield* createRun(client, "retry");
+        const context = { data: { q: { answer: 5 } } };
 
-        yield* record(client, run, 0, {
-          context: { timings: { s1: { submittedAt: "12:00:00" } } },
-        });
-        yield* record(client, run, 0, {
-          context: { timings: { s1: { submittedAt: "12:00:03" } } },
-        });
+        yield* record(client, run, 0, { context });
+        yield* record(client, run, 0, { context });
 
-        assert.strictEqual(lines(yield* exportNdjson(client, "retry")).length, 1);
+        const rows = lines(yield* exportNdjson(client, "retry"));
+        assert.strictEqual(rows.length, 1);
+        assert.deepStrictEqual(rows[0].context, context);
+      }).pipe(Effect.provide(AuthGood)),
+    );
+
+    it.effect("a retry with edited answers replaces the stored snapshot", () =>
+      Effect.gen(function* () {
+        const client = yield* makeClient;
+        const run = yield* createRun(client, "edited");
+
+        // The first POST committed but its response was lost; the
+        // participant edits the form and resubmits the same visit.
+        yield* record(client, run, 0, { context: { data: { q: 5 } } });
+        yield* record(client, run, 0, { context: { data: { q: 7 } } });
+
+        const rows = lines(yield* exportNdjson(client, "edited"));
+        assert.strictEqual(rows.length, 1);
+        assert.deepStrictEqual(rows[0].context, { data: { q: 7 } });
+      }).pipe(Effect.provide(AuthGood)),
+    );
+
+    it.effect("streams exports larger than one batch in order", () =>
+      Effect.gen(function* () {
+        const client = yield* makeClient;
+        const run = yield* createRun(client, "paged");
+
+        // 40 rows spans three 16-row batches, including a partial last one.
+        yield* Effect.forEach(
+          Array.from({ length: 40 }, (_, i) => i),
+          (seq) => record(client, run, seq, { context: { data: { seq } } }),
+          { discard: true },
+        );
+
+        const rows = lines(yield* exportNdjson(client, "paged"));
+        assert.deepStrictEqual(
+          rows.map((r) => r.seq),
+          Array.from({ length: 40 }, (_, i) => i),
+        );
+        assert.deepStrictEqual(rows[39].context, { data: { seq: 39 } });
       }).pipe(Effect.provide(AuthGood)),
     );
 

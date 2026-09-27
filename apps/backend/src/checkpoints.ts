@@ -31,7 +31,9 @@ export type RecordCheckpointInput = {
 };
 
 const MAX_CHECKPOINTS_PER_RUN = 500;
-const EXPORT_BATCH_SIZE = 500;
+// Rows can carry up to MAX_CONTEXT_BYTES of context each, so export batches
+// are sized by memory, not convenience: 16 rows bounds a batch at ~16 MB.
+const EXPORT_BATCH_SIZE = 16;
 // nginx caps /api/runs/* bodies at 1m (1,048,576 bytes). The body carries the
 // context plus bounded metadata (slug <=100, checkpoint <=200, at <=64, seq,
 // JSON framing), so the context cap sits 48 KiB below that — every context
@@ -132,24 +134,35 @@ const make = Effect.gen(function* () {
         return yield* new CheckpointTooLarge({ runId: input.runId });
       }
 
-      // Dedupe before the cap: a retried visit is an idempotent no-op even
-      // on a full run, so a lost response never strands the participant.
+      const receivedAt = DateTime.formatIso(yield* DateTime.now);
+
+      // A seq we've already stored is a retry of that visit. The client only
+      // reuses a seq while the visit is unconfirmed on its side, so the
+      // latest submission is what the participant actually advanced with —
+      // replace the snapshot rather than keeping a stale one (the participant
+      // may have edited answers after a lost response). Identical retries
+      // rewrite the same values, so plain network retries stay idempotent.
+      // Existing visits skip the cap, so a retry never strands a full run.
       const existing = yield* visitExists({
         runId: input.runId,
         seq: input.seq,
       });
-      if (Option.isSome(existing)) return;
-
-      const { n } = yield* countForRun({ runId: input.runId });
-      if (n >= MAX_CHECKPOINTS_PER_RUN) {
-        return yield* new TooManyCheckpoints({ runId: input.runId });
+      if (Option.isNone(existing)) {
+        const { n } = yield* countForRun({ runId: input.runId });
+        if (n >= MAX_CHECKPOINTS_PER_RUN) {
+          return yield* new TooManyCheckpoints({ runId: input.runId });
+        }
       }
 
-      const receivedAt = DateTime.formatIso(yield* DateTime.now);
       yield* sql`
-        INSERT OR IGNORE INTO checkpoints
+        INSERT INTO checkpoints
           (run_id, experiment, checkpoint, seq, at, received_at, context)
         VALUES (${input.runId}, ${input.experiment}, ${input.checkpoint}, ${input.seq}, ${input.at}, ${receivedAt}, ${contextJson})
+        ON CONFLICT (run_id, seq) DO UPDATE SET
+          checkpoint = excluded.checkpoint,
+          at = excluded.at,
+          received_at = excluded.received_at,
+          context = excluded.context
       `;
     },
     Effect.catchTags({
@@ -166,30 +179,39 @@ const make = Effect.gen(function* () {
         return yield* new ExperimentNotFound({ slug });
       }
       const encoder = new TextEncoder();
-      return Stream.paginate(0, (cursor) =>
+      const page = (
+        rows: ReadonlyArray<Row>,
+      ): [ReadonlyArray<Row>, Option.Option<number>] => [
+        rows,
+        rows.length < EXPORT_BATCH_SIZE
+          ? Option.none()
+          : Option.some(rows[rows.length - 1]!.id),
+      ];
+      // The 404 probe's batch is the stream's first page — no second read.
+      // `null` marks "use firstBatch"; later states are the id cursor.
+      return Stream.paginate(null as number | null, (cursor) =>
         Effect.map(
-          batchAfter({ slug, cursor }),
-          (rows): [ReadonlyArray<Row>, Option.Option<number>] => [
-            rows,
-            rows.length < EXPORT_BATCH_SIZE
-              ? Option.none()
-              : Option.some(rows[rows.length - 1]!.id),
-          ],
+          cursor === null
+            ? Effect.succeed(firstBatch)
+            : batchAfter({ slug, cursor }),
+          page,
         ),
       ).pipe(
-        Stream.map((row) =>
-          encoder.encode(
-            JSON.stringify({
-              runId: row.runId,
-              experiment: row.experiment,
-              checkpoint: row.checkpoint,
-              seq: row.seq,
-              at: row.at,
-              receivedAt: row.receivedAt,
-              context: JSON.parse(row.context),
-            }) + "\n",
-          ),
-        ),
+        Stream.map((row) => {
+          // `context` is stored as JSON text already; splice it in verbatim
+          // rather than parsing and re-serializing up to 1 MB per row.
+          const meta = JSON.stringify({
+            runId: row.runId,
+            experiment: row.experiment,
+            checkpoint: row.checkpoint,
+            seq: row.seq,
+            at: row.at,
+            receivedAt: row.receivedAt,
+          });
+          return encoder.encode(
+            `${meta.slice(0, -1)},"context":${row.context}}\n`,
+          );
+        }),
       );
     },
     Effect.catchTags({ SqlError: Effect.die, SchemaError: Effect.die }),

@@ -38,6 +38,10 @@ type Session = {
   run: Run | null;
   // Seq for the next checkpoint visit in the in-flight attempt.
   cursor: number;
+  // Synchronous lock for next(): set before reading step/seq, cleared when
+  // the attempt settles. Separate from rendered isLoading, which a React
+  // commit may not have applied yet when a second submit fires.
+  inFlight: boolean;
 };
 
 export const useExperimentStore = create<ExperimentStore>()((set, get) => {
@@ -98,6 +102,7 @@ export const useExperimentStore = create<ExperimentStore>()((set, get) => {
         slug: slugKey,
         run: prev.slug === slugKey ? prev.run : null,
         cursor: 0,
+        inFlight: false,
       };
       active = session;
       set({
@@ -139,8 +144,12 @@ export const useExperimentStore = create<ExperimentStore>()((set, get) => {
       // Only advance a step produced by the active session — if a newer
       // start() is in flight, this step is stale and must not be committed.
       const session = committed;
+      // Overlapping submits would replay the same step and seq with
+      // different answers; only one attempt per session may be in flight.
+      if (!session || !owns(session) || session.inFlight) return;
       const { step, seq } = get();
-      if (!step || !session || !owns(session)) return;
+      if (!step) return;
+      session.inFlight = true;
       set({ isLoading: true, error: null });
       session.cursor = seq;
       try {
@@ -164,6 +173,7 @@ export const useExperimentStore = create<ExperimentStore>()((set, get) => {
             'Something went wrong while saving your answer. Please try again.',
         });
       } finally {
+        session.inFlight = false;
         if (owns(session)) set({ isLoading: false });
       }
     },
