@@ -30,24 +30,39 @@ type ExperimentStore = {
 
 const END_CHECKPOINT = 'end';
 
-export const useExperimentStore = create<ExperimentStore>()((set, get) => {
-  // Seq to assign to the next checkpoint visit in the in-flight attempt. The
-  // checkpoint handler is captured once by startExperiment, so it reads this
-  // closure variable rather than store state.
-  let cursor = 0;
+// One start() attempt and the traversal it produces. The checkpoint handler
+// closes over its session, so every POST carries the run/token/slug that
+// traversal was issued — never whatever the store holds at request time.
+type Session = {
+  slug: string | null;
+  run: Run | null;
+  // Seq for the next checkpoint visit in the in-flight attempt.
+  cursor: number;
+};
 
-  const persist = async (context: Context, checkpoint: string) => {
-    const { run, slug } = get();
-    if (!run) throw new Error('No active run');
-    const seq = cursor;
-    await send(context, {
-      ...run,
-      experiment: slug ?? 'unknown',
-      checkpoint,
-      seq,
-    });
-    cursor = seq + 1;
-  };
+export const useExperimentStore = create<ExperimentStore>()((set, get) => {
+  // The session allowed to write store state. start() replaces it and reset()
+  // clears it; a start/next whose session is no longer active discards its
+  // results, so overlapping or post-navigation completions can't clobber a
+  // newer run.
+  let active: Session | null = null;
+  // The session whose traversal produced the step currently in the store.
+  let committed: Session | null = null;
+
+  const owns = (session: Session) => active === session;
+
+  const persistFor =
+    (session: Session) => async (context: Context, checkpoint: string) => {
+      if (!session.run) throw new Error('No active run');
+      const seq = session.cursor;
+      await send(context, {
+        ...session.run,
+        experiment: session.slug ?? 'unknown',
+        checkpoint,
+        seq,
+      });
+      session.cursor = seq + 1;
+    };
 
   return {
     step: null,
@@ -56,7 +71,9 @@ export const useExperimentStore = create<ExperimentStore>()((set, get) => {
     seq: 0,
     isLoading: false,
     error: null,
-    reset: () =>
+    reset: () => {
+      active = null;
+      committed = null;
       set({
         step: null,
         run: null,
@@ -64,7 +81,8 @@ export const useExperimentStore = create<ExperimentStore>()((set, get) => {
         seq: 0,
         isLoading: false,
         error: null,
-      }),
+      });
+    },
     start: async (
       experiment: ExperimentFlow,
       startNodeId?: string,
@@ -76,20 +94,27 @@ export const useExperimentStore = create<ExperimentStore>()((set, get) => {
       // run would orphan that row. A different slug is a different run.
       const prev = get();
       const slugKey = slug ?? null;
-      const reusable = prev.slug === slugKey ? prev.run : null;
-      // Drop a run issued for another slug up front, so a failed createRun
-      // can't leave it paired with the new slug for the next retry.
+      const session: Session = {
+        slug: slugKey,
+        run: prev.slug === slugKey ? prev.run : null,
+        cursor: 0,
+      };
+      active = session;
       set({
         isLoading: true,
         error: null,
         slug: slugKey,
-        run: reusable,
+        run: session.run,
         seq: 0,
       });
       try {
-        const run = reusable ?? (await createRun(slug ?? 'unknown'));
-        set({ run });
-        cursor = 0;
+        if (!session.run) {
+          const run = await createRun(slug ?? 'unknown');
+          if (!owns(session)) return;
+          session.run = run;
+          set({ run });
+        }
+        const persist = persistFor(session);
         const step = await startExperiment(
           experiment,
           startNodeId,
@@ -99,19 +124,25 @@ export const useExperimentStore = create<ExperimentStore>()((set, get) => {
         // Persist before committing an ended step — a failed final POST must
         // leave the run retryable rather than reporting "done" unsaved.
         if (isEnded(step)) await persist(step.context, END_CHECKPOINT);
-        set({ step, seq: cursor });
+        if (!owns(session)) return;
+        committed = session;
+        set({ step, seq: session.cursor });
       } catch (err) {
+        if (!owns(session)) return;
         console.error('Failed to load experiment:', err);
         set({ error: 'Something went wrong while loading the experiment.' });
       } finally {
-        set({ isLoading: false });
+        if (owns(session)) set({ isLoading: false });
       }
     },
     next: async (data?: Context['data']) => {
+      // Only advance a step produced by the active session — if a newer
+      // start() is in flight, this step is stale and must not be committed.
+      const session = committed;
       const { step, seq } = get();
-      if (!step) return;
+      if (!step || !session || !owns(session)) return;
       set({ isLoading: true, error: null });
-      cursor = seq;
+      session.cursor = seq;
       try {
         const nextStep = await traverseWithTiming(step, data).then(
           recordEnteredAt,
@@ -120,16 +151,20 @@ export const useExperimentStore = create<ExperimentStore>()((set, get) => {
         // nothing: a completed run always writes its final context, before
         // the ended step is committed so a failure keeps the last screen
         // retryable.
-        if (isEnded(nextStep)) await persist(nextStep.context, END_CHECKPOINT);
-        set({ step: nextStep, seq: cursor });
+        if (isEnded(nextStep)) {
+          await persistFor(session)(nextStep.context, END_CHECKPOINT);
+        }
+        if (!owns(session)) return;
+        set({ step: nextStep, seq: session.cursor });
       } catch (err) {
+        if (!owns(session)) return;
         console.error('Failed to advance experiment:', err);
         set({
           error:
             'Something went wrong while saving your answer. Please try again.',
         });
       } finally {
-        set({ isLoading: false });
+        if (owns(session)) set({ isLoading: false });
       }
     },
   };
