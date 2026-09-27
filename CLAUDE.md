@@ -90,8 +90,8 @@ apps/frontend/               # Next.js React application
         index.ts             # Exports the EXPERIMENTS record keyed by slug
         ocean.ts, emociones.ts, pandemic.ts, …
       store.ts               # Zustand store — start(experiment, startNodeId?, locale?, slug?)
-                             #   mints runId (crypto.randomUUID) and next(data?)
-      send.ts                # POSTs checkpoint snapshots to /api/runs/:runId/checkpoints
+                             #   registers a run (createRun) and next(data?)
+      send.ts                # createRun() + checkpoint POSTs to /api/runs/:runId/checkpoints
     components/
       RenderComponent.tsx    # Dispatcher: routes by componentFamily + template to concrete components
       content/               # RichText, Image, Video, Audio
@@ -104,7 +104,7 @@ apps/frontend/               # Next.js React application
 apps/backend/                # Effect 4 HTTP API — checkpoint persistence + export
   src/
     api.ts                   # HttpApi contract: runs / export (bearer) / system groups
-    config.ts                # BackendConfig service — PORT, DB_PATH, EXPORT_TOKEN, NODE_ENV
+    config.ts                # BackendConfig — PORT, HOST, DB_PATH, EXPORT_TOKEN, RUN_TOKEN_SECRET, ALLOWED_EXPERIMENTS, NODE_ENV
     db.ts                    # SqliteClient + SqliteMigrator (runs, checkpoints tables)
     checkpoints.ts           # Checkpoints service — record + exportByExperiment
     auth.ts                  # ExportToken middleware impl (timingSafeEqual)
@@ -141,7 +141,7 @@ Start node selection is driven by query-string params: `?condition=A` matches a 
 
 **`Zustand persist` is not enabled** in `apps/frontend/src/data/store.ts`. Browser refresh resets the experiment. This is a known limitation, not a bug to fix casually — re-enabling it requires implementing session resume logic.
 
-**`send()` in `apps/frontend/src/data/send.ts` POSTs checkpoint snapshots to the backend.** `checkpoint` nodes call `send(context, { runId, experiment, checkpoint })`, which POSTs to `/api/runs/:runId/checkpoints`. The `runId` is a client-minted UUID set in `store.start()`. A failed POST throws — checkpoint traversal errors surface as the screen-level error state rather than silently dropping data. In dev, the backend must be running (`pnpm dev:backend`) or Next's `/api/*` rewrite has nothing to hit.
+**Checkpoint persistence lives in `apps/frontend/src/data/send.ts` + `store.ts`.** `store.start()` calls `createRun(slug)` → `POST /api/runs`, which returns a server-minted `runId` and a token signed over (runId, experiment). Every checkpoint (and the synthesized `"end"` snapshot) POSTs to `/api/runs/:runId/checkpoints` with that token in `X-Run-Token` and a `seq` — the visit's ordinal within the run. A failed attempt is replayed from the last committed `seq`, so retries resend identical `seq` values and the backend dedupes on `(run_id, seq)`; genuine repeat visits get new ones. A failed POST throws and surfaces as the screen-level error state. In dev, the backend must be running (`pnpm dev:backend`) or Next's `/api/*` rewrite has nothing to hit.
 
 **Debug panels are gated behind `process.env.NODE_ENV === 'development'`** (build-time in Next.js production builds). Keep that gate intact when touching `apps/frontend/app/(experiments-layout)/experiments/[slug]/page.tsx` or `apps/frontend/src/Screen.tsx`.
 
@@ -201,7 +201,7 @@ From git history:
 
 The frontend reads no runtime env vars (`BACKEND_URL` in `next.config.ts` only affects the dev-server `/api/*` rewrite). The E2E CI job sets `NODE_ENV=test`.
 
-The backend reads `PORT`, `DB_PATH`, `NODE_ENV`, and `EXPORT_TOKEN` (required in production — gates the researcher export endpoint). `docker-compose.yml` interpolates `EXPORT_TOKEN` from a gitignored `.env`; see `.env.example`. The Cloudflare Tunnel is locally managed — `infra/cloudflared/config.yml` holds the ingress rules and `.cloudflared/credentials.json` (gitignored) authenticates the connector.
+The backend reads `PORT`, `HOST` (default `127.0.0.1` — the dev server is loopback-only; compose sets `0.0.0.0`), `DB_PATH`, `NODE_ENV`, `EXPORT_TOKEN` (gates the researcher export), `RUN_TOKEN_SECRET` (HMAC key for run tokens — rotating it invalidates in-flight runs), and optional `ALLOWED_EXPERIMENTS` (comma-separated slug allowlist for run registration; keep in sync with `EXPERIMENTS`). Both secrets are required in production; dev gets random per-boot values. `docker-compose.yml` interpolates them from a gitignored `.env`; see `.env.example`. The Cloudflare Tunnel is locally managed — `infra/cloudflared/config.yml` holds the ingress rules and `.cloudflared/credentials.json` (gitignored) authenticates the connector.
 
 ## Sensitive files
 

@@ -79,7 +79,7 @@ _Avoid_: finish, completion.
 ### Runtime — one participant's traversal
 
 **Run**:
-One participant's traversal of the experiment, from start-node selection to end. Held in the Zustand store; a browser refresh resets it. Identified by a client-minted UUID `runId` threaded onto every checkpoint POST.
+One participant's traversal of the experiment, from start-node selection to end. Held in the Zustand store; a browser refresh resets it (no resume). Registered with the backend via `POST /api/runs`, which issues the `runId` and a run token bound to the experiment slug; every checkpoint write presents both.
 _Avoid_: session, playthrough.
 
 **FlowStep**:
@@ -127,7 +127,7 @@ _Avoid_: translations, string table.
 ### Persistence — the backend
 
 **Checkpoint record**:
-The durable form of hitting a checkpoint node: an append-only row (`run_id`, `experiment`, `checkpoint`, `at`, `received_at`, `context` JSON) written by `POST /api/runs/:runId/checkpoints`. A run may hit the same checkpoint name more than once inside a loop — records accumulate, never upsert.
+The durable form of hitting a checkpoint node: an append-only row (`run_id`, `experiment`, `checkpoint`, `seq`, `at`, `received_at`, `context` JSON) written by `POST /api/runs/:runId/checkpoints`. `seq` is the visit's ordinal within the run: retries of one visit share it and collapse; a run hitting the same checkpoint again (e.g. in a loop) gets a new `seq` and a new record.
 _Avoid_: save, submission.
 
 **Export**:

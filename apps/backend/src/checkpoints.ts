@@ -4,73 +4,47 @@ import {
   Effect,
   Layer,
   Option,
-  Predicate,
+  Redacted,
   Schema,
   Stream,
 } from "effect";
 import { SqlClient, SqlSchema } from "effect/unstable/sql";
-import { createHash } from "node:crypto";
+import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 import {
   CheckpointTooLarge,
   ExperimentNotFound,
-  RunExperimentMismatch,
+  InvalidRunToken,
   TooManyCheckpoints,
+  UnknownExperiment,
 } from "./api.js";
 import { BackendConfig } from "./config.js";
 import { SqlLive } from "./db.js";
 
 export type RecordCheckpointInput = {
   runId: string;
+  token: string;
   experiment: string;
   checkpoint: string;
+  seq: number;
   context: unknown;
   at: string;
 };
 
 const MAX_CHECKPOINTS_PER_RUN = 500;
 const EXPORT_BATCH_SIZE = 500;
-// App-level bound so the cap holds even without the nginx edge in front
-// (e.g. direct access to a dev server). nginx allows 1m bodies on
-// /api/runs/* — comfortably above any realistic context snapshot, but
-// participants writing enormous free-text responses will 413 either way.
-const MAX_CONTEXT_BYTES = 1_048_576;
-
-// Dedupe key for checkpoint retries. Volatile values (timing entries and
-// checkpoint timestamps change on every traversal attempt) are stripped to
-// their key sets; data and everything else is kept. A retry then hashes
-// identically to the original, while a genuine repeat visit differs in
-// collected data or in which screens/checkpoints have been recorded.
-const deepSort = (value: unknown): unknown => {
-  if (Array.isArray(value)) return value.map(deepSort);
-  if (Predicate.isObject(value)) {
-    return Object.fromEntries(
-      Object.keys(value)
-        .sort()
-        .map((key) => [key, deepSort(value[key])]),
-    );
-  }
-  return value;
-};
-
-const normalizedContextJson = (context: unknown): string => {
-  if (!Predicate.isObject(context)) return JSON.stringify(context);
-  const { checkpoints, timings, ...rest } = context;
-  return JSON.stringify(
-    deepSort({
-      ...rest,
-      checkpoints: Predicate.isObject(checkpoints)
-        ? Object.keys(checkpoints)
-        : checkpoints,
-      timings: Predicate.isObject(timings) ? Object.keys(timings) : timings,
-    }),
-  );
-};
+// nginx caps /api/runs/* bodies at 1m (1,048,576 bytes). The body carries the
+// context plus bounded metadata (slug <=100, checkpoint <=200, at <=64, seq,
+// JSON framing), so the context cap sits 48 KiB below that — every context
+// the app accepts also fits through the proxy. It also bounds writes when the
+// edge isn't in front (direct dev access).
+const MAX_CONTEXT_BYTES = 1_000_000;
 
 const RowSchema = Schema.Struct({
   id: Schema.Int,
   runId: Schema.String,
   experiment: Schema.String,
   checkpoint: Schema.String,
+  seq: Schema.NullOr(Schema.Int),
   at: Schema.String,
   receivedAt: Schema.String,
   context: Schema.String,
@@ -79,6 +53,21 @@ type Row = typeof RowSchema.Type;
 
 const make = Effect.gen(function* () {
   const sql = yield* SqlClient.SqlClient;
+  const config = yield* BackendConfig;
+  const secret = Redacted.value(config.runTokenSecret);
+
+  const sign = (runId: string, experiment: string) =>
+    createHmac("sha256", secret)
+      .update(`${runId}\n${experiment}`)
+      .digest("base64url");
+
+  const tokenMatches = (runId: string, experiment: string, token: string) => {
+    const expected = Buffer.from(sign(runId, experiment));
+    const provided = Buffer.from(token);
+    return (
+      provided.length === expected.length && timingSafeEqual(provided, expected)
+    );
+  };
 
   const countForRun = SqlSchema.findOne({
     Request: Schema.Struct({ runId: Schema.String }),
@@ -88,11 +77,19 @@ const make = Effect.gen(function* () {
     `,
   });
 
+  const visitExists = SqlSchema.findOneOption({
+    Request: Schema.Struct({ runId: Schema.String, seq: Schema.Int }),
+    Result: Schema.Struct({ id: Schema.Int }),
+    execute: ({ runId, seq }) => sql`
+      SELECT id FROM checkpoints WHERE run_id = ${runId} AND seq = ${seq}
+    `,
+  });
+
   const batchAfter = SqlSchema.findAll({
     Request: Schema.Struct({ slug: Schema.String, cursor: Schema.Int }),
     Result: RowSchema,
     execute: ({ slug, cursor }) => sql`
-      SELECT id, run_id AS runId, experiment, checkpoint, at,
+      SELECT id, run_id AS runId, experiment, checkpoint, seq, at,
              received_at AS receivedAt, context
       FROM checkpoints
       WHERE experiment = ${slug} AND id > ${cursor}
@@ -101,66 +98,45 @@ const make = Effect.gen(function* () {
     `,
   });
 
-  const runExperiment = SqlSchema.findOneOption({
-    Request: Schema.Struct({ runId: Schema.String }),
-    Result: Schema.Struct({ experiment: Schema.String }),
-    execute: ({ runId }) => sql`
-      SELECT experiment FROM runs WHERE run_id = ${runId}
-    `,
-  });
-
-  const existsForHash = SqlSchema.findOneOption({
-    Request: Schema.Struct({
-      runId: Schema.String,
-      checkpoint: Schema.String,
-      contextHash: Schema.String,
-    }),
-    Result: Schema.Struct({ id: Schema.Int }),
-    execute: ({ runId, checkpoint, contextHash }) => sql`
-      SELECT id FROM checkpoints
-      WHERE run_id = ${runId} AND checkpoint = ${checkpoint}
-        AND context_hash = ${contextHash}
-    `,
-  });
+  const createRun = Effect.fn("Checkpoints.createRun")(
+    function* (experiment: string) {
+      if (
+        Option.isSome(config.allowedExperiments) &&
+        !config.allowedExperiments.value.has(experiment)
+      ) {
+        return yield* new UnknownExperiment({ experiment });
+      }
+      const runId = randomUUID();
+      const firstSeenAt = DateTime.formatIso(yield* DateTime.now);
+      yield* sql`
+        INSERT INTO runs (run_id, experiment, first_seen_at)
+        VALUES (${runId}, ${experiment}, ${firstSeenAt})
+      `;
+      return { runId, token: sign(runId, experiment) };
+    },
+    Effect.catchTag("SqlError", Effect.die),
+  );
 
   const record = Effect.fn("Checkpoints.record")(
     function* (input: RecordCheckpointInput) {
-      const receivedAt = DateTime.formatIso(yield* DateTime.now);
+      // The token binds the run to the experiment it was issued for, so a
+      // forged run id or a slug swap both fail here.
+      if (!tokenMatches(input.runId, input.experiment, input.token)) {
+        return yield* new InvalidRunToken({ runId: input.runId });
+      }
+
       const contextJson = yield* Effect.sync(() =>
         JSON.stringify(input.context),
       );
       if (Buffer.byteLength(contextJson, "utf8") > MAX_CONTEXT_BYTES) {
         return yield* new CheckpointTooLarge({ runId: input.runId });
       }
-      const contextHash = createHash("sha256")
-        .update(normalizedContextJson(input.context))
-        .digest("hex");
 
-      // A runId belongs to one experiment. Reject checkpoint writes that try
-      // to reuse a run under a different slug rather than silently mixing
-      // them into another experiment's export.
-      const registered = yield* runExperiment({ runId: input.runId });
-      if (Option.isSome(registered)) {
-        if (registered.value.experiment !== input.experiment) {
-          return yield* new RunExperimentMismatch({
-            runId: input.runId,
-            experiment: input.experiment,
-          });
-        }
-      } else {
-        yield* sql`
-          INSERT OR IGNORE INTO runs (run_id, experiment, first_seen_at)
-          VALUES (${input.runId}, ${input.experiment}, ${receivedAt})
-        `;
-      }
-
-      // Dedupe before the cap: retrying an already-saved checkpoint on a full
-      // run is a no-op, not a rejection — otherwise a lost response to the
-      // 500th write would strand the participant.
-      const existing = yield* existsForHash({
+      // Dedupe before the cap: a retried visit is an idempotent no-op even
+      // on a full run, so a lost response never strands the participant.
+      const existing = yield* visitExists({
         runId: input.runId,
-        checkpoint: input.checkpoint,
-        contextHash,
+        seq: input.seq,
       });
       if (Option.isSome(existing)) return;
 
@@ -169,10 +145,11 @@ const make = Effect.gen(function* () {
         return yield* new TooManyCheckpoints({ runId: input.runId });
       }
 
+      const receivedAt = DateTime.formatIso(yield* DateTime.now);
       yield* sql`
         INSERT OR IGNORE INTO checkpoints
-          (run_id, experiment, checkpoint, at, received_at, context, context_hash)
-        VALUES (${input.runId}, ${input.experiment}, ${input.checkpoint}, ${input.at}, ${receivedAt}, ${contextJson}, ${contextHash})
+          (run_id, experiment, checkpoint, seq, at, received_at, context)
+        VALUES (${input.runId}, ${input.experiment}, ${input.checkpoint}, ${input.seq}, ${input.at}, ${receivedAt}, ${contextJson})
       `;
     },
     Effect.catchTags({
@@ -192,9 +169,7 @@ const make = Effect.gen(function* () {
       return Stream.paginate(0, (cursor) =>
         Effect.map(
           batchAfter({ slug, cursor }),
-          (
-            rows,
-          ): [ReadonlyArray<Row>, Option.Option<number>] => [
+          (rows): [ReadonlyArray<Row>, Option.Option<number>] => [
             rows,
             rows.length < EXPORT_BATCH_SIZE
               ? Option.none()
@@ -208,6 +183,7 @@ const make = Effect.gen(function* () {
               runId: row.runId,
               experiment: row.experiment,
               checkpoint: row.checkpoint,
+              seq: row.seq,
               at: row.at,
               receivedAt: row.receivedAt,
               context: JSON.parse(row.context),
@@ -219,17 +195,20 @@ const make = Effect.gen(function* () {
     Effect.catchTags({ SqlError: Effect.die, SchemaError: Effect.die }),
   );
 
-  return Checkpoints.of({ record, exportByExperiment });
+  return Checkpoints.of({ createRun, record, exportByExperiment });
 });
 
 export class Checkpoints extends Context.Service<
   Checkpoints,
   {
+    createRun: (
+      experiment: string,
+    ) => Effect.Effect<{ runId: string; token: string }, UnknownExperiment>;
     record: (
       input: RecordCheckpointInput,
     ) => Effect.Effect<
       void,
-      TooManyCheckpoints | RunExperimentMismatch | CheckpointTooLarge
+      TooManyCheckpoints | InvalidRunToken | CheckpointTooLarge
     >;
     exportByExperiment: (
       slug: string,

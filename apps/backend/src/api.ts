@@ -20,6 +20,10 @@ const BoundedString = (max: number) =>
 export const CheckpointPayload = Schema.Struct({
   experiment: SlugSchema,
   checkpoint: BoundedString(200),
+  // Ordinal of this checkpoint visit within the run, assigned by the client
+  // and reused verbatim on network retries. It is the dedupe key: retries
+  // collapse, genuine repeat visits (even with identical answers) don't.
+  seq: Schema.Int.check(Schema.isBetween({ minimum: 0, maximum: 9999 })),
   context: Schema.Unknown,
   at: BoundedString(64),
 });
@@ -52,10 +56,16 @@ export class TooManyCheckpoints extends Schema.TaggedError<TooManyCheckpoints>()
   { httpApiStatus: 429 },
 ) {}
 
-export class RunExperimentMismatch extends Schema.TaggedError<RunExperimentMismatch>()(
-  "RunExperimentMismatch",
-  { runId: Schema.String, experiment: Schema.String },
-  { httpApiStatus: 409 },
+export class InvalidRunToken extends Schema.TaggedError<InvalidRunToken>()(
+  "InvalidRunToken",
+  { runId: Schema.String },
+  { httpApiStatus: 401 },
+) {}
+
+export class UnknownExperiment extends Schema.TaggedError<UnknownExperiment>()(
+  "UnknownExperiment",
+  { experiment: Schema.String },
+  { httpApiStatus: 404 },
 ) {}
 
 export class CheckpointTooLarge extends Schema.TaggedError<CheckpointTooLarge>()(
@@ -64,13 +74,24 @@ export class CheckpointTooLarge extends Schema.TaggedError<CheckpointTooLarge>()
   { httpApiStatus: 413 },
 ) {}
 
+// Runs are server-issued: createRun mints the runId and a token signed over
+// (runId, experiment). Checkpoint writes must present it, so clients can no
+// longer pick arbitrary run ids or write under a slug they didn't register.
 export class RunsApiGroup extends HttpApiGroup.make("runs")
+  .add(
+    HttpApiEndpoint.post("createRun", "/runs", {
+      payload: Schema.Struct({ experiment: SlugSchema }),
+      success: Schema.Struct({ runId: Schema.String, token: Schema.String }),
+      error: UnknownExperiment,
+    }),
+  )
   .add(
     HttpApiEndpoint.post("recordCheckpoint", "/runs/:runId/checkpoints", {
       params: { runId: BoundedString(200) },
+      headers: { "x-run-token": BoundedString(200) },
       payload: CheckpointPayload,
       success: Schema.Struct({ ok: Schema.Literal(true) }),
-      error: [TooManyCheckpoints, RunExperimentMismatch, CheckpointTooLarge],
+      error: [TooManyCheckpoints, InvalidRunToken, CheckpointTooLarge],
     }),
   )
   .prefix("/api") {}

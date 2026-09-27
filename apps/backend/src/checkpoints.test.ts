@@ -1,5 +1,5 @@
-import { assert, it, layer } from "@effect/vitest";
-import { Effect, Layer, Redacted, Stream } from "effect";
+import { assert, layer } from "@effect/vitest";
+import { Effect, Layer, Option, Redacted, Stream } from "effect";
 import { HttpClientRequest, HttpServer } from "effect/unstable/http";
 import { HttpApiMiddleware, HttpApiTest } from "effect/unstable/httpapi";
 import { Api, ExportToken } from "./api.js";
@@ -9,24 +9,27 @@ import { BackendConfig } from "./config.js";
 import { makeSqlLive } from "./db.js";
 import { ExportHandlers, RunsHandlers, SystemHandlers } from "./handlers.js";
 
-const TestConfig = Layer.succeed(BackendConfig, {
-  port: 0,
-  dbPath: ":memory:",
-  exportToken: Redacted.make("test-token"),
-  nodeEnv: "test",
-});
+const testConfig = (allowed?: ReadonlyArray<string>) =>
+  Layer.succeed(BackendConfig, {
+    port: 0,
+    host: "127.0.0.1",
+    dbPath: ":memory:",
+    exportToken: Redacted.make("test-token"),
+    runTokenSecret: Redacted.make("test-run-secret"),
+    allowedExperiments: allowed
+      ? Option.some<ReadonlySet<string>>(new Set(allowed))
+      : Option.none(),
+    nodeEnv: "test",
+  });
 
-const HandlersLive = Layer.mergeAll(
-  RunsHandlers,
-  ExportHandlers,
-  SystemHandlers,
-).pipe(
-  Layer.provide(
-    Checkpoints.layerNoDeps.pipe(Layer.provide(makeSqlLive(":memory:"))),
-  ),
-  Layer.provideMerge(ExportTokenLive),
-  Layer.provide(TestConfig),
-);
+const handlersLive = (allowed?: ReadonlyArray<string>) =>
+  Layer.mergeAll(RunsHandlers, ExportHandlers, SystemHandlers).pipe(
+    Layer.provide(
+      Checkpoints.layerNoDeps.pipe(Layer.provide(makeSqlLive(":memory:"))),
+    ),
+    Layer.provideMerge(ExportTokenLive),
+    Layer.provide(testConfig(allowed)),
+  );
 
 const makeClient = HttpApiTest.groups(Api, ["runs", "export", "system"]);
 
@@ -42,20 +45,35 @@ const AuthBad = HttpApiMiddleware.layerClient(
 );
 
 type TestClient = Effect.Success<typeof makeClient>;
+type Run = { runId: string; token: string; experiment: string };
+
+const createRun = Effect.fnUntraced(function* (
+  client: TestClient,
+  experiment: string,
+) {
+  const run = yield* client.runs.createRun({ payload: { experiment } });
+  return { ...run, experiment } satisfies Run;
+});
 
 const record = (
   client: TestClient,
-  runId: string,
-  checkpoint: string,
-  slug = "ocean",
-  context: unknown = { data: { intro: { answer: 5 } } },
+  run: Run,
+  seq: number,
+  options: {
+    checkpoint?: string;
+    context?: unknown;
+    experiment?: string;
+    token?: string;
+  } = {},
 ) =>
   client.runs.recordCheckpoint({
-    params: { runId },
+    params: { runId: run.runId },
+    headers: { "x-run-token": options.token ?? run.token },
     payload: {
-      experiment: slug,
-      checkpoint,
-      context,
+      experiment: options.experiment ?? run.experiment,
+      checkpoint: options.checkpoint ?? "mid",
+      seq,
+      context: options.context ?? { data: { intro: { answer: 5 } } },
       at: "2026-09-25T12:00:00.000Z",
     },
   });
@@ -68,91 +86,107 @@ const exportNdjson = Effect.fnUntraced(function* (
   return yield* stream.pipe(Stream.decodeText(), Stream.mkString);
 });
 
-layer(Layer.mergeAll(HandlersLive, HttpServer.layerServices))(
+const lines = (ndjson: string) =>
+  ndjson
+    .trim()
+    .split("\n")
+    .map((l) => JSON.parse(l));
+
+layer(Layer.mergeAll(handlersLive(), HttpServer.layerServices))(
   "CheckpointsApi",
   (it) => {
     it.effect("records a checkpoint and exports it as NDJSON", () =>
       Effect.gen(function* () {
         const client = yield* makeClient;
+        const run = yield* createRun(client, "ocean");
 
-        const res = yield* record(client, "run-1", "mid");
+        const res = yield* record(client, run, 0);
         assert.deepStrictEqual(res, { ok: true });
 
-        const ndjson = yield* exportNdjson(client, "ocean");
-        const rows = ndjson.trim().split("\n").map((l) => JSON.parse(l));
+        const rows = lines(yield* exportNdjson(client, "ocean"));
         assert.strictEqual(rows.length, 1);
-        assert.strictEqual(rows[0].runId, "run-1");
+        assert.strictEqual(rows[0].runId, run.runId);
         assert.strictEqual(rows[0].checkpoint, "mid");
+        assert.strictEqual(rows[0].seq, 0);
         assert.deepStrictEqual(rows[0].context, {
           data: { intro: { answer: 5 } },
         });
       }).pipe(Effect.provide(AuthGood)),
     );
 
-    it.effect("dedupes retrying an identical checkpoint POST", () =>
+    it.effect("dedupes a retry of the same visit even if context changed", () =>
       Effect.gen(function* () {
         const client = yield* makeClient;
+        const run = yield* createRun(client, "retry");
 
-        yield* record(client, "run-2", "mid", "retry");
-        yield* record(client, "run-2", "mid", "retry");
+        yield* record(client, run, 0, {
+          context: { timings: { s1: { submittedAt: "12:00:00" } } },
+        });
+        yield* record(client, run, 0, {
+          context: { timings: { s1: { submittedAt: "12:00:03" } } },
+        });
 
-        const ndjson = yield* exportNdjson(client, "retry");
-        assert.strictEqual(ndjson.trim().split("\n").length, 1);
+        assert.strictEqual(lines(yield* exportNdjson(client, "retry")).length, 1);
       }).pipe(Effect.provide(AuthGood)),
     );
 
-    it.effect(
-      "dedupes a retry that differs only in volatile timing values",
-      () =>
-        Effect.gen(function* () {
-          const client = yield* makeClient;
-
-          yield* record(client, "run-t", "mid", "timing", {
-            data: { a: 1 },
-            timings: { s1: { submittedAt: "12:00:00" } },
-            checkpoints: { mid: "12:00:00" },
-          });
-          yield* record(client, "run-t", "mid", "timing", {
-            data: { a: 1 },
-            timings: { s1: { submittedAt: "12:00:03" } },
-            checkpoints: { mid: "12:00:03" },
-          });
-
-          const ndjson = yield* exportNdjson(client, "timing");
-          assert.strictEqual(ndjson.trim().split("\n").length, 1);
-        }).pipe(Effect.provide(AuthGood)),
-    );
-
-    it.effect("rejects reusing a runId under a different experiment", () =>
+    it.effect("keeps repeat visits with identical answers", () =>
       Effect.gen(function* () {
         const client = yield* makeClient;
+        const run = yield* createRun(client, "visits");
+        const context = { data: { same: "answer" } };
 
-        yield* record(client, "run-shared", "mid", "ocean");
+        yield* record(client, run, 0, { context });
+        yield* record(client, run, 1, { context });
+
+        const rows = lines(yield* exportNdjson(client, "visits"));
+        assert.deepStrictEqual(
+          rows.map((r) => r.seq),
+          [0, 1],
+        );
+      }).pipe(Effect.provide(AuthGood)),
+    );
+
+    it.effect("rejects a checkpoint with a forged run token", () =>
+      Effect.gen(function* () {
+        const client = yield* makeClient;
+        const run = yield* createRun(client, "ocean");
+
+        const error = yield* record(client, run, 0, {
+          token: "forged",
+        }).pipe(Effect.flip);
+        assert.strictEqual(error._tag, "InvalidRunToken");
+      }).pipe(Effect.provide(AuthGood)),
+    );
+
+    it.effect("rejects a checkpoint for an unregistered run id", () =>
+      Effect.gen(function* () {
+        const client = yield* makeClient;
+        const run = yield* createRun(client, "ocean");
+
         const error = yield* record(
           client,
-          "run-shared",
-          "mid",
-          "other-study",
+          { ...run, runId: "attacker-picked-id" },
+          0,
         ).pipe(Effect.flip);
-        assert.strictEqual(error._tag, "RunExperimentMismatch");
+        assert.strictEqual(error._tag, "InvalidRunToken");
+      }).pipe(Effect.provide(AuthGood)),
+    );
 
-        // The rejected write left nothing behind for the other slug.
+    it.effect("rejects reusing a run token under a different experiment", () =>
+      Effect.gen(function* () {
+        const client = yield* makeClient;
+        const run = yield* createRun(client, "ocean");
+
+        const error = yield* record(client, run, 0, {
+          experiment: "other-study",
+        }).pipe(Effect.flip);
+        assert.strictEqual(error._tag, "InvalidRunToken");
+
         const exportError = yield* client.export
           .experiment({ params: { slug: "other-study" } })
           .pipe(Effect.flip);
         assert.strictEqual(exportError._tag, "ExperimentNotFound");
-      }).pipe(Effect.provide(AuthGood)),
-    );
-
-    it.effect("keeps repeat visits whose context has grown", () =>
-      Effect.gen(function* () {
-        const client = yield* makeClient;
-
-        yield* record(client, "run-3", "mid", "visits", { round: 1 });
-        yield* record(client, "run-3", "mid", "visits", { round: 2 });
-
-        const ndjson = yield* exportNdjson(client, "visits");
-        assert.strictEqual(ndjson.trim().split("\n").length, 2);
       }).pipe(Effect.provide(AuthGood)),
     );
 
@@ -202,45 +236,72 @@ layer(Layer.mergeAll(HandlersLive, HttpServer.layerServices))(
   },
 );
 
-layer(Checkpoints.layerNoDeps.pipe(Layer.provide(makeSqlLive(":memory:"))))(
-  "Checkpoints service",
+layer(Layer.mergeAll(handlersLive(["ocean"]), HttpServer.layerServices))(
+  "CheckpointsApi with an experiment allowlist",
   (it) => {
-    it.effect("refuses checkpoints past the per-run cap", () =>
+    it.effect("refuses to issue runs for unlisted experiments", () =>
       Effect.gen(function* () {
-        const checkpoints = yield* Checkpoints;
-        yield* Effect.forEach(
-          Array.from({ length: 500 }, (_, i) => i),
-          (i) =>
-            checkpoints.record({
-              runId: "big-run",
-              experiment: "ocean",
-              checkpoint: `cp-${i}`,
-              context: { i },
-              at: "2026-09-25T12:00:00.000Z",
-            }),
-          { discard: true },
-        );
-        const error = yield* checkpoints
-          .record({
-            runId: "big-run",
-            experiment: "ocean",
-            checkpoint: "cp-501",
-            context: { i: 501 },
-            at: "2026-09-25T12:00:01.000Z",
-          })
+        const client = yield* makeClient;
+        yield* createRun(client, "ocean");
+        const error = yield* client.runs
+          .createRun({ payload: { experiment: "made-up" } })
           .pipe(Effect.flip);
-        assert.strictEqual(error._tag, "TooManyCheckpoints");
-
-        // Retrying an already-saved checkpoint is a no-op, not a rejection —
-        // a lost response to the 500th write must not strand the participant.
-        yield* checkpoints.record({
-          runId: "big-run",
-          experiment: "ocean",
-          checkpoint: "cp-499",
-          context: { i: 499 },
-          at: "2026-09-25T12:00:00.000Z",
-        });
-      }),
+        assert.strictEqual(error._tag, "UnknownExperiment");
+      }).pipe(Effect.provide(AuthGood)),
     );
   },
 );
+
+layer(
+  Checkpoints.layerNoDeps.pipe(
+    Layer.provide(makeSqlLive(":memory:")),
+    Layer.provide(testConfig()),
+  ),
+)("Checkpoints service", (it) => {
+  it.effect("refuses new visits past the per-run cap but accepts retries", () =>
+    Effect.gen(function* () {
+      const checkpoints = yield* Checkpoints;
+      const { runId, token } = yield* checkpoints.createRun("ocean");
+      const write = (seq: number) =>
+        checkpoints.record({
+          runId,
+          token,
+          experiment: "ocean",
+          checkpoint: `cp-${seq}`,
+          seq,
+          context: { seq },
+          at: "2026-09-25T12:00:00.000Z",
+        });
+
+      yield* Effect.forEach(
+        Array.from({ length: 500 }, (_, i) => i),
+        write,
+        { discard: true },
+      );
+      const error = yield* write(500).pipe(Effect.flip);
+      assert.strictEqual(error._tag, "TooManyCheckpoints");
+
+      // A lost response to the 500th write must not strand the participant.
+      yield* write(499);
+    }),
+  );
+
+  it.effect("rejects contexts over the size cap", () =>
+    Effect.gen(function* () {
+      const checkpoints = yield* Checkpoints;
+      const { runId, token } = yield* checkpoints.createRun("ocean");
+      const error = yield* checkpoints
+        .record({
+          runId,
+          token,
+          experiment: "ocean",
+          checkpoint: "big",
+          seq: 0,
+          context: { blob: "x".repeat(1_000_001) },
+          at: "2026-09-25T12:00:00.000Z",
+        })
+        .pipe(Effect.flip);
+      assert.strictEqual(error._tag, "CheckpointTooLarge");
+    }),
+  );
+});

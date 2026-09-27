@@ -8,8 +8,11 @@ services:
     environment:
       DB_PATH: /app/data/experiment-hub.sqlite
       PORT: "3000"
+      HOST: 0.0.0.0
       NODE_ENV: production
       EXPORT_TOKEN: ${EXPORT_TOKEN}
+      RUN_TOKEN_SECRET: ${RUN_TOKEN_SECRET}
+      ALLOWED_EXPERIMENTS: ${ALLOWED_EXPERIMENTS:-}
     networks:
       # The backend has no outbound calls — it only sits on the proxy
       # network so nginx can reach it. No egress network attached.

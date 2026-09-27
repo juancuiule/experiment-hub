@@ -27,7 +27,10 @@ const ServerLive = Layer.unwrap(
   Effect.gen(function* () {
     const config = yield* BackendConfig;
     return HttpRouter.serve(ApiLive).pipe(
-      Layer.provide(NodeHttpServer.layer(createServer, { port: config.port })),
+      Layer.provide(NodeHttpServer.layer(createServer, {
+        port: config.port,
+        host: config.host,
+      })),
     );
   }),
 ).pipe(Layer.provide(BackendConfig.layer));

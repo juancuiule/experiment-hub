@@ -2,8 +2,30 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ExperimentFlow, InNodeState } from '@experiment-hub/engine/types';
 import { useExperimentStore } from '@/src/data/store';
 
-vi.mock('@/src/data/send', () => ({ send: vi.fn().mockResolvedValue(undefined) }));
-import { send } from '@/src/data/send';
+vi.mock('@/src/data/send', () => ({
+  send: vi.fn().mockResolvedValue(undefined),
+  createRun: vi.fn(),
+}));
+import { createRun, send } from '@/src/data/send';
+
+let runCounter = 0;
+const resetStore = () => {
+  useExperimentStore.setState({
+    step: null,
+    run: null,
+    slug: null,
+    seq: 0,
+    isLoading: false,
+    error: null,
+  });
+  vi.mocked(send).mockReset().mockResolvedValue(undefined);
+  vi.mocked(createRun)
+    .mockReset()
+    .mockImplementation(async () => {
+      runCounter += 1;
+      return { runId: `run-${runCounter}`, token: `token-${runCounter}` };
+    });
+};
 
 const flow: ExperimentFlow = {
   nodes: [
@@ -22,10 +44,7 @@ const flow: ExperimentFlow = {
 const nodeId = (state: InNodeState | unknown) => (state as InNodeState).node.id;
 
 describe('useExperimentStore', () => {
-  beforeEach(() => {
-    useExperimentStore.setState({ step: null, isLoading: false, error: null });
-    vi.mocked(send).mockResolvedValue(undefined);
-  });
+  beforeEach(resetStore);
 
   it('starts on a null step that is not loading', () => {
     const { step, isLoading } = useExperimentStore.getState();
@@ -90,14 +109,38 @@ describe('useExperimentStore', () => {
 
   it('reuses runId when retrying the same slug, mints a new one on change', async () => {
     await useExperimentStore.getState().start(flow, undefined, undefined, 'a');
-    const first = useExperimentStore.getState().runId;
+    const first = useExperimentStore.getState().run?.runId;
 
     await useExperimentStore.getState().start(flow, undefined, undefined, 'a');
-    expect(useExperimentStore.getState().runId).toBe(first);
+    expect(useExperimentStore.getState().run?.runId).toBe(first);
 
     await useExperimentStore.getState().start(flow, undefined, undefined, 'b');
-    const second = useExperimentStore.getState().runId;
+    const second = useExperimentStore.getState().run?.runId;
     expect(second).not.toBe(first);
+  });
+
+  it('does not pair a stale run with a new slug when createRun fails', async () => {
+    await useExperimentStore.getState().start(flow, undefined, undefined, 'a');
+    vi.mocked(createRun).mockRejectedValueOnce(new Error('network error'));
+
+    await useExperimentStore.getState().start(flow, undefined, undefined, 'b');
+    expect(useExperimentStore.getState().run).toBeNull();
+    expect(useExperimentStore.getState().error).not.toBeNull();
+  });
+
+  it('sends the run token and a per-visit seq with each checkpoint', async () => {
+    await useExperimentStore.getState().start(flow, undefined, undefined, 'a');
+    expect(send).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        runId: expect.stringMatching(/^run-/),
+        token: expect.stringMatching(/^token-/),
+        experiment: 'a',
+        checkpoint: 'cp1',
+        seq: 0,
+      }),
+    );
+    expect(useExperimentStore.getState().seq).toBe(1);
   });
 
   it('keeps the pre-end step retryable when the final persist fails', async () => {
@@ -141,10 +184,7 @@ const flowWithCheckpointAfterFirst: ExperimentFlow = {
 };
 
 describe('error state', () => {
-  beforeEach(() => {
-    useExperimentStore.setState({ step: null, isLoading: false, error: null });
-    vi.mocked(send).mockResolvedValue(undefined);
-  });
+  beforeEach(resetStore);
 
   it('next() failure sets error and resets isLoading to false', async () => {
     await useExperimentStore.getState().start(flowWithCheckpointAfterFirst);
@@ -160,5 +200,17 @@ describe('error state', () => {
     useExperimentStore.setState({ error: 'previous error' });
     await useExperimentStore.getState().next({ one: 'answer' });
     expect(useExperimentStore.getState().error).toBeNull();
+  });
+
+  it('a retried checkpoint resends the same seq; the next visit gets a new one', async () => {
+    await useExperimentStore.getState().start(flowWithCheckpointAfterFirst);
+    vi.mocked(send).mockRejectedValueOnce(new Error('network error'));
+
+    await useExperimentStore.getState().next({ one: 'answer' });
+    await useExperimentStore.getState().next({ one: 'answer' });
+
+    const seqs = vi.mocked(send).mock.calls.map(([, meta]) => meta.seq);
+    expect(seqs).toEqual([0, 0]);
+    expect(useExperimentStore.getState().seq).toBe(1);
   });
 });

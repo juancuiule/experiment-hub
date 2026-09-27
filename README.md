@@ -162,7 +162,7 @@ This project is an **early-stage working prototype**. The flow engine and compon
 
 **Session persistence**
 
-**Data submission** — `checkpoint` nodes persist full-context snapshots via `send()` → `POST /api/runs/:runId/checkpoints`, served by `apps/backend` (Effect + SQLite). Export for researchers: `GET /api/experiments/:slug/export` (NDJSON, bearer-gated).
+**Data submission** — each run registers via `POST /api/runs` (server-issued run id + signed run token); `checkpoint` nodes and run completion persist full-context snapshots via `POST /api/runs/:runId/checkpoints`, served by `apps/backend` (Effect + SQLite). Export for researchers: `GET /api/experiments/:slug/export` (NDJSON, bearer-gated). Anyone can still register a run for a public study — the token stops forged run ids and slug swaps, not a determined fabricator (see #108).
 
 **Visual flow builder** — Experiments are currently defined as TypeScript object literals in `apps/frontend/src/data/experiments/`. A drag-and-drop canvas editor using `@xyflow/react` is planned but not started.
 
@@ -202,7 +202,7 @@ cloudflared tunnel route dns <name> <your-domain>   # creates the CNAME for the 
 
 Then update `tunnel:` and `hostname:` in `infra/cloudflared/config.yml`, and copy `~/.cloudflared/<tunnel-id>.json` to `.cloudflared/credentials.json`.
 
-Copy `.env.example` to `.env`, set `EXPORT_TOKEN`, place `credentials.json` in `.cloudflared/`, then:
+Copy `.env.example` to `.env`, set `EXPORT_TOKEN` and `RUN_TOKEN_SECRET` (optionally `ALLOWED_EXPERIMENTS`), place `credentials.json` in `.cloudflared/`, then:
 
 ```bash
 docker compose up -d --build

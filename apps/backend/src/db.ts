@@ -50,6 +50,19 @@ const MigratorLive = SqliteMigrator.layer({
         ON checkpoints (run_id, checkpoint, context_hash)
       `;
     }),
+    "0003_visit_seq": Effect.gen(function* () {
+      const sql = yield* SqlClient.SqlClient;
+      // The client-assigned visit ordinal replaces the context hash as the
+      // dedupe key: hashing couldn't tell a retry from a repeat visit with
+      // identical answers. Pre-existing rows keep seq NULL, which SQLite's
+      // unique index treats as distinct.
+      yield* sql`ALTER TABLE checkpoints ADD COLUMN seq INTEGER`;
+      yield* sql`DROP INDEX idx_checkpoints_dedupe`;
+      yield* sql`
+        CREATE UNIQUE INDEX idx_checkpoints_visit
+        ON checkpoints (run_id, seq)
+      `;
+    }),
   }),
 });
 
