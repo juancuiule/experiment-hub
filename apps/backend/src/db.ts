@@ -1,7 +1,7 @@
+import { NodeFileSystem } from "@effect/platform-node";
 import { SqliteClient, SqliteMigrator } from "@effect/sql-sqlite-node";
-import { Effect, Layer } from "effect";
+import { Effect, FileSystem, Layer } from "effect";
 import { SqlClient } from "effect/unstable/sql";
-import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { BackendConfig } from "./config.js";
 
@@ -63,6 +63,19 @@ const MigratorLive = SqliteMigrator.layer({
         ON checkpoints (run_id, seq)
       `;
     }),
+    "0004_export_cursor": Effect.gen(function* () {
+      const sql = yield* SqlClient.SqlClient;
+      // Export pagination filters `experiment = ? AND id > ? ORDER BY id` —
+      // this index serves all three clauses, where (experiment, run_id)
+      // forced a sort per batch. context_hash has been dead since
+      // (run_id, seq) replaced it as the dedupe key in 0003.
+      yield* sql`DROP INDEX idx_checkpoints_experiment`;
+      yield* sql`
+        CREATE INDEX idx_checkpoints_export
+        ON checkpoints (experiment, id)
+      `;
+      yield* sql`ALTER TABLE checkpoints DROP COLUMN context_hash`;
+    }),
   }),
 });
 
@@ -71,12 +84,15 @@ export const makeSqlLive = (filename: string) =>
     Layer.provideMerge(
       Layer.unwrap(
         Effect.gen(function* () {
-          yield* Effect.sync(() =>
-            mkdirSync(dirname(filename), { recursive: true }),
-          );
+          // ":memory:" needs no directory — skip the fs touch entirely.
+          const dir = dirname(filename);
+          if (dir !== ".") {
+            const fs = yield* FileSystem.FileSystem;
+            yield* fs.makeDirectory(dir, { recursive: true });
+          }
           return SqliteClient.layer({ filename });
         }),
-      ),
+      ).pipe(Layer.provide(NodeFileSystem.layer)),
     ),
   );
 

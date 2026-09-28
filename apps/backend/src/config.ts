@@ -1,4 +1,12 @@
-import { Config, Context, Effect, Layer, Option, Redacted } from "effect";
+import {
+  Config,
+  ConfigProvider,
+  Context,
+  Effect,
+  Layer,
+  Option,
+  Redacted,
+} from "effect";
 
 // Secrets are required in production; in development an unset value gets a
 // random per-boot secret — never a fixed, guessable default. Empty strings
@@ -10,11 +18,21 @@ const secret = (name: string, nodeEnv: string) =>
     Effect.flatMap((token) => {
       if (Option.isSome(token)) return Effect.succeed(token.value);
       if (nodeEnv === "production") {
-        return Effect.fail(new Error(`${name} must be set in production`));
+        return Effect.fail(
+          new Config.ConfigError(
+            new ConfigProvider.SourceError({
+              message: `${name} must be set in production`,
+            }),
+          ),
+        );
       }
       return Effect.logWarning(
         `${name} unset — generated an ephemeral value for this boot`,
-      ).pipe(Effect.as(Redacted.make(`dev-${crypto.randomUUID()}`)));
+      ).pipe(
+        Effect.andThen(
+          Effect.sync(() => Redacted.make(`dev-${crypto.randomUUID()}`)),
+        ),
+      );
     }),
   );
 
