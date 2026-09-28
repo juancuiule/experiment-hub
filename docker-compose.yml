@@ -39,7 +39,11 @@ services:
       context: .
       dockerfile: apps/frontend/Dockerfile
     networks:
-      - frontend_proxy
+      # Pinned because nginx resolves upstream hostnames once at config
+      # load — a recreated frontend with a fresh IP would 502 until nginx
+      # restarted.
+      frontend_proxy:
+        ipv4_address: 172.30.70.22
     cap_drop:
       - NET_RAW
     restart: unless-stopped
@@ -120,6 +124,9 @@ networks:
         - subnet: 172.30.70.0/29
   frontend_proxy:
     internal: true
+    ipam:
+      config:
+        - subnet: 172.30.70.16/29
   tunnel_ingress:
     ipam:
       config:

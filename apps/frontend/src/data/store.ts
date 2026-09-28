@@ -126,8 +126,11 @@ export const useExperimentStore = create<ExperimentStore>()((set, get) => {
           { onCheckpoint: persist },
           locale,
         ).then(recordEnteredAt);
+        if (!owns(session)) return;
         // Persist before committing an ended step — a failed final POST must
-        // leave the run retryable rather than reporting "done" unsaved.
+        // leave the run retryable rather than reporting "done" unsaved. Only
+        // the owner writes "end": a superseded session must not record a
+        // completed run for a participant who never reached it.
         if (isEnded(step)) await persist(step.context, END_CHECKPOINT);
         if (!owns(session)) return;
         committed = session;
@@ -156,10 +159,12 @@ export const useExperimentStore = create<ExperimentStore>()((set, get) => {
         const nextStep = await traverseWithTiming(step, data).then(
           recordEnteredAt,
         );
+        if (!owns(session)) return;
         // Experiments without checkpoint nodes would otherwise persist
         // nothing: a completed run always writes its final context, before
         // the ended step is committed so a failure keeps the last screen
-        // retryable.
+        // retryable. Only the owner writes "end" — a superseded session
+        // must not record completion for an abandoned traversal.
         if (isEnded(nextStep)) {
           await persistFor(session)(nextStep.context, END_CHECKPOINT);
         }

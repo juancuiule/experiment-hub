@@ -20,7 +20,7 @@ const HandlersLive = Layer.mergeAll(
 );
 
 const ApiLive = HttpApiBuilder.layer(Api, {
-  openapiPath: "/openapi.json",
+  openapiPath: "/api/openapi.json",
 }).pipe(Layer.provide(HandlersLive));
 
 const ServerLive = Layer.unwrap(

@@ -127,7 +127,7 @@ _Avoid_: translations, string table.
 ### Persistence — the backend
 
 **Checkpoint record**:
-The durable form of hitting a checkpoint node: an append-only row (`run_id`, `experiment`, `checkpoint`, `seq`, `at`, `received_at`, `context` JSON) written by `POST /api/runs/:runId/checkpoints`. `seq` is the visit's ordinal within the run: retries of one visit share it and collapse; a run hitting the same checkpoint again (e.g. in a loop) gets a new `seq` and a new record.
+The durable form of hitting a checkpoint node: a row (`run_id`, `experiment`, `checkpoint`, `seq`, `at`, `received_at`, `context` JSON) written by `POST /api/runs/:runId/checkpoints`, one row per `(run_id, seq)`. `seq` is the visit's ordinal within the run: retries of one visit share it and the later submission *replaces* the stored snapshot (upsert on conflict); a run hitting the same checkpoint again (e.g. in a loop) gets a new `seq` and a new row.
 _Avoid_: save, submission.
 
 **Export**:

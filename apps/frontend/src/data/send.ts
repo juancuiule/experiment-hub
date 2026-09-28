@@ -1,5 +1,10 @@
 import { Context } from '@experiment-hub/engine/types';
 
+// A hung request must not pin a session's in-flight lock forever: the
+// store only clears it when the fetch settles, and there is no persisted
+// session to resume after a reload.
+const REQUEST_TIMEOUT_MS = 15_000;
+
 export type Run = { runId: string; token: string };
 
 export type CheckpointMeta = Run & {
@@ -17,6 +22,7 @@ export async function createRun(experiment: string): Promise<Run> {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ experiment }),
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
   });
   if (!response.ok) {
     throw new Error(`Failed to start run: HTTP ${response.status}`);
@@ -42,6 +48,7 @@ export async function send(context: Context, meta: CheckpointMeta) {
         context,
         at: new Date().toISOString(),
       }),
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     },
   );
   if (!response.ok) {
