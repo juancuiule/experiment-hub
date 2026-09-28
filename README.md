@@ -109,43 +109,39 @@ This makes misconfigured experiments a build-time problem rather than a runtime 
 ## Architecture
 
 ```
-lib/                    # Pure, framework-agnostic engine
-  flow.ts               # State machine: traverse, enterStep, traverseInPath/Loop
+packages/engine/        # Pure, framework-agnostic engine (@experiment-hub/engine)
+  flow/                 # State machine: traverse, enterStep, traverseInPath/Loop
   types.ts              # ExperimentFlow, FlowStep, State, Context
-  nodes.ts              # Node type definitions
-  edges.ts              # Edge type definitions
+  nodes.ts, edges.ts    # Node and edge type definitions
   conditions.ts         # Condition evaluation
   resolve.ts            # Data key resolution and string interpolation
-  field-schema.ts       # Field schema extraction from screen components
-  screen-validation.ts  # Zod schema builder for per-screen form validation
-  flow-validation.ts    # Static experiment graph validator
-  screen.ts             # FrameworkScreen type
+  field-schema.ts, screen-schema.ts  # Per-screen form validation
+  experiment-validation/# Static experiment graph validator
   components/           # Component type definitions (content, response, layout, control)
   specs/                # Unit tests for the flow engine
 
-src/                    # Next.js React application
-  Experiment.tsx        # Top-level experiment runner component
-  Screen.tsx            # Screen renderer with react-hook-form integration
-  data/
-    experiment.ts       # Active experiment config (currently a dev fixture)
-    store.ts            # Zustand store: step, start(), next()
-  components/
-    RenderComponent.tsx # Component dispatcher
-    content/            # RichText, Image, Video, Audio
-    response/           # All response input components
-    layout/             # Button, Group
-    control/            # Conditional, ForEach
-    Stepper.tsx         # Progress indicator
-  specs/                # Unit tests for React components
+apps/frontend/          # Next.js React application (@experiment-hub/frontend)
+  app/                  # App Router — experiments routed at /experiments/[slug]
+  src/
+    Experiment.tsx      # Top-level experiment runner component
+    Screen.tsx          # Screen renderer with react-hook-form integration
+    data/
+      experiments/      # EXPERIMENTS record — one file per experiment
+      store.ts          # Zustand store: step, start(), next()
+      send.ts           # Checkpoint POST to the backend
+    components/         # RenderComponent + content/response/layout/control
+    specs/              # Unit tests for React components
+  e2e/                  # Playwright tests
 
-app/                    # Next.js App Router
-  page.tsx              # Mounts the Experiment component
-  layout.tsx            # Root layout
+apps/backend/           # Effect 4 API (@experiment-hub/backend)
+  src/                  # HttpApi contract, Checkpoints service, SQLite layers
 
+infra/nginx/            # Single-origin reverse proxy conf
+infra/cloudflared/      # Locally-managed tunnel ingress config
 docs/                   # Domain reference documentation
 ```
 
-The flow engine in `lib/` has no React dependency and is fully unit-tested. The React layer drives it by calling `startExperiment()` once and `traverse(step, formData)` on each screen submission.
+The flow engine in `packages/engine/` has no React dependency and is fully unit-tested. The React layer drives it by calling `startExperiment()` once and `traverse(step, formData)` on each screen submission.
 
 ---
 
@@ -166,9 +162,9 @@ This project is an **early-stage working prototype**. The flow engine and compon
 
 **Session persistence**
 
-**Data submission** — `send()` in `lib/utils.ts` is a stub (100ms timeout). Checkpoint and end-of-experiment data never reaches any backend. Replacing this with a real POST to a configurable endpoint is the first required step before running real studies.
+**Data submission** — each run registers via `POST /api/runs` (server-issued run id + signed run token); `checkpoint` nodes and run completion persist full-context snapshots via `POST /api/runs/:runId/checkpoints`, served by `apps/backend` (Effect + SQLite). Export for researchers: `GET /api/experiments/:slug/export` (NDJSON, bearer-gated). Anyone can still register a run for a public study — the token stops forged run ids and slug swaps, not a determined fabricator (see #108).
 
-**Visual flow builder** — Experiments are currently defined as TypeScript object literals in `src/data/experiment.ts`. A drag-and-drop canvas editor using `@xyflow/react` is planned but not started.
+**Visual flow builder** — Experiments are currently defined as TypeScript object literals in `apps/frontend/src/data/experiments/`. A drag-and-drop canvas editor using `@xyflow/react` is planned but not started.
 
 **Score variables** — There is no way to compute derived values (e.g. sum of five Likert items) and branch on them.
 
@@ -182,10 +178,35 @@ This project is an **early-stage working prototype**. The flow engine and compon
 
 ```bash
 pnpm install
-pnpm dev
+pnpm dev            # frontend on :3000
+pnpm dev:backend    # backend on :3100 (needed for checkpoint persistence)
 ```
 
-Open [http://localhost:3000](http://localhost:3000). The active experiment is defined in `src/data/experiment.ts`.
+Open [http://localhost:3000](http://localhost:3000). Experiments are defined in `apps/frontend/src/data/experiments/` and routed by slug (`/experiments/ocean`).
+
+In dev, Next rewrites `/api/*` to the backend (`BACKEND_URL` env var overrides the default `http://localhost:3100`).
+
+## Deploying
+
+`docker-compose.yml` runs the whole stack on a single host behind a Cloudflare Tunnel — `backend` (Effect + SQLite on a volume), `frontend` (Next standalone), `nginx` (single origin: `/` → frontend, `/api/*` → backend), `cloudflared` (only public ingress).
+
+The tunnel is locally managed: ingress rules live in `infra/cloudflared/config.yml` and the connector authenticates with `./.cloudflared/credentials.json` — a gitignored copy of the `~/.cloudflared/<tunnel-id>.json` that `cloudflared tunnel create` produces (after `cloudflared tunnel login`). No dashboard config needed.
+
+**Provisioning a new deployment** (the committed `config.yml` references this project's tunnel id and hostname — substitute your own):
+
+```bash
+cloudflared tunnel login                            # browser auth, writes ~/.cloudflared/cert.pem
+cloudflared tunnel create <name>                    # writes ~/.cloudflared/<tunnel-id>.json
+cloudflared tunnel route dns <name> <your-domain>   # creates the CNAME for the apex/hostname
+```
+
+Then update `tunnel:` and `hostname:` in `infra/cloudflared/config.yml`, and copy `~/.cloudflared/<tunnel-id>.json` to `.cloudflared/credentials.json`.
+
+Copy `.env.example` to `.env`, set `EXPORT_TOKEN` and `RUN_TOKEN_SECRET` (optionally `ALLOWED_EXPERIMENTS`), place `credentials.json` in `.cloudflared/`, then:
+
+```bash
+docker compose up -d --build
+```
 
 ### Tests
 
@@ -193,7 +214,7 @@ Open [http://localhost:3000](http://localhost:3000). The active experiment is de
 pnpm test
 ```
 
-Unit tests live in `lib/specs/` and `src/specs/`. The flow engine tests cover branch, fork, path, loop, integration, and validation scenarios.
+Unit tests live in `packages/engine/specs/`, `apps/frontend/src/specs/`, and `apps/backend/src/`. The flow engine tests cover branch, fork, path, loop, integration, and validation scenarios.
 
 ---
 
@@ -202,7 +223,7 @@ Unit tests live in `lib/specs/` and `src/specs/`. The flow engine tests cover br
 An experiment config is an `ExperimentFlow` object:
 
 ```ts
-import { ExperimentFlow } from '@/lib/types';
+import { ExperimentFlow } from '@experiment-hub/engine/types';
 
 export const experiment: ExperimentFlow = {
   nodes: [
@@ -265,7 +286,7 @@ export const experiment: ExperimentFlow = {
 Before using a config in production, run:
 
 ```ts
-import { validateExperiment } from '@/lib/validate';
+import { validateExperiment } from '@experiment-hub/engine/experiment-validation';
 
 const errors = validateExperiment(experiment);
 if (errors.length > 0) {
