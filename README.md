@@ -152,17 +152,18 @@ This project is an **early-stage working prototype**. The flow engine and compon
 ### What works
 
 - Full flow traversal: branch, fork, path, loop, checkpoint
-- All 11 response component types with Zod-based form validation
+- All 12 response component types with Zod-based form validation
 - Answer piping in labels and rich-text content (rich-text, image, labels, placeholders, option labels, button text)
 - Conditional rendering within screens (`conditional`, `for-each`)
-- Static experiment validator with 15 error codes
+- Checkpoint persistence: `checkpoint` nodes and run completion POST full-context snapshots to `apps/backend` (Effect + SQLite); runs are server-issued (`POST /api/runs` → run id + signed token); researcher export `GET /api/experiments/:slug/export` (NDJSON, bearer-gated)
+- Static experiment validator with 36 error codes
 - Unit test suite for the flow engine
 
 ### What is missing or incomplete
 
 **Session persistence**
 
-**Data submission** — each run registers via `POST /api/runs` (server-issued run id + signed run token); `checkpoint` nodes and run completion persist full-context snapshots via `POST /api/runs/:runId/checkpoints`, served by `apps/backend` (Effect + SQLite). Export for researchers: `GET /api/experiments/:slug/export` (NDJSON, bearer-gated). Anyone can still register a run for a public study — the token stops forged run ids and slug swaps, not a determined fabricator (see #108).
+**Data submission hardening** — anyone can still register a run for a public study; the run token stops forged run ids and slug swaps, not a determined fabricator (see #108).
 
 **Visual flow builder** — Experiments are currently defined as TypeScript object literals in `apps/frontend/src/data/experiments/`. A drag-and-drop canvas editor using `@xyflow/react` is planned but not started.
 
