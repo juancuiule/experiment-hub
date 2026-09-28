@@ -1,7 +1,7 @@
 import { validateExperiment } from '@experiment-hub/engine/experiment-validation';
 import { selectStartNode } from '@experiment-hub/engine/flow';
 import { selectLocale } from '@experiment-hub/engine/i18n';
-import { EXPERIMENTS } from '@/src/data/experiments';
+import { fetchExperiment } from '@/src/data/fetch-experiment';
 import { DataDebug, StateDebug } from '@/src/debug/Debug';
 import Experiment from '@/src/Experiment';
 import { ValidationErrors } from '@/src/ValidationErrors';
@@ -18,7 +18,7 @@ export default async function Home(props: Props) {
   const { slug } = await props.params;
   const searchParams = await props.searchParams;
 
-  const experiment = EXPERIMENTS[slug];
+  const experiment = await fetchExperiment(slug);
 
   if (!experiment) {
     notFound();

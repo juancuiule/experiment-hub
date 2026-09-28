@@ -1,4 +1,4 @@
-import { EXPERIMENTS } from '@/src/data/experiments';
+import { fetchExperiment } from '@/src/data/fetch-experiment';
 import { FrameworkEdge } from '@experiment-hub/engine/edges';
 import { collectFields } from '@experiment-hub/engine/fields';
 import { FrameworkNode } from '@experiment-hub/engine/nodes';
@@ -75,8 +75,19 @@ function NodeCard({
   );
 }
 
-export default function NodesPage() {
-  const { nodes, edges, screens = [] } = EXPERIMENTS['experiment'];
+export default async function NodesPage() {
+  const experiment = await fetchExperiment('experiment');
+
+  if (!experiment) {
+    return (
+      <p className="text-content-secondary text-sm">
+        No published config for the &quot;experiment&quot; slug — seed or
+        publish one to inspect its graph.
+      </p>
+    );
+  }
+
+  const { nodes, edges, screens = [] } = experiment;
 
   return (
     <div className="flex flex-col gap-4">

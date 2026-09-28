@@ -12,10 +12,25 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
   ],
-  webServer: {
-    command: 'pnpm dev',
-    url: 'http://localhost:3000',
-    reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
-  },
+  webServer: [
+    {
+      // Experiment configs live in the backend DB and page.tsx fetches
+      // them server-side, which route interception can't see — the suite
+      // needs a real seeded backend, not just stubbed browser requests.
+      // NB: playwright runs webServer commands from this config's directory
+      // — pnpm dev:backend only exists at the workspace root, so call the
+      // package scripts directly.
+      command:
+        'pnpm --filter @experiment-hub/backend seed && pnpm --filter @experiment-hub/backend dev',
+      url: 'http://localhost:3100/api/health',
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000,
+    },
+    {
+      command: 'pnpm dev',
+      url: 'http://localhost:3000',
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000,
+    },
+  ],
 });
