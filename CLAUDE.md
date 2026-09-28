@@ -20,6 +20,9 @@ An adaptive experiment runner for behavioral research. Researchers define branch
 ```bash
 pnpm dev           # start dev server (runs from repo root)
 pnpm dev:backend   # start backend dev server on :3100 (tsx watch)
+pnpm --filter @experiment-hub/backend seed   # publish the authored experiment
+                   # corpus into the dev DB — required once before experiment
+                   # pages work locally (page.tsx fetches configs from the API)
 pnpm build         # Next.js production build
 pnpm lint          # eslint (eslint.config.mjs)
 pnpm test          # vitest run — all unit tests (engine + frontend + backend)
@@ -103,14 +106,21 @@ apps/frontend/               # Next.js React application
 
 apps/backend/                # Effect 4 HTTP API — checkpoint persistence + export
   src/
-    api.ts                   # HttpApi contract: runs / export (bearer) / system groups
+    api.ts                   # HttpApi contract: runs / export / experiments / admin / system
     config.ts                # BackendConfig — PORT, HOST, DB_PATH, EXPORT_TOKEN, RUN_TOKEN_SECRET, ALLOWED_EXPERIMENTS, NODE_ENV
-    db.ts                    # SqliteClient + SqliteMigrator (runs, checkpoints tables)
+    db.ts                    # SqliteClient + SqliteMigrator (runs, checkpoints, experiments tables)
     checkpoints.ts           # Checkpoints service — record + exportByExperiment
+    experiments.ts           # Experiments service — publish (validateExperiment gate),
+                             #   getBySlug, list, content-hash versioning
     auth.ts                  # ExportToken middleware impl (timingSafeEqual)
     handlers.ts              # HttpApiBuilder groups wiring services to routes
     server.ts                # Entrypoint — HttpRouter.serve + NodeHttpServer + Layer.launch
-    checkpoints.test.ts      # HttpApiTest suite (in-memory :memory: sqlite)
+    test-helpers.ts          # Shared test layers/clients (seeded in-memory sqlite)
+    checkpoints.test.ts      # HttpApiTest suite
+    experiments.test.ts      # Publish/serve/version-pinning suite
+  scripts/
+    seed.ts                  # Publishes the authored corpus into DB_PATH via the
+                             #   service layer (no HTTP/token needed)
 
 infra/nginx/default.conf     # Single-origin path split: / -> frontend, /api/* -> backend
 docker-compose.yml           # Pi deployment: backend + frontend + nginx + cloudflared
@@ -122,16 +132,14 @@ The flow engine (`packages/engine/`) has no React dependency and is fully unit-t
 
 ## How experiments are defined
 
-All experiments live in `apps/frontend/src/data/experiments/` as entries in the `EXPERIMENTS` record. The `index.ts` file exports the record; each experiment is defined in its own file:
+Experiments are **authored** as typed `ExperimentFlow` literals in `apps/frontend/src/data/experiments/` (one file per experiment, collected into the `EXPERIMENTS` record) — but the runtime source of truth is the **backend database**. Publishing stores the config as immutable, content-addressed JSON and points the slug at it:
 
-```ts
-// apps/frontend/src/data/experiments/index.ts
-export const EXPERIMENTS: Record<string, ExperimentFlow> = {
-  "my-study": { nodes: [...], edges: [...], screens: [...], options: {...} }
-};
-```
+- `pnpm --filter @experiment-hub/backend seed` publishes the whole authored corpus plus the e2e fixture into `DB_PATH` (dev seeding)
+- `PUT /api/experiments/:slug` publishes one config over HTTP, gated by the researcher bearer token; it runs the same `validateExperiment()` the render path uses and rejects invalid configs
 
-The route `apps/frontend/app/(experiments-layout)/experiments/[slug]/page.tsx` looks up `EXPERIMENTS[slug]`, calls `validateExperiment()`, and renders `<ValidationErrors>` if any errors are returned — so misconfigured graphs are caught before the participant sees anything.
+The route `apps/frontend/app/(experiments-layout)/experiments/[slug]/page.tsx` fetches `GET /api/experiments/:slug` server-side (`BACKEND_URL` env — dev defaults to `http://localhost:3100`), 404s when unpublished, then calls `validateExperiment()` and renders `<ValidationErrors>` on errors — so misconfigured graphs are caught before the participant sees anything.
+
+Runs pin the config version (sha256) they were issued under: republishing a config never rebinds in-flight checkpoint data, and export rows carry `configVersion`.
 
 Start node selection is driven by query-string params: `?condition=A` matches a `StartNode` whose `props.param` equals `{ key: "condition", value: "A" }`. This enables within-experiment condition assignment without separate URLs.
 
@@ -199,15 +207,18 @@ From git history:
 
 ## Environment variables
 
-The frontend reads no runtime env vars (`BACKEND_URL` in `next.config.ts` only affects the dev-server `/api/*` rewrite). The E2E CI job sets `NODE_ENV=test`.
+The frontend server reads `BACKEND_URL` — server components fetch experiment configs from it (`next.config.ts` also uses it for the dev-only `/api/*` rewrite). The E2E CI job sets `NODE_ENV=test`.
 
-The backend reads `PORT`, `HOST` (default `127.0.0.1` — the dev server is loopback-only; compose sets `0.0.0.0`), `DB_PATH`, `NODE_ENV`, `EXPORT_TOKEN` (gates the researcher export), `RUN_TOKEN_SECRET` (HMAC key for run tokens — rotating it invalidates in-flight runs), and optional `ALLOWED_EXPERIMENTS` (comma-separated slug allowlist for run registration; keep in sync with `EXPERIMENTS`). Both secrets are required in production; dev gets random per-boot values. `docker-compose.yml` interpolates them from a gitignored `.env`; see `.env.example`. The Cloudflare Tunnel is locally managed — `infra/cloudflared/config.yml` holds the ingress rules and `.cloudflared/credentials.json` (gitignored) authenticates the connector.
+The backend reads `PORT`, `HOST` (default `127.0.0.1` — the dev server is loopback-only; compose sets `0.0.0.0`), `DB_PATH`, `NODE_ENV`, `EXPORT_TOKEN` (gates the researcher endpoints: export + experiment publish), `RUN_TOKEN_SECRET` (HMAC key for run tokens — rotating it invalidates in-flight runs), and optional `ALLOWED_EXPERIMENTS` (comma-separated extra allowlist on top of the published-config registry). Both secrets are required in production; dev gets random per-boot values. Its production build is an esbuild bundle (`dist/server.js`) that inlines the engine workspace package while keeping `effect`/`@effect/*` external — the deploy stage still only needs `dist` + prod deps.
+
+`docker-compose.yml` interpolates the backend secrets from a gitignored `.env`; see `.env.example`. The Cloudflare Tunnel is locally managed — `infra/cloudflared/config.yml` holds the ingress rules and `.cloudflared/credentials.json` (gitignored) authenticates the connector.
 
 ## Sensitive files
 
 Changing these incorrectly breaks participant-facing behavior:
 
-- `apps/frontend/src/data/experiments/index.ts` — the `EXPERIMENTS` dict; removing or renaming a key breaks its route
+- `apps/frontend/src/data/experiments/index.ts` — the authored corpus + seed source; a renamed key publishes under a different slug and orphans the old one
+- `apps/backend/src/experiments.ts` — the publish/serve path; the versioning rules here are what keep in-flight run data consistent
 - `packages/engine/flow/traverse.ts` — the traversal state machine; affects path step counting and all data nesting
 - `packages/engine/experiment-validation/` — any regression here silently allows malformed experiments through
 - `packages/engine/screen-schema.ts` — `buildSchema()` failing silently disables all per-screen form validation
@@ -239,6 +250,6 @@ The `docs/` folder contains precise reference documentation — use it before re
 | What validation checks run | `packages/engine/experiment-validation/index.ts` — `validateExperiment()` |
 | How a screen form is wired | `apps/frontend/src/Screen.tsx` — `useForm` + `buildSchema` + `buildDefaultValues` |
 | How a component gets rendered | `apps/frontend/src/components/RenderComponent.tsx` — switch on `componentFamily` + `template` |
-| Where experiments are registered | `apps/frontend/src/data/experiments/index.ts` — `EXPERIMENTS` |
+| Where experiments are authored | `apps/frontend/src/data/experiments/` — `EXPERIMENTS` (publish via seed/`PUT`) |
 | How a URL maps to an experiment | `apps/frontend/app/(experiments-layout)/experiments/[slug]/page.tsx` |
 | Engine behavior examples | `packages/engine/specs/flow/` — traversal tests covering branch, path, loop, fork |
