@@ -10,7 +10,7 @@ export default async function E2EPage() {
     notFound();
   }
 
-  const { testExperiment } = await import('@/e2e/fixture');
+  const { testExperiment } = await import('@/e2e/test-experiment');
 
   const errors = validateExperiment(testExperiment);
   if (errors.length > 0) {

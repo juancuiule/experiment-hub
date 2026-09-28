@@ -7,8 +7,12 @@ import { Api } from "./api.js";
 import { ExportTokenLive } from "./auth.js";
 import { BackendConfig } from "./config.js";
 import { Checkpoints } from "./checkpoints.js";
+import { SqlLive } from "./db.js";
 import { ExportHandlers, RunsHandlers, SystemHandlers } from "./handlers.js";
 
+// SqlLive is merged in so SystemHandlers can probe the same connection; both
+// it and Checkpoints.layer expose their BackendConfig requirement upward so
+// the single provision on ServerLive is shared by every consumer.
 const HandlersLive = Layer.mergeAll(
   RunsHandlers,
   ExportHandlers,
@@ -16,7 +20,7 @@ const HandlersLive = Layer.mergeAll(
 ).pipe(
   Layer.provide(Checkpoints.layer),
   Layer.provideMerge(ExportTokenLive),
-  Layer.provide(BackendConfig.layer),
+  Layer.provideMerge(SqlLive),
 );
 
 const ApiLive = HttpApiBuilder.layer(Api, {

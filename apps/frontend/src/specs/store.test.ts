@@ -10,14 +10,11 @@ import { createRun, send } from '@/src/data/send';
 
 let runCounter = 0;
 const resetStore = () => {
-  useExperimentStore.setState({
-    step: null,
-    run: null,
-    slug: null,
-    seq: 0,
-    isLoading: false,
-    error: null,
-  });
+  // reset() — not setState — also clears the module-level active/committed
+  // sessions and aborts their controllers, so no test inherits a stale
+  // ownership claim.
+  useExperimentStore.getState().reset();
+  runCounter = 0;
   vi.mocked(send).mockReset().mockResolvedValue(undefined);
   vi.mocked(createRun)
     .mockReset()
@@ -139,6 +136,7 @@ describe('useExperimentStore', () => {
         checkpoint: 'cp1',
         seq: 0,
       }),
+      expect.any(AbortSignal),
     );
     expect(useExperimentStore.getState().seq).toBe(1);
   });
@@ -165,6 +163,7 @@ describe('useExperimentStore', () => {
     expect(send).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({ checkpoint: 'end' }),
+      expect.any(AbortSignal),
     );
   });
 });
@@ -212,6 +211,31 @@ describe('error state', () => {
     const seqs = vi.mocked(send).mock.calls.map(([, meta]) => meta.seq);
     expect(seqs).toEqual([0, 0]);
     expect(useExperimentStore.getState().seq).toBe(1);
+  });
+
+  it('a failed mid-start checkpoint keeps the run for a same-slug retry', async () => {
+    // The flow's `cp` node sends inside start()'s traversal — a failure here
+    // must fail the start, leave the minted run reusable, and clear the
+    // screen so nothing stale accepts submits.
+    vi.mocked(send).mockRejectedValueOnce(new Error('network error'));
+    await useExperimentStore.getState().start(flow, undefined, undefined, 'a');
+
+    const failed = useExperimentStore.getState();
+    expect(failed.error).not.toBeNull();
+    expect(failed.step).toBeNull();
+    expect(failed.run?.runId).toBe('run-1');
+    expect(vi.mocked(createRun)).toHaveBeenCalledTimes(1);
+
+    await useExperimentStore.getState().start(flow, undefined, undefined, 'a');
+
+    const state = useExperimentStore.getState();
+    expect(vi.mocked(createRun)).toHaveBeenCalledTimes(1);
+    expect(nodeId(state.step?.state)).toBe('screen-1');
+    // The failed send and the retry both carry seq 0.
+    expect(vi.mocked(send).mock.calls.map(([, meta]) => meta.seq)).toEqual([
+      0, 0,
+    ]);
+    expect(state.seq).toBe(1);
   });
 });
 
@@ -313,6 +337,49 @@ describe('overlapping starts', () => {
     expect(send).not.toHaveBeenCalled();
   });
 
+  it('reset() and takeover abort the superseded session\u2019s requests', async () => {
+    const runA = deferred<{ runId: string; token: string }>();
+    const runB = deferred<{ runId: string; token: string }>();
+    vi.mocked(createRun)
+      .mockImplementationOnce(() => runA.promise)
+      .mockImplementationOnce(() => runB.promise);
+
+    useExperimentStore.getState().start(flow, undefined, undefined, 'a');
+    const signalA = vi.mocked(createRun).mock.calls[0][1];
+    expect(signalA?.aborted).toBe(false);
+
+    // Takeover aborts the pending request for the replaced session.
+    useExperimentStore.getState().start(flow, undefined, undefined, 'b');
+    expect(signalA?.aborted).toBe(true);
+
+    const signalB = vi.mocked(createRun).mock.calls[1][1];
+    useExperimentStore.getState().reset();
+    expect(signalB?.aborted).toBe(true);
+
+    runA.resolve({ runId: 'run-a', token: 'token-a' });
+    runB.resolve({ runId: 'run-b', token: 'token-b' });
+  });
+
+  it('a same-slug start already in flight is ignored', async () => {
+    const runA = deferred<{ runId: string; token: string }>();
+    vi.mocked(createRun).mockImplementationOnce(() => runA.promise);
+
+    const first = useExperimentStore
+      .getState()
+      .start(flow, undefined, undefined, 'a');
+    // Duplicate click/remount: same slug, still in flight — not a new run.
+    await useExperimentStore
+      .getState()
+      .start(flow, undefined, undefined, 'a');
+    expect(vi.mocked(createRun)).toHaveBeenCalledTimes(1);
+
+    runA.resolve({ runId: 'run-a', token: 'token-a' });
+    await first;
+    expect(nodeId(useExperimentStore.getState().step?.state)).toBe(
+      'screen-1',
+    );
+  });
+
   it('next() on a stale step is ignored while a newer start is pending', async () => {
     await useExperimentStore
       .getState()
@@ -374,6 +441,24 @@ describe('overlapping submissions', () => {
     expect(send).toHaveBeenCalledTimes(2);
     expect(vi.mocked(send).mock.calls[1][1].seq).toBe(0);
     expect(nodeId(useExperimentStore.getState().step?.state)).toBe('screen-2');
+  });
+
+  it('reset() during an in-flight next() discards its result', async () => {
+    await useExperimentStore.getState().start(flowWithCheckpointAfterFirst);
+    const pending = deferred<void>();
+    vi.mocked(send).mockImplementationOnce(() => pending.promise);
+
+    const attempt = useExperimentStore.getState().next({ one: 'answer' });
+    await vi.waitFor(() => expect(send).toHaveBeenCalledTimes(1));
+
+    useExperimentStore.getState().reset();
+    pending.resolve();
+    await attempt;
+
+    const state = useExperimentStore.getState();
+    expect(state.step).toBeNull();
+    expect(state.isLoading).toBe(false);
+    expect(state.error).toBeNull();
   });
 });
 

@@ -25,7 +25,7 @@ export const CheckpointPayload = Schema.Struct({
   // collapse, genuine repeat visits (even with identical answers) don't.
   seq: Schema.Int.check(Schema.isBetween({ minimum: 0, maximum: 9999 })),
   context: Schema.Unknown,
-  at: BoundedString(64),
+  at: Schema.DateTimeUtc,
 });
 export type CheckpointPayload = typeof CheckpointPayload.Type;
 

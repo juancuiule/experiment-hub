@@ -31,6 +31,8 @@ To have multiple start nodes one should use the props with `name` (to determine 
 
 The `checkpoint` node is used to save the state of the experiment at a specific point in time. This can be useful to ensure that if a participant leaves the experiment we've already collected some data until that point. It has a `name` prop that is used to identify the checkpoint.
 
+Each visit writes one row per `(run_id, seq)` in the backend — a retry of the same visit replaces the stored snapshot. See `CONTEXT.md` ("Persistence — the backend") for run registration, `seq` ordinals, and dedupe semantics.
+
 ## Screen Node
 
 The `screen` node is used to display a screen to the participant. It has a `slug` prop that is used to identify the screen to be displayed. The `slug` should correspond to a screen that has been defined in the experiment.

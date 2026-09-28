@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "dev": "PORT=3100 NODE_ENV=development tsx watch src/server.ts",
     "build": "tsc -p tsconfig.build.json",

@@ -1,5 +1,5 @@
 import { assert, layer } from "@effect/vitest";
-import { Effect, Layer, Option, Redacted, Stream } from "effect";
+import { DateTime, Effect, Layer, Option, Redacted, Stream } from "effect";
 import { HttpClientRequest, HttpServer } from "effect/unstable/http";
 import { HttpApiMiddleware, HttpApiTest } from "effect/unstable/httpapi";
 import { Api, ExportToken } from "./api.js";
@@ -22,14 +22,17 @@ const testConfig = (allowed?: ReadonlyArray<string>) =>
     nodeEnv: "test",
   });
 
-const handlersLive = (allowed?: ReadonlyArray<string>) =>
-  Layer.mergeAll(RunsHandlers, ExportHandlers, SystemHandlers).pipe(
-    Layer.provide(
-      Checkpoints.layerNoDeps.pipe(Layer.provide(makeSqlLive(":memory:"))),
-    ),
+const handlersLive = (allowed?: ReadonlyArray<string>) => {
+  // One shared in-memory DB: Checkpoints and the health probe must see the
+  // same SqlClient (each makeSqlLive call would open a separate database).
+  const sqlLive = makeSqlLive(":memory:");
+  return Layer.mergeAll(RunsHandlers, ExportHandlers, SystemHandlers).pipe(
+    Layer.provide(Checkpoints.layerNoDeps),
     Layer.provideMerge(ExportTokenLive),
+    Layer.provideMerge(sqlLive),
     Layer.provide(testConfig(allowed)),
   );
+};
 
 const makeClient = HttpApiTest.groups(Api, ["runs", "export", "system"]);
 
@@ -74,7 +77,7 @@ const record = (
       checkpoint: options.checkpoint ?? "mid",
       seq,
       context: options.context ?? { data: { intro: { answer: 5 } } },
-      at: "2026-09-25T12:00:00.000Z",
+      at: DateTime.makeUnsafe("2026-09-25T12:00:00.000Z"),
     },
   });
 
@@ -108,9 +111,34 @@ layer(Layer.mergeAll(handlersLive(), HttpServer.layerServices))(
         assert.strictEqual(rows[0].runId, run.runId);
         assert.strictEqual(rows[0].checkpoint, "mid");
         assert.strictEqual(rows[0].seq, 0);
+        assert.strictEqual(rows[0].at, "2026-09-25T12:00:00.000Z");
+        assert.match(
+          rows[0].receivedAt,
+          /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/,
+        );
         assert.deepStrictEqual(rows[0].context, {
           data: { intro: { answer: 5 } },
         });
+      }).pipe(Effect.provide(AuthGood)),
+    );
+
+    it.effect("export is scoped to the requested experiment", () =>
+      Effect.gen(function* () {
+        const client = yield* makeClient;
+        const ocean = yield* createRun(client, "iso-ocean");
+        const pandemic = yield* createRun(client, "iso-pandemic");
+
+        yield* record(client, ocean, 0, { context: { data: { q: 1 } } });
+        yield* record(client, ocean, 1, { context: { data: { q: 2 } } });
+        yield* record(client, pandemic, 0, { context: { data: { q: 9 } } });
+
+        // Rows for another slug must never leak into this export.
+        const rows = lines(yield* exportNdjson(client, "iso-ocean"));
+        assert.strictEqual(rows.length, 2);
+        for (const row of rows) {
+          assert.strictEqual(row.experiment, "iso-ocean");
+          assert.strictEqual(row.runId, ocean.runId);
+        }
       }).pipe(Effect.provide(AuthGood)),
     );
 
@@ -269,6 +297,37 @@ layer(Layer.mergeAll(handlersLive(), HttpServer.layerServices))(
         assert.deepStrictEqual(res, { status: "ok" });
       }).pipe(Effect.provide(AuthGood)),
     );
+
+    it.effect("rejects a checkpoint request with an empty run token", () =>
+      Effect.gen(function* () {
+        const client = yield* makeClient;
+        const run = yield* createRun(client, "ocean");
+
+        // x-run-token is BoundedString(1..200): an empty value is a decode
+        // failure (400 shape), not InvalidRunToken. A truly absent header is
+        // the same path but unreachable through the typed client.
+        const exit = yield* record(client, run, 0, { token: "" }).pipe(
+          Effect.exit,
+        );
+        assert.isTrue(exit._tag === "Failure");
+        if (exit._tag === "Failure") {
+          assert.notStrictEqual(
+            (exit.cause as { _tag?: string })._tag,
+            "InvalidRunToken",
+          );
+        }
+      }).pipe(Effect.provide(AuthGood)),
+    );
+
+    it.effect("rejects a seq outside the schema bounds", () =>
+      Effect.gen(function* () {
+        const client = yield* makeClient;
+        const run = yield* createRun(client, "ocean");
+
+        const exit = yield* record(client, run, 10_000).pipe(Effect.exit);
+        assert.isTrue(exit._tag === "Failure");
+      }).pipe(Effect.provide(AuthGood)),
+    );
   },
 );
 
@@ -306,7 +365,7 @@ layer(
           checkpoint: `cp-${seq}`,
           seq,
           context: { seq },
-          at: "2026-09-25T12:00:00.000Z",
+          at: DateTime.makeUnsafe("2026-09-25T12:00:00.000Z"),
         });
 
       yield* Effect.forEach(
@@ -334,7 +393,7 @@ layer(
           checkpoint: "big",
           seq: 0,
           context: { blob: "x".repeat(1_000_001) },
-          at: "2026-09-25T12:00:00.000Z",
+          at: DateTime.makeUnsafe("2026-09-25T12:00:00.000Z"),
         })
         .pipe(Effect.flip);
       assert.strictEqual(error._tag, "CheckpointTooLarge");

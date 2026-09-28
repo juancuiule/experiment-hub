@@ -1,5 +1,6 @@
 import { Effect } from "effect";
 import { HttpApiBuilder } from "effect/unstable/httpapi";
+import { SqlClient } from "effect/unstable/sql";
 import { Api } from "./api.js";
 import { Checkpoints } from "./checkpoints.js";
 
@@ -13,13 +14,9 @@ export const RunsHandlers = HttpApiBuilder.group(
       recordCheckpoint: ({ params, headers, payload }) =>
         checkpoints
           .record({
+            ...payload,
             runId: params.runId,
             token: headers["x-run-token"],
-            experiment: payload.experiment,
-            checkpoint: payload.checkpoint,
-            seq: payload.seq,
-            context: payload.context,
-            at: payload.at,
           })
           .pipe(Effect.map(() => ({ ok: true as const }))),
     });
@@ -42,8 +39,12 @@ export const SystemHandlers = HttpApiBuilder.group(
   Api,
   "system",
   Effect.fn(function* (handlers) {
+    // Probe the database so compose healthchecks reflect readiness, not just
+    // a live router — a dead DB should fail the check and trigger a restart.
+    const sql = yield* SqlClient.SqlClient;
     return handlers.handleAll({
-      health: () => Effect.succeed({ status: "ok" as const }),
+      health: () =>
+        sql`SELECT 1`.pipe(Effect.as({ status: "ok" as const }), Effect.orDie),
     });
   }),
 );

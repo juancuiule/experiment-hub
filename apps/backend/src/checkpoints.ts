@@ -1,4 +1,5 @@
 import {
+  Array as Arr,
   Context,
   DateTime,
   Effect,
@@ -11,6 +12,7 @@ import {
 import { SqlClient, SqlSchema } from "effect/unstable/sql";
 import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 import {
+  CheckpointPayload,
   CheckpointTooLarge,
   ExperimentNotFound,
   InvalidRunToken,
@@ -20,14 +22,9 @@ import {
 import { BackendConfig } from "./config.js";
 import { SqlLive } from "./db.js";
 
-export type RecordCheckpointInput = {
+export type RecordCheckpointInput = CheckpointPayload & {
   runId: string;
   token: string;
-  experiment: string;
-  checkpoint: string;
-  seq: number;
-  context: unknown;
-  at: string;
 };
 
 const MAX_CHECKPOINTS_PER_RUN = 500;
@@ -108,7 +105,7 @@ const make = Effect.gen(function* () {
       ) {
         return yield* new UnknownExperiment({ experiment });
       }
-      const runId = randomUUID();
+      const runId = yield* Effect.sync(() => randomUUID());
       const firstSeenAt = DateTime.formatIso(yield* DateTime.now);
       yield* sql`
         INSERT INTO runs (run_id, experiment, first_seen_at)
@@ -157,7 +154,7 @@ const make = Effect.gen(function* () {
       yield* sql`
         INSERT INTO checkpoints
           (run_id, experiment, checkpoint, seq, at, received_at, context)
-        VALUES (${input.runId}, ${input.experiment}, ${input.checkpoint}, ${input.seq}, ${input.at}, ${receivedAt}, ${contextJson})
+        VALUES (${input.runId}, ${input.experiment}, ${input.checkpoint}, ${input.seq}, ${DateTime.formatIso(input.at)}, ${receivedAt}, ${contextJson})
         ON CONFLICT (run_id, seq) DO UPDATE SET
           checkpoint = excluded.checkpoint,
           at = excluded.at,
@@ -181,19 +178,23 @@ const make = Effect.gen(function* () {
       const encoder = new TextEncoder();
       const page = (
         rows: ReadonlyArray<Row>,
-      ): [ReadonlyArray<Row>, Option.Option<number>] => [
+      ): readonly [
+        ReadonlyArray<Row>,
+        Option.Option<Option.Option<number>>,
+      ] => [
         rows,
         rows.length < EXPORT_BATCH_SIZE
           ? Option.none()
-          : Option.some(rows[rows.length - 1]!.id),
+          : Option.map(Arr.last(rows), (r) => Option.some(r.id)),
       ];
       // The 404 probe's batch is the stream's first page — no second read.
-      // `null` marks "use firstBatch"; later states are the id cursor.
-      return Stream.paginate(null as number | null, (cursor) =>
+      // Option.none marks "use firstBatch"; later states are the id cursor.
+      return Stream.paginate(Option.none<number>(), (cursor) =>
         Effect.map(
-          cursor === null
-            ? Effect.succeed(firstBatch)
-            : batchAfter({ slug, cursor }),
+          Option.match(cursor, {
+            onNone: () => Effect.succeed(firstBatch),
+            onSome: (id) => batchAfter({ slug, cursor: id }),
+          }),
           page,
         ),
       ).pipe(
@@ -212,6 +213,9 @@ const make = Effect.gen(function* () {
             `${meta.slice(0, -1)},"context":${row.context}}\n`,
           );
         }),
+        // Mid-stream SqlErrors can't be reported as typed errors once bytes
+        // are flowing — make them explicit defects instead.
+        Stream.orDie,
       );
     },
     Effect.catchTags({ SqlError: Effect.die, SchemaError: Effect.die }),
@@ -234,13 +238,14 @@ export class Checkpoints extends Context.Service<
     >;
     exportByExperiment: (
       slug: string,
-    ) => Effect.Effect<Stream.Stream<Uint8Array, unknown>, ExperimentNotFound>;
+    ) => Effect.Effect<Stream.Stream<Uint8Array>, ExperimentNotFound>;
   }
 >()("backend/Checkpoints") {
   static readonly layerNoDeps = Layer.effect(Checkpoints, make);
 
+  // BackendConfig is left as a requirement so the caller can share one build
+  // of it across the whole layer graph (each provision builds it fresh).
   static readonly layer = Checkpoints.layerNoDeps.pipe(
     Layer.provide(SqlLive),
-    Layer.provide(BackendConfig.layer),
   );
 }

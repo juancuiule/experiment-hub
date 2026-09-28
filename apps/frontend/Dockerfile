@@ -1,9 +1,12 @@
 FROM node:24-alpine AS build
 WORKDIR /app
+# Manifests first so dependency layers survive source-only rebuilds.
 COPY pnpm-workspace.yaml package.json pnpm-lock.yaml ./
+COPY packages/engine/package.json ./packages/engine/package.json
+COPY apps/frontend/package.json ./apps/frontend/package.json
+RUN corepack enable && pnpm install --frozen-lockfile
 COPY packages/engine ./packages/engine
 COPY apps/frontend ./apps/frontend
-RUN corepack enable && pnpm install
 RUN pnpm --filter @experiment-hub/frontend build
 
 FROM node:24-alpine AS runtime

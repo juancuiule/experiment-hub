@@ -29,6 +29,9 @@ type ExperimentStore = {
 };
 
 const END_CHECKPOINT = 'end';
+// Slug fallback for callers that never supplied one — the backend token is
+// signed over this string, so both call sites must agree.
+const FALLBACK_SLUG = 'unknown';
 
 // One start() attempt and the traversal it produces. The checkpoint handler
 // closes over its session, so every POST carries the run/token/slug that
@@ -37,11 +40,16 @@ type Session = {
   slug: string | null;
   run: Run | null;
   // Seq for the next checkpoint visit in the in-flight attempt.
-  cursor: number;
-  // Synchronous lock for next(): set before reading step/seq, cleared when
-  // the attempt settles. Separate from rendered isLoading, which a React
-  // commit may not have applied yet when a second submit fires.
+  nextSeq: number;
+  // Synchronous lock: held for the whole start() attempt and by next()
+  // between reading step/seq and settling. Separate from rendered
+  // isLoading, which a React commit may not have applied yet when a second
+  // submit fires — and which can't dedupe overlapping start()s.
   inFlight: boolean;
+  // Aborted when the session is superseded or reset, cancelling its
+  // in-flight requests so a replaced session can't keep writing (or mint
+  // an orphaned run on a StrictMode remount).
+  controller: AbortController;
 };
 
 export const useExperimentStore = create<ExperimentStore>()((set, get) => {
@@ -58,14 +66,18 @@ export const useExperimentStore = create<ExperimentStore>()((set, get) => {
   const persistFor =
     (session: Session) => async (context: Context, checkpoint: string) => {
       if (!session.run) throw new Error('No active run');
-      const seq = session.cursor;
-      await send(context, {
-        ...session.run,
-        experiment: session.slug ?? 'unknown',
-        checkpoint,
-        seq,
-      });
-      session.cursor = seq + 1;
+      const seq = session.nextSeq;
+      await send(
+        context,
+        {
+          ...session.run,
+          experiment: session.slug ?? FALLBACK_SLUG,
+          checkpoint,
+          seq,
+        },
+        session.controller.signal,
+      );
+      session.nextSeq = seq + 1;
     };
 
   return {
@@ -76,6 +88,8 @@ export const useExperimentStore = create<ExperimentStore>()((set, get) => {
     isLoading: false,
     error: null,
     reset: () => {
+      active?.controller.abort();
+      committed?.controller.abort();
       active = null;
       committed = null;
       set({
@@ -98,12 +112,19 @@ export const useExperimentStore = create<ExperimentStore>()((set, get) => {
       // run would orphan that row. A different slug is a different run.
       const prev = get();
       const slugKey = slug ?? null;
+      // A same-slug start while one is already in flight would mint a second
+      // run and orphan the first (StrictMode remounts and retry clicks land
+      // here). A different slug is a takeover, not a duplicate.
+      if (active?.inFlight && active.slug === slugKey) return;
       const session: Session = {
         slug: slugKey,
         run: prev.slug === slugKey ? prev.run : null,
-        cursor: 0,
-        inFlight: false,
+        nextSeq: 0,
+        inFlight: true,
+        controller: new AbortController(),
       };
+      // Superseding cancels the previous session's pending requests.
+      active?.controller.abort();
       active = session;
       set({
         isLoading: true,
@@ -114,7 +135,10 @@ export const useExperimentStore = create<ExperimentStore>()((set, get) => {
       });
       try {
         if (!session.run) {
-          const run = await createRun(slug ?? 'unknown');
+          const run = await createRun(
+            slug ?? FALLBACK_SLUG,
+            session.controller.signal,
+          );
           if (!owns(session)) return;
           session.run = run;
           set({ run });
@@ -134,12 +158,20 @@ export const useExperimentStore = create<ExperimentStore>()((set, get) => {
         if (isEnded(step)) await persist(step.context, END_CHECKPOINT);
         if (!owns(session)) return;
         committed = session;
-        set({ step, seq: session.cursor });
+        set({ step, seq: session.nextSeq });
       } catch (err) {
         if (!owns(session)) return;
         console.error('Failed to load experiment:', err);
-        set({ error: 'Something went wrong while loading the experiment.' });
+        // A failed start leaves no committable traversal: drop whatever the
+        // previous session left on screen so it can't sit there accepting
+        // submits that silently no-op.
+        committed = null;
+        set({
+          step: null,
+          error: 'Something went wrong while loading the experiment.',
+        });
       } finally {
+        session.inFlight = false;
         if (owns(session)) set({ isLoading: false });
       }
     },
@@ -154,7 +186,7 @@ export const useExperimentStore = create<ExperimentStore>()((set, get) => {
       if (!step) return;
       session.inFlight = true;
       set({ isLoading: true, error: null });
-      session.cursor = seq;
+      session.nextSeq = seq;
       try {
         const nextStep = await traverseWithTiming(step, data).then(
           recordEnteredAt,
@@ -169,7 +201,7 @@ export const useExperimentStore = create<ExperimentStore>()((set, get) => {
           await persistFor(session)(nextStep.context, END_CHECKPOINT);
         }
         if (!owns(session)) return;
-        set({ step: nextStep, seq: session.cursor });
+        set({ step: nextStep, seq: session.nextSeq });
       } catch (err) {
         if (!owns(session)) return;
         console.error('Failed to advance experiment:', err);

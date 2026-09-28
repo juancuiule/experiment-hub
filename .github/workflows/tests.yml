@@ -46,3 +46,12 @@ jobs:
         run: pnpm test:e2e
         env:
           NODE_ENV: test
+
+  # The compose stack is deploy config — a broken Dockerfile should not
+  # merge green.
+  images:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build deployment images
+        run: docker compose build
