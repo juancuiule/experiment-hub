@@ -1,9 +1,15 @@
 FROM node:24-alpine AS build
 WORKDIR /app
+# Manifests first so dependency layers survive source-only rebuilds.
 COPY pnpm-workspace.yaml package.json pnpm-lock.yaml ./
+COPY apps/backend/package.json ./apps/backend/package.json
+RUN corepack enable && pnpm install --frozen-lockfile
 COPY apps/backend ./apps/backend
-RUN corepack enable && pnpm install
 RUN pnpm --filter @experiment-hub/backend build
+# pnpm deploy relies on packlist semantics: "files": ["dist"] in
+# apps/backend/package.json is what keeps dist/ in /app/deploy. Note this
+# targets pnpm 9 (packageManager) — v10's deploy needs --legacy or
+# injectWorkspacePackages.
 RUN pnpm --filter @experiment-hub/backend deploy --prod /app/deploy
 
 FROM node:24-alpine AS runtime

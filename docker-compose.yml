@@ -1,3 +1,11 @@
+# json-file's default is unbounded — on an SD card that eventually fills
+# the disk. Rotation keeps the last ~30 MB per service.
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   backend:
     build:
@@ -19,7 +27,10 @@ services:
       backend_proxy:
         ipv4_address: 172.30.70.3
     cap_drop:
-      - NET_RAW
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    logging: *default-logging
     restart: unless-stopped
     healthcheck:
       test:
@@ -45,11 +56,11 @@ services:
       frontend_proxy:
         ipv4_address: 172.30.70.22
     cap_drop:
-      - NET_RAW
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    logging: *default-logging
     restart: unless-stopped
-    depends_on:
-      backend:
-        condition: service_healthy
     healthcheck:
       # / redirects (307) — any sub-500 response proves the server is alive.
       test:
@@ -81,7 +92,13 @@ services:
       tunnel_ingress:
         ipv4_address: 172.30.70.11
     cap_drop:
-      - NET_RAW
+      - ALL
+    cap_add:
+      # Binds :80 — the only capability the proxy actually needs.
+      - NET_BIND_SERVICE
+    security_opt:
+      - no-new-privileges:true
+    logging: *default-logging
     restart: unless-stopped
     depends_on:
       backend:
@@ -89,7 +106,17 @@ services:
       frontend:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1/"]
+      # The server block only answers for the tunnel's hostname.
+      test:
+        [
+          "CMD",
+          "wget",
+          "--spider",
+          "-q",
+          "--header",
+          "Host: experiment-hub.com",
+          "http://127.0.0.1/",
+        ]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -101,7 +128,9 @@ services:
   # clicks); the connector authenticates with ./.cloudflared/credentials.json
   # (gitignored — copy of ~/.cloudflared/<tunnel-id>.json).
   cloudflared:
-    image: cloudflare/cloudflared:latest
+    # Pinned to the version this deployment was verified on — upgrades are
+    # deliberate, not whatever latest happens to be on pull.
+    image: cloudflare/cloudflared:2026.8.3
     command: tunnel --no-autoupdate run
     volumes:
       - ./infra/cloudflared/config.yml:/etc/cloudflared/config.yml:ro
@@ -110,7 +139,10 @@ services:
       tunnel_ingress:
         ipv4_address: 172.30.70.10
     cap_drop:
-      - NET_RAW
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    logging: *default-logging
     restart: unless-stopped
     depends_on:
       nginx:
