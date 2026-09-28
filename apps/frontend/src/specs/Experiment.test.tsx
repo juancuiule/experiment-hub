@@ -1,8 +1,13 @@
 import { render, screen, waitFor } from '@testing-library/react';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import Experiment from '../Experiment';
 import { useExperimentStore } from '../data/store';
 import { ExperimentFlow } from '@experiment-hub/engine/types';
+
+vi.mock('../data/send', () => ({
+  send: vi.fn().mockResolvedValue(undefined),
+  createRun: vi.fn().mockResolvedValue({ runId: 'run-1', token: 'token-1' }),
+}));
 
 const flowA: ExperimentFlow = {
   nodes: [
@@ -50,21 +55,21 @@ describe('Experiment', () => {
   });
 
   it('restarts and shows new content when experiment prop changes', async () => {
-    const { rerender } = render(<Experiment experiment={flowA} />);
+    const { rerender } = render(<Experiment experiment={flowA} slug="flow-a" />);
     await screen.findByText('Content from experiment A');
 
-    rerender(<Experiment experiment={flowB} />);
+    rerender(<Experiment experiment={flowB} slug="flow-b" />);
 
     await screen.findByText('Content from experiment B');
     expect(screen.queryByText('Content from experiment A')).not.toBeInTheDocument();
   });
 
   it('does not restart when the same experiment reference is rerendered', async () => {
-    const { rerender } = render(<Experiment experiment={flowA} />);
+    const { rerender } = render(<Experiment experiment={flowA} slug="flow-a" />);
     await screen.findByText('Content from experiment A');
     const stepBefore = useExperimentStore.getState().step;
 
-    rerender(<Experiment experiment={flowA} />);
+    rerender(<Experiment experiment={flowA} slug="flow-a" />);
 
     await waitFor(() => {
       expect(useExperimentStore.getState().step).toBe(stepBefore);

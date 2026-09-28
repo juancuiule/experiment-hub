@@ -10,6 +10,7 @@
     "lint": "pnpm --filter @experiment-hub/frontend lint",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
-    "test:e2e": "pnpm --filter @experiment-hub/frontend test:e2e"
+    "test:e2e": "pnpm --filter @experiment-hub/frontend test:e2e",
+    "dev:backend": "pnpm --filter @experiment-hub/backend dev"
   }
 }

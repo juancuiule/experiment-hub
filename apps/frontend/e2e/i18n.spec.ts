@@ -1,4 +1,5 @@
-import { expect, Page, test } from '@playwright/test';
+import { expect, Page } from '@playwright/test';
+import { test } from './fixture';
 
 // Walks the i18n-demo experiment end-to-end, asserting that copy is localized
 // from the dictionary and that a name collected on the first screen is piped

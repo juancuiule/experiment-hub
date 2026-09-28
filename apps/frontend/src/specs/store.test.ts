@@ -2,8 +2,30 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ExperimentFlow, InNodeState } from '@experiment-hub/engine/types';
 import { useExperimentStore } from '@/src/data/store';
 
-vi.mock('@/src/data/send', () => ({ send: vi.fn().mockResolvedValue(undefined) }));
-import { send } from '@/src/data/send';
+vi.mock('@/src/data/send', () => ({
+  send: vi.fn().mockResolvedValue(undefined),
+  createRun: vi.fn(),
+}));
+import { createRun, send } from '@/src/data/send';
+
+let runCounter = 0;
+const resetStore = () => {
+  useExperimentStore.setState({
+    step: null,
+    run: null,
+    slug: null,
+    seq: 0,
+    isLoading: false,
+    error: null,
+  });
+  vi.mocked(send).mockReset().mockResolvedValue(undefined);
+  vi.mocked(createRun)
+    .mockReset()
+    .mockImplementation(async () => {
+      runCounter += 1;
+      return { runId: `run-${runCounter}`, token: `token-${runCounter}` };
+    });
+};
 
 const flow: ExperimentFlow = {
   nodes: [
@@ -22,10 +44,7 @@ const flow: ExperimentFlow = {
 const nodeId = (state: InNodeState | unknown) => (state as InNodeState).node.id;
 
 describe('useExperimentStore', () => {
-  beforeEach(() => {
-    useExperimentStore.setState({ step: null, isLoading: false, error: null });
-    vi.mocked(send).mockResolvedValue(undefined);
-  });
+  beforeEach(resetStore);
 
   it('starts on a null step that is not loading', () => {
     const { step, isLoading } = useExperimentStore.getState();
@@ -87,6 +106,67 @@ describe('useExperimentStore', () => {
     expect(isLoading).toBe(false);
     expect(error).toBeNull();
   });
+
+  it('reuses runId when retrying the same slug, mints a new one on change', async () => {
+    await useExperimentStore.getState().start(flow, undefined, undefined, 'a');
+    const first = useExperimentStore.getState().run?.runId;
+
+    await useExperimentStore.getState().start(flow, undefined, undefined, 'a');
+    expect(useExperimentStore.getState().run?.runId).toBe(first);
+
+    await useExperimentStore.getState().start(flow, undefined, undefined, 'b');
+    const second = useExperimentStore.getState().run?.runId;
+    expect(second).not.toBe(first);
+  });
+
+  it('does not pair a stale run with a new slug when createRun fails', async () => {
+    await useExperimentStore.getState().start(flow, undefined, undefined, 'a');
+    vi.mocked(createRun).mockRejectedValueOnce(new Error('network error'));
+
+    await useExperimentStore.getState().start(flow, undefined, undefined, 'b');
+    expect(useExperimentStore.getState().run).toBeNull();
+    expect(useExperimentStore.getState().error).not.toBeNull();
+  });
+
+  it('sends the run token and a per-visit seq with each checkpoint', async () => {
+    await useExperimentStore.getState().start(flow, undefined, undefined, 'a');
+    expect(send).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        runId: expect.stringMatching(/^run-/),
+        token: expect.stringMatching(/^token-/),
+        experiment: 'a',
+        checkpoint: 'cp1',
+        seq: 0,
+      }),
+    );
+    expect(useExperimentStore.getState().seq).toBe(1);
+  });
+
+  it('keeps the pre-end step retryable when the final persist fails', async () => {
+    const terminalFlow: ExperimentFlow = {
+      nodes: [
+        { id: 'start', type: 'start' },
+        { id: 'screen-1', type: 'screen', props: { slug: 'only' } },
+      ],
+      edges: [{ type: 'sequential', from: 'start', to: 'screen-1' }],
+    };
+    await useExperimentStore.getState().start(terminalFlow);
+
+    vi.mocked(send).mockRejectedValueOnce(new Error('network error'));
+    await useExperimentStore.getState().next({ only: 'answer' });
+    const { step, error } = useExperimentStore.getState();
+    expect(nodeId(step?.state)).toBe('screen-1');
+    expect(error).not.toBeNull();
+
+    await useExperimentStore.getState().next({ only: 'answer' });
+    const after = useExperimentStore.getState();
+    expect(after.error).toBeNull();
+    expect(send).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ checkpoint: 'end' }),
+    );
+  });
 });
 
 const flowWithCheckpointAfterFirst: ExperimentFlow = {
@@ -104,10 +184,7 @@ const flowWithCheckpointAfterFirst: ExperimentFlow = {
 };
 
 describe('error state', () => {
-  beforeEach(() => {
-    useExperimentStore.setState({ step: null, isLoading: false, error: null });
-    vi.mocked(send).mockResolvedValue(undefined);
-  });
+  beforeEach(resetStore);
 
   it('next() failure sets error and resets isLoading to false', async () => {
     await useExperimentStore.getState().start(flowWithCheckpointAfterFirst);
@@ -124,4 +201,179 @@ describe('error state', () => {
     await useExperimentStore.getState().next({ one: 'answer' });
     expect(useExperimentStore.getState().error).toBeNull();
   });
+
+  it('a retried checkpoint resends the same seq; the next visit gets a new one', async () => {
+    await useExperimentStore.getState().start(flowWithCheckpointAfterFirst);
+    vi.mocked(send).mockRejectedValueOnce(new Error('network error'));
+
+    await useExperimentStore.getState().next({ one: 'answer' });
+    await useExperimentStore.getState().next({ one: 'answer' });
+
+    const seqs = vi.mocked(send).mock.calls.map(([, meta]) => meta.seq);
+    expect(seqs).toEqual([0, 0]);
+    expect(useExperimentStore.getState().seq).toBe(1);
+  });
 });
+
+const deferred = <T,>() => {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((r) => (resolve = r));
+  return { promise, resolve };
+};
+
+describe('overlapping starts', () => {
+  beforeEach(resetStore);
+
+  it('a stale start resolving late cannot overwrite the newer run', async () => {
+    const runA = deferred<{ runId: string; token: string }>();
+    vi.mocked(createRun)
+      .mockImplementationOnce(() => runA.promise)
+      .mockImplementationOnce(async () => ({ runId: 'run-b', token: 'token-b' }));
+
+    const startA = useExperimentStore.getState().start(flow, undefined, undefined, 'a');
+    await useExperimentStore.getState().start(flow, undefined, undefined, 'b');
+
+    runA.resolve({ runId: 'run-a', token: 'token-a' });
+    await startA;
+
+    const state = useExperimentStore.getState();
+    expect(state.slug).toBe('b');
+    expect(state.run?.runId).toBe('run-b');
+    expect(nodeId(state.step?.state)).toBe('screen-1');
+    expect(state.isLoading).toBe(false);
+
+    // Every checkpoint went out with the run + slug it was issued for.
+    for (const [, meta] of vi.mocked(send).mock.calls) {
+      expect(meta.runId).toBe('run-b');
+      expect(meta.token).toBe('token-b');
+      expect(meta.experiment).toBe('b');
+    }
+  });
+
+  it('a stale traversal binds its later checkpoints to its own run', async () => {
+    const twoCheckpoints: ExperimentFlow = {
+      nodes: [
+        { id: 'start', type: 'start' },
+        { id: 'cp-1', type: 'checkpoint', props: { name: 'first' } },
+        { id: 'cp-2', type: 'checkpoint', props: { name: 'second' } },
+        { id: 'screen-1', type: 'screen', props: { slug: 'one' } },
+      ],
+      edges: [
+        { type: 'sequential', from: 'start', to: 'cp-1' },
+        { type: 'sequential', from: 'cp-1', to: 'cp-2' },
+        { type: 'sequential', from: 'cp-2', to: 'screen-1' },
+      ],
+    };
+    const cpA = deferred<void>();
+    vi.mocked(createRun)
+      .mockImplementationOnce(async () => ({ runId: 'run-a', token: 'token-a' }))
+      .mockImplementationOnce(async () => ({ runId: 'run-b', token: 'token-b' }));
+    vi.mocked(send).mockImplementationOnce(() => cpA.promise);
+
+    // A stalls on its first checkpoint; B takes over the store meanwhile.
+    const startA = useExperimentStore
+      .getState()
+      .start(twoCheckpoints, undefined, undefined, 'a');
+    await vi.waitFor(() => expect(send).toHaveBeenCalledTimes(1));
+    await useExperimentStore
+      .getState()
+      .start(twoCheckpoints, undefined, undefined, 'b');
+    cpA.resolve();
+    await startA;
+
+    // A's second checkpoint fires after B owns the store — it must still
+    // carry run A, not B's run or slug.
+    const aCalls = vi
+      .mocked(send)
+      .mock.calls.map(([, meta]) => meta)
+      .filter((meta) => meta.runId === 'run-a');
+    expect(aCalls.map((m) => m.checkpoint)).toEqual(['first', 'second']);
+    for (const meta of aCalls) {
+      expect(meta).toMatchObject({ token: 'token-a', experiment: 'a' });
+    }
+    for (const [, meta] of vi.mocked(send).mock.calls) {
+      if (meta.experiment === 'b') expect(meta.runId).toBe('run-b');
+    }
+    expect(useExperimentStore.getState().run?.runId).toBe('run-b');
+  });
+
+  it('a start that settles after reset() leaves the store cleared', async () => {
+    const runA = deferred<{ runId: string; token: string }>();
+    vi.mocked(createRun).mockImplementationOnce(() => runA.promise);
+
+    const startA = useExperimentStore.getState().start(flow, undefined, undefined, 'a');
+    useExperimentStore.getState().reset();
+    runA.resolve({ runId: 'run-a', token: 'token-a' });
+    await startA;
+
+    const state = useExperimentStore.getState();
+    expect(state.step).toBeNull();
+    expect(state.run).toBeNull();
+    expect(state.isLoading).toBe(false);
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it('next() on a stale step is ignored while a newer start is pending', async () => {
+    await useExperimentStore
+      .getState()
+      .start(flowWithCheckpointAfterFirst, undefined, undefined, 'a');
+    const runB = deferred<{ runId: string; token: string }>();
+    vi.mocked(createRun).mockImplementationOnce(() => runB.promise);
+
+    const startB = useExperimentStore
+      .getState()
+      .start(flowWithCheckpointAfterFirst, undefined, undefined, 'b');
+    vi.mocked(send).mockClear();
+    await useExperimentStore.getState().next({ one: 'answer' });
+    expect(send).not.toHaveBeenCalled();
+    expect(useExperimentStore.getState().error).toBeNull();
+
+    runB.resolve({ runId: 'run-b', token: 'token-b' });
+    await startB;
+    expect(useExperimentStore.getState().run?.runId).toBe('run-b');
+    expect(nodeId(useExperimentStore.getState().step?.state)).toBe('screen-1');
+  });
+});
+
+describe('overlapping submissions', () => {
+  beforeEach(resetStore);
+
+  it('a second next() while one is in flight is ignored', async () => {
+    await useExperimentStore.getState().start(flowWithCheckpointAfterFirst);
+    const pending = deferred<void>();
+    vi.mocked(send).mockImplementationOnce(() => pending.promise);
+
+    const first = useExperimentStore.getState().next({ one: 'first' });
+    await vi.waitFor(() => expect(send).toHaveBeenCalledTimes(1));
+    await useExperimentStore.getState().next({ one: 'second' });
+
+    // The second submit neither sent nor released the loading state.
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(useExperimentStore.getState().isLoading).toBe(true);
+
+    pending.resolve();
+    await first;
+
+    const [[context, meta]] = vi.mocked(send).mock.calls;
+    expect(meta.seq).toBe(0);
+    expect(context.data).toMatchObject({ one: { one: 'first' } });
+    const state = useExperimentStore.getState();
+    expect(nodeId(state.step?.state)).toBe('screen-2');
+    expect(state.seq).toBe(1);
+    expect(state.isLoading).toBe(false);
+  });
+
+  it('releases the lock after a failed attempt so the participant can retry', async () => {
+    await useExperimentStore.getState().start(flowWithCheckpointAfterFirst);
+    vi.mocked(send).mockRejectedValueOnce(new Error('network error'));
+
+    await useExperimentStore.getState().next({ one: 'answer' });
+    expect(useExperimentStore.getState().error).not.toBeNull();
+
+    await useExperimentStore.getState().next({ one: 'edited' });
+    expect(send).toHaveBeenCalledTimes(2);
+    expect(vi.mocked(send).mock.calls[1][1].seq).toBe(0);
+    expect(nodeId(useExperimentStore.getState().step?.state)).toBe('screen-2');
+  });
+});
+

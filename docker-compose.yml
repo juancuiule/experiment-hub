@@ -1,0 +1,136 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile
+    volumes:
+      - hub-data:/app/data
+    environment:
+      DB_PATH: /app/data/experiment-hub.sqlite
+      PORT: "3000"
+      HOST: 0.0.0.0
+      NODE_ENV: production
+      EXPORT_TOKEN: ${EXPORT_TOKEN}
+      RUN_TOKEN_SECRET: ${RUN_TOKEN_SECRET}
+      ALLOWED_EXPERIMENTS: ${ALLOWED_EXPERIMENTS:-}
+    networks:
+      # The backend has no outbound calls — it only sits on the proxy
+      # network so nginx can reach it. No egress network attached.
+      backend_proxy:
+        ipv4_address: 172.30.70.3
+    cap_drop:
+      - NET_RAW
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "require('http').get('http://localhost:3000/api/health', r => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  frontend:
+    build:
+      context: .
+      dockerfile: apps/frontend/Dockerfile
+    networks:
+      # Pinned because nginx resolves upstream hostnames once at config
+      # load — a recreated frontend with a fresh IP would 502 until nginx
+      # restarted.
+      frontend_proxy:
+        ipv4_address: 172.30.70.22
+    cap_drop:
+      - NET_RAW
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      # / redirects (307) — any sub-500 response proves the server is alive.
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "require('http').get('http://localhost:3000/', r => process.exit(r.statusCode < 500 ? 0 : 1)).on('error', () => process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # Fronts frontend + backend on one origin, split by path (see
+  # infra/nginx/default.conf: / -> frontend, /api/* -> backend). Not
+  # published to the host — only cloudflared talks to it, over the
+  # compose network.
+  nginx:
+    image: nginx:1.27-alpine
+    volumes:
+      - ./infra/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    networks:
+      backend_proxy:
+        ipv4_address: 172.30.70.2
+      frontend_proxy:
+      # Pinned off cloudflared's fixed .10, which nginx would otherwise
+      # grab dynamically since it starts first.
+      tunnel_ingress:
+        ipv4_address: 172.30.70.11
+    cap_drop:
+      - NET_RAW
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+      frontend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+  # Cloudflare Tunnel: the only way in from the public internet, no
+  # port-forwarding on the router. Locally-managed tunnel — ingress rules
+  # live in infra/cloudflared/config.yml (versioned, not dashboard
+  # clicks); the connector authenticates with ./.cloudflared/credentials.json
+  # (gitignored — copy of ~/.cloudflared/<tunnel-id>.json).
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    command: tunnel --no-autoupdate run
+    volumes:
+      - ./infra/cloudflared/config.yml:/etc/cloudflared/config.yml:ro
+      - ./.cloudflared/credentials.json:/etc/cloudflared/credentials.json:ro
+    networks:
+      tunnel_ingress:
+        ipv4_address: 172.30.70.10
+    cap_drop:
+      - NET_RAW
+    restart: unless-stopped
+    depends_on:
+      nginx:
+        condition: service_healthy
+
+networks:
+  backend_proxy:
+    internal: true
+    ipam:
+      config:
+        - subnet: 172.30.70.0/29
+  frontend_proxy:
+    internal: true
+    ipam:
+      config:
+        - subnet: 172.30.70.16/29
+  tunnel_ingress:
+    ipam:
+      config:
+        - subnet: 172.30.70.8/29
+
+volumes:
+  hub-data:

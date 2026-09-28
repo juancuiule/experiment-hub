@@ -34,6 +34,14 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
+
+# cloudflared tunnel credentials (connector secret)
+.cloudflared/
+
+# backend dev artifacts
+apps/backend/dist/
+apps/backend/data/
 
 # vercel
 .vercel
