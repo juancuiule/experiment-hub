@@ -76,6 +76,40 @@ const MigratorLive = SqliteMigrator.layer({
       `;
       yield* sql`ALTER TABLE checkpoints DROP COLUMN context_hash`;
     }),
+    "0005_experiments": Effect.gen(function* () {
+      const sql = yield* SqlClient.SqlClient;
+      // Experiment configs move out of the frontend bundle and into the DB.
+      // Config rows are content-addressed (sha256 of canonical JSON) and
+      // immutable: republishing identical content is a no-op, a change
+      // creates a new row, and `experiments` just points each slug at the
+      // current hash. Runs pin the hash they were issued under, so
+      // republishing can never retroactively rebind in-flight checkpoint
+      // data to a different config.
+      yield* sql`
+        CREATE TABLE IF NOT EXISTS experiment_configs (
+          hash TEXT PRIMARY KEY,
+          slug TEXT NOT NULL,
+          config TEXT NOT NULL,
+          created_at TEXT NOT NULL
+        )
+      `;
+      yield* sql`
+        CREATE INDEX IF NOT EXISTS idx_experiment_configs_slug
+        ON experiment_configs (slug, created_at)
+      `;
+      yield* sql`
+        CREATE TABLE IF NOT EXISTS experiments (
+          slug TEXT PRIMARY KEY,
+          config_hash TEXT NOT NULL REFERENCES experiment_configs(hash),
+          updated_at TEXT NOT NULL
+        )
+      `;
+      // Nullable for pre-existing runs, same precedent as checkpoints.seq.
+      yield* sql`
+        ALTER TABLE runs
+        ADD COLUMN config_hash TEXT REFERENCES experiment_configs(hash)
+      `;
+    }),
   }),
 });
 

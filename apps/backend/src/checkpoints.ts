@@ -21,6 +21,7 @@ import {
 } from "./api.js";
 import { BackendConfig } from "./config.js";
 import { SqlLive } from "./db.js";
+import { Experiments } from "./experiments.js";
 
 export type RecordCheckpointInput = CheckpointPayload & {
   runId: string;
@@ -47,12 +48,16 @@ const RowSchema = Schema.Struct({
   at: Schema.String,
   receivedAt: Schema.String,
   context: Schema.String,
+  // The immutable config the run was issued under — NULL for runs that
+  // predate experiment versioning, which exports surface as an absent key.
+  configVersion: Schema.NullOr(Schema.String),
 });
 type Row = typeof RowSchema.Type;
 
 const make = Effect.gen(function* () {
   const sql = yield* SqlClient.SqlClient;
   const config = yield* BackendConfig;
+  const experiments = yield* Experiments;
   const secret = Redacted.value(config.runTokenSecret);
 
   const sign = (runId: string, experiment: string) =>
@@ -88,11 +93,13 @@ const make = Effect.gen(function* () {
     Request: Schema.Struct({ slug: Schema.String, cursor: Schema.Int }),
     Result: RowSchema,
     execute: ({ slug, cursor }) => sql`
-      SELECT id, run_id AS runId, experiment, checkpoint, seq, at,
-             received_at AS receivedAt, context
-      FROM checkpoints
-      WHERE experiment = ${slug} AND id > ${cursor}
-      ORDER BY id
+      SELECT c.id, c.run_id AS runId, c.experiment, c.checkpoint, c.seq,
+             c.at, c.received_at AS receivedAt, c.context,
+             r.config_hash AS configVersion
+      FROM checkpoints c
+      LEFT JOIN runs r ON r.run_id = c.run_id
+      WHERE c.experiment = ${slug} AND c.id > ${cursor}
+      ORDER BY c.id
       LIMIT ${EXPORT_BATCH_SIZE}
     `,
   });
@@ -105,11 +112,18 @@ const make = Effect.gen(function* () {
       ) {
         return yield* new UnknownExperiment({ experiment });
       }
+      // Only registered experiments can issue runs — the DB is the
+      // allowlist. The run pins the config version it was issued under, so
+      // republishing a config never retroactively rebinds this run's data.
+      const current = yield* experiments.configForSlug(experiment);
+      if (Option.isNone(current)) {
+        return yield* new UnknownExperiment({ experiment });
+      }
       const runId = yield* Effect.sync(() => randomUUID());
       const firstSeenAt = DateTime.formatIso(yield* DateTime.now);
       yield* sql`
-        INSERT INTO runs (run_id, experiment, first_seen_at)
-        VALUES (${runId}, ${experiment}, ${firstSeenAt})
+        INSERT INTO runs (run_id, experiment, first_seen_at, config_hash)
+        VALUES (${runId}, ${experiment}, ${firstSeenAt}, ${current.value.hash})
       `;
       return { runId, token: sign(runId, experiment) };
     },
@@ -208,6 +222,9 @@ const make = Effect.gen(function* () {
             seq: row.seq,
             at: row.at,
             receivedAt: row.receivedAt,
+            // Absent for runs that predate versioning — the key drops out
+            // of the JSON entirely rather than serializing a null.
+            configVersion: row.configVersion ?? undefined,
           });
           return encoder.encode(
             `${meta.slice(0, -1)},"context":${row.context}}\n`,

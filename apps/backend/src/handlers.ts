@@ -3,6 +3,7 @@ import { HttpApiBuilder } from "effect/unstable/httpapi";
 import { SqlClient } from "effect/unstable/sql";
 import { Api } from "./api.js";
 import { Checkpoints } from "./checkpoints.js";
+import { Experiments } from "./experiments.js";
 
 export const RunsHandlers = HttpApiBuilder.group(
   Api,
@@ -31,6 +32,33 @@ export const ExportHandlers = HttpApiBuilder.group(
     return handlers.handleAll({
       experiment: ({ params }) =>
         checkpoints.exportByExperiment(params.slug),
+    });
+  }),
+);
+
+export const ExperimentsHandlers = HttpApiBuilder.group(
+  Api,
+  "experiments",
+  Effect.fn(function* (handlers) {
+    const experiments = yield* Experiments;
+    return handlers.handleAll({
+      getExperiment: ({ params }) => experiments.getBySlug(params.slug),
+      listExperiments: () =>
+        experiments.list().pipe(
+          Effect.map((experiments) => ({ experiments })),
+        ),
+    });
+  }),
+);
+
+export const ExperimentsAdminHandlers = HttpApiBuilder.group(
+  Api,
+  "experimentsAdmin",
+  Effect.fn(function* (handlers) {
+    const experiments = yield* Experiments;
+    return handlers.handleAll({
+      publishExperiment: ({ params, payload }) =>
+        experiments.publish(params.slug, payload),
     });
   }),
 );

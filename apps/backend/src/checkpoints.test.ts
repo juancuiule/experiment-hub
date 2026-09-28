@@ -1,99 +1,23 @@
 import { assert, layer } from "@effect/vitest";
-import { DateTime, Effect, Layer, Option, Redacted, Stream } from "effect";
+import { DateTime, Effect, Layer } from "effect";
 import { HttpClientRequest, HttpServer } from "effect/unstable/http";
-import { HttpApiMiddleware, HttpApiTest } from "effect/unstable/httpapi";
-import { Api, ExportToken } from "./api.js";
-import { ExportTokenLive } from "./auth.js";
+import { HttpApiMiddleware } from "effect/unstable/httpapi";
+import { ExportToken } from "./api.js";
 import { Checkpoints } from "./checkpoints.js";
-import { BackendConfig } from "./config.js";
 import { makeSqlLive } from "./db.js";
-import { ExportHandlers, RunsHandlers, SystemHandlers } from "./handlers.js";
-
-const testConfig = (allowed?: ReadonlyArray<string>) =>
-  Layer.succeed(BackendConfig, {
-    port: 0,
-    host: "127.0.0.1",
-    dbPath: ":memory:",
-    exportToken: Redacted.make("test-token"),
-    runTokenSecret: Redacted.make("test-run-secret"),
-    allowedExperiments: allowed
-      ? Option.some<ReadonlySet<string>>(new Set(allowed))
-      : Option.none(),
-    nodeEnv: "test",
-  });
-
-const handlersLive = (allowed?: ReadonlyArray<string>) => {
-  // One shared in-memory DB: Checkpoints and the health probe must see the
-  // same SqlClient (each makeSqlLive call would open a separate database).
-  const sqlLive = makeSqlLive(":memory:");
-  return Layer.mergeAll(RunsHandlers, ExportHandlers, SystemHandlers).pipe(
-    Layer.provide(Checkpoints.layerNoDeps),
-    Layer.provideMerge(ExportTokenLive),
-    Layer.provideMerge(sqlLive),
-    Layer.provide(testConfig(allowed)),
-  );
-};
-
-const makeClient = HttpApiTest.groups(Api, ["runs", "export", "system"]);
-
-const AuthGood = HttpApiMiddleware.layerClient(
-  ExportToken,
-  ({ next, request }) =>
-    next(HttpClientRequest.bearerToken(request, "test-token")),
-);
-
-const AuthBad = HttpApiMiddleware.layerClient(
-  ExportToken,
-  ({ next, request }) => next(request),
-);
-
-type TestClient = Effect.Success<typeof makeClient>;
-type Run = { runId: string; token: string; experiment: string };
-
-const createRun = Effect.fnUntraced(function* (
-  client: TestClient,
-  experiment: string,
-) {
-  const run = yield* client.runs.createRun({ payload: { experiment } });
-  return { ...run, experiment } satisfies Run;
-});
-
-const record = (
-  client: TestClient,
-  run: Run,
-  seq: number,
-  options: {
-    checkpoint?: string;
-    context?: unknown;
-    experiment?: string;
-    token?: string;
-  } = {},
-) =>
-  client.runs.recordCheckpoint({
-    params: { runId: run.runId },
-    headers: { "x-run-token": options.token ?? run.token },
-    payload: {
-      experiment: options.experiment ?? run.experiment,
-      checkpoint: options.checkpoint ?? "mid",
-      seq,
-      context: options.context ?? { data: { intro: { answer: 5 } } },
-      at: DateTime.makeUnsafe("2026-09-25T12:00:00.000Z"),
-    },
-  });
-
-const exportNdjson = Effect.fnUntraced(function* (
-  client: TestClient,
-  slug: string,
-) {
-  const stream = yield* client.export.experiment({ params: { slug } });
-  return yield* stream.pipe(Stream.decodeText(), Stream.mkString);
-});
-
-const lines = (ndjson: string) =>
-  ndjson
-    .trim()
-    .split("\n")
-    .map((l) => JSON.parse(l));
+import { Experiments } from "./experiments.js";
+import {
+  AuthBad,
+  AuthGood,
+  createRun,
+  exportNdjson,
+  handlersLive,
+  lines,
+  makeClient,
+  record,
+  STUB_FLOW,
+  testConfig,
+} from "./test-helpers.js";
 
 layer(Layer.mergeAll(handlersLive(), HttpServer.layerServices))(
   "CheckpointsApi",
@@ -349,12 +273,15 @@ layer(Layer.mergeAll(handlersLive(["ocean"]), HttpServer.layerServices))(
 
 layer(
   Checkpoints.layerNoDeps.pipe(
+    Layer.provideMerge(Experiments.layerNoDeps),
     Layer.provide(makeSqlLive(":memory:")),
     Layer.provide(testConfig()),
   ),
 )("Checkpoints service", (it) => {
   it.effect("refuses new visits past the per-run cap but accepts retries", () =>
     Effect.gen(function* () {
+      const experiments = yield* Experiments;
+      yield* experiments.publish("ocean", STUB_FLOW);
       const checkpoints = yield* Checkpoints;
       const { runId, token } = yield* checkpoints.createRun("ocean");
       const write = (seq: number) =>
@@ -383,6 +310,8 @@ layer(
 
   it.effect("rejects contexts over the size cap", () =>
     Effect.gen(function* () {
+      const experiments = yield* Experiments;
+      yield* experiments.publish("ocean", STUB_FLOW);
       const checkpoints = yield* Checkpoints;
       const { runId, token } = yield* checkpoints.createRun("ocean");
       const error = yield* checkpoints
