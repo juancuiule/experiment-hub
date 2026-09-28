@@ -5,6 +5,13 @@ import { Context } from '@experiment-hub/engine/types';
 // session to resume after a reload.
 const REQUEST_TIMEOUT_MS = 15_000;
 
+// A session's signal cancels work once it has been superseded (a newer
+// start() or reset()); the timeout bounds every request regardless.
+const requestSignal = (session?: AbortSignal) =>
+  session
+    ? AbortSignal.any([AbortSignal.timeout(REQUEST_TIMEOUT_MS), session])
+    : AbortSignal.timeout(REQUEST_TIMEOUT_MS);
+
 export type Run = { runId: string; token: string };
 
 export type CheckpointMeta = Run & {
@@ -17,12 +24,15 @@ export type CheckpointMeta = Run & {
 // over (runId, experiment). Same-origin: in production nginx routes /api/* to
 // the backend container; in dev, Next rewrites proxy /api/* to BACKEND_URL
 // (default http://localhost:3100).
-export async function createRun(experiment: string): Promise<Run> {
+export async function createRun(
+  experiment: string,
+  session?: AbortSignal,
+): Promise<Run> {
   const response = await fetch('/api/runs', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ experiment }),
-    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    signal: requestSignal(session),
   });
   if (!response.ok) {
     throw new Error(`Failed to start run: HTTP ${response.status}`);
@@ -32,7 +42,11 @@ export async function createRun(experiment: string): Promise<Run> {
 
 // Persists a checkpoint snapshot. `seq` identifies the visit within the run;
 // retries must resend the same seq so the backend can dedupe them.
-export async function send(context: Context, meta: CheckpointMeta) {
+export async function send(
+  context: Context,
+  meta: CheckpointMeta,
+  session?: AbortSignal,
+) {
   const response = await fetch(
     `/api/runs/${encodeURIComponent(meta.runId)}/checkpoints`,
     {
@@ -48,7 +62,7 @@ export async function send(context: Context, meta: CheckpointMeta) {
         context,
         at: new Date().toISOString(),
       }),
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      signal: requestSignal(session),
     },
   );
   if (!response.ok) {

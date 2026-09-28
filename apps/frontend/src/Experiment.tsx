@@ -15,7 +15,13 @@ type Props = {
 
 export default function Experiment(props: Props) {
   const { startingNode, experiment, locale, slug } = props;
-  const { step, isLoading, error, start, next } = useExperimentStore();
+  // Per-field selectors: run/seq churn on every checkpoint must not
+  // re-render the screen subtree.
+  const step = useExperimentStore((s) => s.step);
+  const isLoading = useExperimentStore((s) => s.isLoading);
+  const error = useExperimentStore((s) => s.error);
+  const start = useExperimentStore((s) => s.start);
+  const next = useExperimentStore((s) => s.next);
   const reset = useExperimentStore((s) => s.reset);
 
   useEffect(() => {
@@ -54,7 +60,6 @@ export default function Experiment(props: Props) {
         <p className="text-content-secondary mb-8">
           Thanks for completing the experiment.
         </p>
-        {error && <p className="text-error">{error}</p>}
       </>
     );
   }
