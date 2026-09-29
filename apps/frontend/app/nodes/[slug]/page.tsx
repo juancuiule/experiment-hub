@@ -30,7 +30,7 @@ export default async function NodeGraphPage({ params }: Props) {
           {experiment.edges.length} edges
         </span>
       </div>
-      <FlowCanvasLoader experiment={experiment} issues={issues} />
+      <FlowCanvasLoader slug={slug} experiment={experiment} issues={issues} />
     </div>
   );
 }

@@ -9,6 +9,8 @@ import {
   ReactFlow,
   useEdgesState,
   useNodesState,
+  useReactFlow,
+  type OnNodeDrag,
   type OnSelectionChangeParams,
 } from '@xyflow/react';
 import type { FrameworkNode, NodeType } from '@experiment-hub/engine/nodes';
@@ -17,6 +19,7 @@ import type { ValidationError } from '@experiment-hub/engine/experiment-validati
 import { useTheme } from 'next-themes';
 import { useEffect, useMemo, useState } from 'react';
 import LiveScreenPreview from './LiveScreenPreview';
+import { clearPositions, loadPositions, savePositions } from './positions';
 import {
   CONTAINER_COLORS,
   layoutFlow,
@@ -72,10 +75,30 @@ const minimapColor = (node: EditorNode) =>
     ? CONTAINER_COLORS[(node.data as ContainerNodeData).kind]
     : TYPE_COLORS[node.type as NodeType];
 
+/** Re-runs dagre (clears saved manual positions) then refits the view. */
+function TidyButton({ onTidy }: { onTidy: () => void }) {
+  const rf = useReactFlow();
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        onTidy();
+        // fitView after the relayout lands in state
+        setTimeout(() => rf.fitView({ duration: 200 }), 60);
+      }}
+      className="text-content-secondary border-border-default hover:bg-content-primary/5 hover:text-content-primary mt-0.5 cursor-pointer rounded-md border px-2 py-1 text-left text-xxs"
+    >
+      Tidy layout
+    </button>
+  );
+}
+
 export default function FlowCanvas({
+  slug,
   experiment,
   issues,
 }: {
+  slug: string;
   experiment: ExperimentFlow;
   issues: ValidationError[];
 }) {
@@ -84,6 +107,7 @@ export default function FlowCanvas({
   const [view, setView] = useState<ViewOptions>(DEFAULT_VIEW_OPTIONS);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [inspectorTab, setInspectorTab] = useState<'raw' | 'live'>('raw');
+  const [layoutVersion, setLayoutVersion] = useState(0);
   const { resolvedTheme } = useTheme();
 
   const toggle = (key: keyof ViewOptions) =>
@@ -91,8 +115,28 @@ export default function FlowCanvas({
 
   const graph = useMemo(() => {
     const g = toFlowGraph(experiment);
-    return { ...g, nodes: layoutFlow(g.nodes, g.edges) };
-  }, [experiment]);
+    const laid = layoutFlow(g.nodes, g.edges);
+    const saved = loadPositions(slug);
+    return {
+      ...g,
+      nodes: laid.map((n) =>
+        saved[n.id] ? { ...n, position: saved[n.id] } : n,
+      ),
+    };
+  }, [experiment, slug, layoutVersion]); // layoutVersion: "Tidy" re-runs layout
+
+  const onNodeDragStop: OnNodeDrag = (_event, node) => {
+    const positions = Object.fromEntries(
+      nodes.map((n) => [n.id, n.position]),
+    );
+    positions[node.id] = node.position;
+    savePositions(slug, positions);
+  };
+
+  const tidy = () => {
+    clearPositions(slug);
+    setLayoutVersion((v) => v + 1);
+  };
 
   useEffect(() => {
     setNodes(graph.nodes);
@@ -153,6 +197,7 @@ export default function FlowCanvas({
           fitView
           minZoom={0.2}
           nodesConnectable={false}
+          onNodeDragStop={onNodeDragStop}
           onSelectionChange={onSelectionChange}
           colorMode={resolvedTheme === 'dark' ? 'dark' : 'light'}
         >
@@ -189,6 +234,7 @@ export default function FlowCanvas({
               <p className="text-content-secondary border-border-default mt-1 border-t pt-1.5 text-xxs">
                 Click a node for raw JSON
               </p>
+              <TidyButton onTidy={tidy} />
             </div>
           </Panel>
 

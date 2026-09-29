@@ -8,6 +8,7 @@ import dynamic from 'next/dynamic';
 const FlowCanvas = dynamic(() => import('./FlowCanvas'), { ssr: false });
 
 export default function FlowCanvasLoader(props: {
+  slug: string;
   experiment: ExperimentFlow;
   issues: ValidationError[];
 }) {
