@@ -1,6 +1,5 @@
 'use client';
 import type { ExperimentFlow } from '@experiment-hub/engine/types';
-import type { ValidationError } from '@experiment-hub/engine/experiment-validation/types';
 import dynamic from 'next/dynamic';
 
 // The canvas is a pure client surface — skip SSR so React Flow never mounts
@@ -10,7 +9,6 @@ const FlowCanvas = dynamic(() => import('./FlowCanvas'), { ssr: false });
 export default function FlowCanvasLoader(props: {
   slug: string;
   experiment: ExperimentFlow;
-  issues: ValidationError[];
 }) {
   return <FlowCanvas {...props} />;
 }
