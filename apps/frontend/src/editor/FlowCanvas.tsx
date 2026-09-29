@@ -15,7 +15,9 @@ import {
   type IsValidConnection,
   type Node,
   type OnNodeDrag,
+  type OnNodesChange,
   type OnSelectionChangeParams,
+  type XYPosition,
 } from '@xyflow/react';
 import { validateExperiment } from '@experiment-hub/engine/experiment-validation';
 import type { NodeType } from '@experiment-hub/engine/nodes';
@@ -212,14 +214,28 @@ export default function FlowCanvas({
 
   const issues = useMemo(() => validateExperiment(draft), [draft]);
 
-  // Sync nodes/edges into RF state, preserving selection.
+  // Live positions — updated on every position change so draft edits rebuild
+  // nodes without losing where the user put things.
+  const posRef = useRef<Record<string, XYPosition>>({});
+  const selRef = useRef<string | null>(null);
+
+  const handleNodesChange: OnNodesChange<EditorNode> = (changes) => {
+    for (const c of changes)
+      if (c.type === 'position' && c.position) posRef.current[c.id] = c.position;
+    onNodesChange(changes);
+  };
+
+  // Rebuild nodes only when the graph changes (draft edits, layout re-runs).
+  // Positions come from posRef (authoritative in-session) → saved → dagre.
   useEffect(() => {
     setNodes(
-      graph.nodes.map((n) =>
-        n.id === selectedId ? { ...n, selected: true } : n,
-      ),
+      graph.nodes.map((n) => ({
+        ...n,
+        position: posRef.current[n.id] ?? n.position,
+        selected: n.id === selRef.current || undefined,
+      })),
     );
-  }, [graph, selectedId, setNodes]);
+  }, [graph, setNodes]);
 
   useEffect(() => {
     setEdges(view.dataFlow ? [...graph.edges, ...graph.dataEdges] : graph.edges);
@@ -255,15 +271,13 @@ export default function FlowCanvas({
   };
 
   const onNodeDragStop: OnNodeDrag = (_e, node) => {
-    const positions = Object.fromEntries(
-      nodes.map((n) => [n.id, n.position]),
-    );
-    positions[node.id] = node.position;
-    savePositions(slug, positions);
+    posRef.current[node.id] = node.position;
+    savePositions(slug, posRef.current);
   };
 
   const tidy = () => {
     clearPositions(slug);
+    posRef.current = {};
     setLayoutVersion((v) => v + 1);
   };
 
@@ -285,6 +299,7 @@ export default function FlowCanvas({
 
   const onSelectionChange = ({ nodes: sel }: OnSelectionChangeParams) => {
     const id = sel[0]?.id ?? null;
+    selRef.current = id;
     setSelectedId(id);
     const node = id ? draft.nodes.find((n) => n.id === id) : null;
     setInspectorTab(node?.type === 'screen' ? 'live' : 'raw');
@@ -338,7 +353,7 @@ export default function FlowCanvas({
         <ReactFlow
           nodes={nodes}
           edges={edges}
-          onNodesChange={onNodesChange}
+          onNodesChange={handleNodesChange}
           onEdgesChange={onEdgesChange}
           nodeTypes={nodeTypes}
           edgeTypes={edgeTypes}
