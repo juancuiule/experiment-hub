@@ -124,7 +124,7 @@ function AddNodeMenu({ onAdd }: { onAdd: (type: NodeType) => void }) {
         + node
       </button>
       {open && (
-        <div className="bg-background-surface border-border-default absolute bottom-full left-0 z-10 mb-1 flex w-32 flex-col overflow-hidden rounded-lg border shadow-md">
+        <div className="bg-background-surface border-border-default absolute top-full left-0 z-10 mt-1 flex max-h-64 w-32 flex-col overflow-y-auto rounded-lg border shadow-md">
           {NODE_TYPES.map((t) => (
             <button
               key={t}
