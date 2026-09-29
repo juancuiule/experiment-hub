@@ -35,19 +35,23 @@ export type EditorNodeData = {
   fields: string[];
   /** Output keys a compute/data node publishes as `$$<nodeId>.<key>`. */
   outputs: string[];
-  /** Top-level component skeleton for screen nodes (mini preview). */
-  components: ComponentSummary[];
+  /** Flattened component skeleton for screen nodes (preview + field map). */
+  components: ComponentRow[];
   /** Declared member position inside the parent container (layout ordering). */
   memberIndex?: number;
   /** Position badge for ordered (non-randomized) path children. */
   childIndex?: number;
 };
 
-export type ComponentSummary = {
+export type ComponentRow = {
+  /** Indent level within the component tree. */
+  depth: number;
   family: string;
   template: string;
-  /** Total nested descendants (group children, conditional then/else, for-each component). */
-  children: number;
+  /** Field keys this component produces — raw `dataKey`/`payload.dataKey` props
+   *  (may contain `{{ }}` templates), plus the `:order` shadow for randomized
+   *  option lists. */
+  keys: string[];
 };
 
 export type ContainerNodeData = {
@@ -192,27 +196,36 @@ type NestableProps = {
   then?: ScreenComponent;
   else?: ScreenComponent;
   component?: ScreenComponent;
+  dataKey?: string;
+  randomize?: boolean;
+  payload?: { dataKey?: string };
 };
 
-function countDescendants(component: ScreenComponent): number {
-  const p = component.props as NestableProps;
-  let n = 0;
-  if (Array.isArray(p.components))
-    n += p.components.reduce((s, c) => s + 1 + countDescendants(c), 0);
-  if (p.then) n += 1 + countDescendants(p.then);
-  if (p.else) n += 1 + countDescendants(p.else);
-  if (p.component) n += 1 + countDescendants(p.component);
-  return n;
-}
-
-function componentSummaries(
-  components: ScreenComponent[] | undefined,
-): ComponentSummary[] {
-  return (components ?? []).map((c) => ({
-    family: c.componentFamily,
-    template: c.template,
-    children: countDescendants(c),
-  }));
+/**
+ * Flatten a screen's component tree into depth-marked rows, pairing each
+ * component with the field key(s) it produces (`dataKey`, `:order` shadow,
+ * button `payload.dataKey`). dataKeys are shown as authored — token templates
+ * like `{{#fe.value}}` stay visible.
+ */
+function componentRows(components: ScreenComponent[] | undefined): ComponentRow[] {
+  const rows: ComponentRow[] = [];
+  const walk = (c: ScreenComponent, depth: number) => {
+    const p = c.props as NestableProps;
+    const keys: string[] = [];
+    if (c.componentFamily === 'response' && p.dataKey) {
+      keys.push(p.dataKey);
+      if (p.randomize) keys.push(`${p.dataKey}:order`);
+    }
+    if (c.template === 'button' && p.payload?.dataKey)
+      keys.push(p.payload.dataKey);
+    rows.push({ depth, family: c.componentFamily, template: c.template, keys });
+    for (const child of p.components ?? []) walk(child, depth + 1);
+    if (p.then) walk(p.then, depth + 1);
+    if (p.else) walk(p.else, depth + 1);
+    if (p.component) walk(p.component, depth + 1);
+  };
+  for (const c of components ?? []) walk(c, 0);
+  return rows;
 }
 
 // ─── Condition summary ───────────────────────────────────────────────────────
@@ -445,9 +458,7 @@ export function toFlowGraph(flow: ExperimentFlow): {
           outputs: nodeOutputs(node),
           components:
             node.type === 'screen'
-              ? componentSummaries(
-                  screensBySlug.get(node.props.slug)?.components,
-                )
+              ? componentRows(screensBySlug.get(node.props.slug)?.components)
               : [],
           memberIndex,
           childIndex,
@@ -466,8 +477,8 @@ export function toFlowGraph(flow: ExperimentFlow): {
 
 const NODE_WIDTH = 240;
 const ROW_HEIGHT = 24;
-const CONTAINER_PAD = 20;
-const CONTAINER_GAP = 12;
+const CONTAINER_PAD = 30;
+const CONTAINER_GAP = 14;
 const CARD_BASE = 42;
 
 /** Extra lines a long unbreakable-ish string may wrap to (w-60 ≈ 30 mono xxs chars). */
@@ -493,11 +504,11 @@ function estimateHeight(node: EditorNode): number {
     case 'screen':
       lines =
         1 +
-        (data.fields ?? []).slice(0, 5).reduce((s, k) => s + 1 + wrapLines(k), 0) +
-        ((data.fields?.length ?? 0) > 5 ? 1 : 0) +
-        (data.components?.length
-          ? 1 + Math.min(data.components.length, 5)
-          : 0);
+        (data.components ?? []).reduce(
+          (s, r) =>
+            s + 1 + r.keys.reduce((k, key) => k + wrapLines(key), 0),
+          0,
+        );
       break;
     case 'compute':
     case 'data':
@@ -535,7 +546,7 @@ function containerPropRows(node: PathNode | LoopNode): number {
 }
 
 /** Height of the card portion of a container node (children render below it). */
-function containerCardHeight(node: PathNode | LoopNode): number {
+export function containerCardHeight(node: PathNode | LoopNode): number {
   return CARD_BASE + containerPropRows(node) * ROW_HEIGHT + 8;
 }
 

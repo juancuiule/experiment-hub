@@ -26,6 +26,7 @@ import {
   branchHandle,
   conditionToString,
   forkHandle,
+  type ComponentRow as AdapterComponentRow,
   type EditorNode,
   type EditorNodeData,
 } from './adapter';
@@ -139,26 +140,37 @@ function DataSocket({ fieldKey }: { fieldKey: string }) {
   );
 }
 
-/** One row of the screen's component skeleton — a wireframe-ish preview row. */
-function ComponentRow({
-  family,
-  template,
-  nested,
-}: {
-  family: string;
-  template: string;
-  nested: number;
-}) {
+/** One row of the screen's component skeleton — component left, its field
+ *  key(s) right, so the collected data lines up with what produces it. */
+function ComponentRow({ row }: { row: AdapterComponentRow }) {
+  const view = useViewOptions();
   return (
-    <div className="flex items-center gap-1.5 px-3 py-0.5">
+    <div className="flex items-baseline justify-between gap-2 px-3 py-0.5">
       <span
-        className="size-1.5 shrink-0 rounded-full"
-        style={{ backgroundColor: FAMILY_COLORS[family] ?? '#94a3b8' }}
-      />
-      <span className="text-content-secondary wrap-anywhere font-mono text-xxs">
-        {template}
-        {nested > 0 ? ` +${nested}` : ''}
+        className="flex min-w-0 items-baseline gap-1.5"
+        style={{ paddingLeft: row.depth * 10 }}
+      >
+        <span
+          className="size-1.5 shrink-0 rounded-full"
+          style={{ backgroundColor: FAMILY_COLORS[row.family] ?? '#94a3b8' }}
+        />
+        <span className="text-content-secondary wrap-anywhere font-mono text-xxs">
+          {row.template}
+        </span>
       </span>
+      {view.fields && row.keys.length > 0 && (
+        <span className="flex min-w-0 flex-col items-end">
+          {row.keys.map((k) => (
+            <span
+              key={k}
+              className="text-content-primary wrap-anywhere flex items-center gap-1 text-right font-mono text-xxs"
+            >
+              {k}
+              <span className="border-content-active bg-background-surface size-1.5 shrink-0 rounded-full border" />
+            </span>
+          ))}
+        </span>
+      )}
     </div>
   );
 }
@@ -202,22 +214,11 @@ function NodeBody({
       return (
         <>
           <Row label="screen">{node.props.slug}</Row>
-          {sockets(data.fields, 'fields')}
           {view.preview && data.components.length > 0 && (
             <div className="border-border-default mt-1 border-t pt-1">
-              {data.components.slice(0, 5).map((c, i) => (
-                <ComponentRow
-                  key={i}
-                  family={c.family}
-                  template={c.template}
-                  nested={c.children}
-                />
+              {data.components.map((c, i) => (
+                <ComponentRow key={i} row={c} />
               ))}
-              {data.components.length > 5 && (
-                <p className="text-content-secondary px-3 pb-1 text-xxs">
-                  +{data.components.length - 5} components
-                </p>
-              )}
             </div>
           )}
         </>

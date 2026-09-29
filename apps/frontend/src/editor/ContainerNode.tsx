@@ -2,7 +2,12 @@
 import { Handle, Position, type Node, type NodeProps } from '@xyflow/react';
 import type { LoopNode, PathNode } from '@experiment-hub/engine/nodes';
 import { Layers, Repeat } from 'lucide-react';
-import { HANDLE_IN, HANDLE_NEXT, type ContainerNodeData } from './adapter';
+import {
+  HANDLE_IN,
+  HANDLE_NEXT,
+  containerCardHeight,
+  type ContainerNodeData,
+} from './adapter';
 import { Row, handleClass } from './FlowNode';
 import { useViewOptions } from './view-options';
 
@@ -18,18 +23,6 @@ function ContainerCard({ node, kind }: { node: PathNode | LoopNode; kind: 'path'
 
   return (
     <div className="bg-background-surface border-border-default relative w-60 shrink-0 rounded-xl border shadow-sm shadow-black/5">
-      <Handle
-        id={HANDLE_IN}
-        type="target"
-        position={Position.Left}
-        className={handleClass}
-      />
-      <Handle
-        id={HANDLE_NEXT}
-        type="source"
-        position={Position.Right}
-        className={handleClass}
-      />
 
       <div className="border-border-default flex items-center gap-2 border-b px-3 py-2">
         <span
@@ -79,9 +72,26 @@ export default function ContainerNode({
   data,
 }: NodeProps<Node<ContainerNodeData>>) {
   const accent = CONTAINER_ACCENTS[data.kind];
+  // Handles dock to the frame's outer boundary at the card's mid-height, so
+  // edges attach to the box edge rather than emerging mid-frame.
+  const handleTop = containerCardHeight(data.node) / 2;
 
   return (
-    <div className="flex h-full w-full flex-col">
+    <div className="relative flex h-full w-full flex-col">
+      <Handle
+        id={HANDLE_IN}
+        type="target"
+        position={Position.Left}
+        className={handleClass}
+        style={{ top: handleTop }}
+      />
+      <Handle
+        id={HANDLE_NEXT}
+        type="source"
+        position={Position.Right}
+        className={handleClass}
+        style={{ top: handleTop }}
+      />
       <ContainerCard node={data.node} kind={data.kind} />
       <div
         className="relative mt-2 min-h-0 flex-1 rounded-2xl border-2 border-dashed"
