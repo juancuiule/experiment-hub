@@ -6,10 +6,12 @@ import {
   type EdgeProps,
 } from '@xyflow/react';
 import type { EditorEdge } from './adapter';
+import { useViewOptions } from './view-options';
 
 /** Bezier edge with a mid-edge pill label, colored by edge role/arm. */
 export default function FlowEdge(props: EdgeProps<EditorEdge>) {
   const { id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, data } = props;
+  const view = useViewOptions();
   const [path, labelX, labelY] = getBezierPath({
     sourceX,
     sourceY,
@@ -34,7 +36,7 @@ export default function FlowEdge(props: EdgeProps<EditorEdge>) {
           strokeDasharray: data?.dashed ? '5 4' : undefined,
         }}
       />
-      {data?.label && (
+      {view.labels && data?.label && (
         <EdgeLabelRenderer>
           <div
             className="nodrag nopan bg-background-surface pointer-events-none absolute rounded-full border px-1.5 py-px font-mono text-xxs"

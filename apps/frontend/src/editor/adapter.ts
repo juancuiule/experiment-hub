@@ -10,6 +10,7 @@ import type {
   ScreenNode,
 } from '@experiment-hub/engine/nodes';
 import type { FrameworkScreen } from '@experiment-hub/engine/screen';
+import type { ScreenComponent } from '@experiment-hub/engine/components';
 import type { ExperimentFlow } from '@experiment-hub/engine/types';
 
 // ─── Handles ─────────────────────────────────────────────────────────────────
@@ -34,10 +35,19 @@ export type EditorNodeData = {
   fields: string[];
   /** Output keys a compute/data node publishes as `$$<nodeId>.<key>`. */
   outputs: string[];
+  /** Top-level component skeleton for screen nodes (mini preview). */
+  components: ComponentSummary[];
   /** Declared member position inside the parent container (layout ordering). */
   memberIndex?: number;
   /** Position badge for ordered (non-randomized) path children. */
   childIndex?: number;
+};
+
+export type ComponentSummary = {
+  family: string;
+  template: string;
+  /** Total nested descendants (group children, conditional then/else, for-each component). */
+  children: number;
 };
 
 export type ContainerNodeData = {
@@ -175,6 +185,34 @@ function nodeOutputs(node: FrameworkNode): string[] {
     return node.props.computations.map((c) => c.outputKey);
   if (node.type === 'data') return Object.keys(node.props.data);
   return [];
+}
+
+type NestableProps = {
+  components?: ScreenComponent[];
+  then?: ScreenComponent;
+  else?: ScreenComponent;
+  component?: ScreenComponent;
+};
+
+function countDescendants(component: ScreenComponent): number {
+  const p = component.props as NestableProps;
+  let n = 0;
+  if (Array.isArray(p.components))
+    n += p.components.reduce((s, c) => s + 1 + countDescendants(c), 0);
+  if (p.then) n += 1 + countDescendants(p.then);
+  if (p.else) n += 1 + countDescendants(p.else);
+  if (p.component) n += 1 + countDescendants(p.component);
+  return n;
+}
+
+function componentSummaries(
+  components: ScreenComponent[] | undefined,
+): ComponentSummary[] {
+  return (components ?? []).map((c) => ({
+    family: c.componentFamily,
+    template: c.template,
+    children: countDescendants(c),
+  }));
 }
 
 // ─── Condition summary ───────────────────────────────────────────────────────
@@ -405,6 +443,12 @@ export function toFlowGraph(flow: ExperimentFlow): {
               ? screenFields(screensBySlug.get(node.props.slug))
               : [],
           outputs: nodeOutputs(node),
+          components:
+            node.type === 'screen'
+              ? componentSummaries(
+                  screensBySlug.get(node.props.slug)?.components,
+                )
+              : [],
           memberIndex,
           childIndex,
         } satisfies EditorNodeData,
@@ -421,36 +465,78 @@ export function toFlowGraph(flow: ExperimentFlow): {
 // ─── Layout ──────────────────────────────────────────────────────────────────
 
 const NODE_WIDTH = 240;
-const ROW_HEIGHT = 26;
+const ROW_HEIGHT = 24;
 const CONTAINER_PAD = 20;
-const CONTAINER_HEADER = 52;
+const CONTAINER_GAP = 12;
+const CARD_BASE = 42;
+
+/** Extra lines a long unbreakable-ish string may wrap to (w-60 ≈ 30 mono xxs chars). */
+const wrapLines = (s: string) => Math.min(2, Math.max(0, Math.ceil((s.length - 30) / 30)));
 
 function estimateHeight(node: EditorNode): number {
-  let rows = 1;
   const data = node.data as EditorNodeData;
   const n = data.node;
+  let lines = 0;
   switch (n.type) {
     case 'branch':
-      rows = n.props.branches.length + 1; // arms + else
+      for (const b of n.props.branches)
+        lines += 1 + wrapLines(conditionToString(b.config));
+      lines += 1; // else row
       break;
     case 'fork':
-      rows = n.props.forks.length;
+      lines = n.props.forks.length;
       break;
     case 'path':
     case 'loop':
-      rows = 3;
+      lines = containerPropRows(n);
       break;
     case 'screen':
-      rows = 1 + Math.min(data.fields?.length ?? 0, 5) + 1;
+      lines =
+        1 +
+        (data.fields ?? []).slice(0, 5).reduce((s, k) => s + 1 + wrapLines(k), 0) +
+        ((data.fields?.length ?? 0) > 5 ? 1 : 0) +
+        (data.components?.length
+          ? 1 + Math.min(data.components.length, 5)
+          : 0);
       break;
     case 'compute':
     case 'data':
-      rows = 1 + Math.min(data.outputs?.length ?? 0, 5);
+      lines = (data.outputs ?? [])
+        .slice(0, 5)
+        .reduce((s, k) => s + 1 + wrapLines(k), 0);
+      break;
+    case 'checkpoint':
+      lines = 1 + wrapLines(n.props.name);
+      break;
+    case 'start':
+      lines = n.props ? 1 + wrapLines(`${n.props.param.key}=${n.props.param.value}`) : 1;
       break;
     default:
-      rows = 1;
+      lines = 1;
   }
-  return 48 + rows * ROW_HEIGHT;
+  return CARD_BASE + lines * ROW_HEIGHT;
+}
+
+/** Prop rows a path/loop card renders (shared between layout + component). */
+function containerPropRows(node: PathNode | LoopNode): number {
+  let rows = 0;
+  if (node.type === 'loop') {
+    rows += 1; // items
+    if (node.props.itemKey) rows += 1;
+    if (
+      node.props.type === 'dynamic' &&
+      node.props.dataKey.length > 30
+    )
+      rows += 1; // wrapped line
+  }
+  if (node.props.randomized) rows += 1;
+  if (node.props.stepper) rows += 1;
+  return Math.max(1, rows);
+}
+
+/** Height of the card portion of a container node (children render below it). */
+function containerCardHeight(node: PathNode | LoopNode): number {
+  return CARD_BASE + containerPropRows(node) * ROW_HEIGHT + 8;
 }
 
 type Size = { width: number; height: number };
@@ -549,6 +635,9 @@ export function layoutFlow(
       nodesep: 28,
       ranksep: 70,
     });
+    const cardH = containerCardHeight(
+      (byId.get(containerId)!.data as ContainerNodeData).node,
+    );
     let w = 0;
     let h = 0;
     for (const child of children) {
@@ -556,14 +645,14 @@ export function layoutFlow(
       const s = sizes.get(child)!;
       childPositions.set(child, {
         x: p.x + CONTAINER_PAD,
-        y: p.y + CONTAINER_HEADER + CONTAINER_PAD / 2,
+        y: p.y + cardH + CONTAINER_GAP,
       });
       w = Math.max(w, p.x + s.width);
       h = Math.max(h, p.y + s.height);
     }
     sizes.set(containerId, {
       width: w + CONTAINER_PAD * 2,
-      height: h + CONTAINER_HEADER + CONTAINER_PAD,
+      height: cardH + CONTAINER_GAP + h + CONTAINER_PAD,
     });
   }
 

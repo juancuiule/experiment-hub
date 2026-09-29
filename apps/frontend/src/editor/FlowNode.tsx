@@ -15,6 +15,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { twMerge } from 'tailwind-merge';
+import { useViewOptions } from './view-options';
 import {
   ARM_COLORS,
   HANDLE_CHILDREN,
@@ -46,8 +47,15 @@ const TYPE_META: Record<NodeType, { icon: LucideIcon; label: string; accent: str
 
 // ─── Handle styles ───────────────────────────────────────────────────────────
 
-const handleClass =
+export const handleClass =
   '!size-2.5 !rounded-full !border-2 !border-content-secondary !bg-background-surface';
+
+const FAMILY_COLORS: Record<string, string> = {
+  content: '#94a3b8',
+  response: '#60a6bc',
+  layout: '#f59e0b',
+  control: '#8b5cf6',
+};
 
 /** Source handle docked to a row's right edge. */
 const rowHandleStyle = {
@@ -71,7 +79,7 @@ function ArmHandle({ id, color }: { id: string; color: string }) {
 
 // ─── Row helpers ─────────────────────────────────────────────────────────────
 
-function Row({
+export function Row({
   label,
   children,
 }: {
@@ -81,7 +89,7 @@ function Row({
   return (
     <div className="flex items-baseline justify-between gap-3 px-3 py-1.5 text-xs">
       <span className="text-content-secondary shrink-0">{label}</span>
-      <span className="text-content-primary min-w-0 truncate font-mono">
+      <span className="text-content-primary wrap-anywhere min-w-0 text-right font-mono">
         {children}
       </span>
     </div>
@@ -110,7 +118,7 @@ function HandleRow({
         <span className="text-content-primary truncate text-xs">{label}</span>
       </span>
       {detail && (
-        <span className="text-content-secondary truncate font-mono text-xxs">
+        <span className="text-content-secondary wrap-anywhere min-w-0 text-right font-mono text-xxs">
           {detail}
         </span>
       )}
@@ -123,10 +131,34 @@ function HandleRow({
 function DataSocket({ fieldKey }: { fieldKey: string }) {
   return (
     <div className="relative flex items-center justify-end gap-1.5 px-3 py-0.5">
-      <span className="text-content-secondary truncate font-mono text-xxs">
+      <span className="text-content-secondary wrap-anywhere min-w-0 text-right font-mono text-xxs">
         {fieldKey}
       </span>
       <span className="border-content-active bg-background-surface size-1.5 shrink-0 rounded-full border" />
+    </div>
+  );
+}
+
+/** One row of the screen's component skeleton — a wireframe-ish preview row. */
+function ComponentRow({
+  family,
+  template,
+  nested,
+}: {
+  family: string;
+  template: string;
+  nested: number;
+}) {
+  return (
+    <div className="flex items-center gap-1.5 px-3 py-0.5">
+      <span
+        className="size-1.5 shrink-0 rounded-full"
+        style={{ backgroundColor: FAMILY_COLORS[family] ?? '#94a3b8' }}
+      />
+      <span className="text-content-secondary wrap-anywhere font-mono text-xxs">
+        {template}
+        {nested > 0 ? ` +${nested}` : ''}
+      </span>
     </div>
   );
 }
@@ -140,6 +172,22 @@ function NodeBody({
   node: FrameworkNode;
   data: EditorNodeData;
 }) {
+  const view = useViewOptions();
+
+  const sockets = (keys: string[], moreLabel: string) =>
+    view.fields && keys.length > 0 ? (
+      <>
+        {keys.slice(0, 5).map((k) => (
+          <DataSocket key={k} fieldKey={k} />
+        ))}
+        {keys.length > 5 && (
+          <p className="text-content-secondary px-3 pb-1 text-right text-xxs">
+            +{keys.length - 5} {moreLabel}
+          </p>
+        )}
+      </>
+    ) : null;
+
   switch (node.type) {
     case 'start':
       return node.props ? (
@@ -154,13 +202,23 @@ function NodeBody({
       return (
         <>
           <Row label="screen">{node.props.slug}</Row>
-          {data.fields.slice(0, 4).map((k) => (
-            <DataSocket key={k} fieldKey={k} />
-          ))}
-          {data.fields.length > 4 && (
-            <p className="text-content-secondary px-3 pb-1 text-right text-xxs">
-              +{data.fields.length - 4} fields
-            </p>
+          {sockets(data.fields, 'fields')}
+          {view.preview && data.components.length > 0 && (
+            <div className="border-border-default mt-1 border-t pt-1">
+              {data.components.slice(0, 5).map((c, i) => (
+                <ComponentRow
+                  key={i}
+                  family={c.family}
+                  template={c.template}
+                  nested={c.children}
+                />
+              ))}
+              {data.components.length > 5 && (
+                <p className="text-content-secondary px-3 pb-1 text-xxs">
+                  +{data.components.length - 5} components
+                </p>
+              )}
+            </div>
           )}
         </>
       );
@@ -172,7 +230,9 @@ function NodeBody({
             <HandleRow
               key={branch.id}
               label={branch.name}
-              detail={conditionToString(branch.config)}
+              detail={
+                view.details ? conditionToString(branch.config) : undefined
+              }
               color={ARM_COLORS[i % ARM_COLORS.length]}
               handleId={branchHandle(branch.id)}
             />
@@ -188,7 +248,11 @@ function NodeBody({
             <HandleRow
               key={fork.id}
               label={fork.name}
-              detail={fork.weight != null ? `×${fork.weight}` : undefined}
+              detail={
+                view.details && fork.weight != null
+                  ? `×${fork.weight}`
+                  : undefined
+              }
               color={ARM_COLORS[i % ARM_COLORS.length]}
               handleId={forkHandle(fork.id)}
             />
@@ -222,32 +286,10 @@ function NodeBody({
       );
 
     case 'compute':
-      return (
-        <>
-          {data.outputs.slice(0, 4).map((k) => (
-            <DataSocket key={k} fieldKey={k} />
-          ))}
-          {data.outputs.length > 4 && (
-            <p className="text-content-secondary px-3 pb-1 text-right text-xxs">
-              +{data.outputs.length - 4} outputs
-            </p>
-          )}
-        </>
-      );
+      return sockets(data.outputs, 'outputs');
 
     case 'data':
-      return (
-        <>
-          {data.outputs.slice(0, 4).map((k) => (
-            <DataSocket key={k} fieldKey={k} />
-          ))}
-          {data.outputs.length > 4 && (
-            <p className="text-content-secondary px-3 pb-1 text-right text-xxs">
-              +{data.outputs.length - 4} keys
-            </p>
-          )}
-        </>
-      );
+      return sockets(data.outputs, 'keys');
 
     case 'checkpoint':
       return <Row label="name">{node.props.name}</Row>;

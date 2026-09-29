@@ -13,6 +13,7 @@ import {
 import type { NodeType } from '@experiment-hub/engine/nodes';
 import type { ExperimentFlow } from '@experiment-hub/engine/types';
 import type { ValidationError } from '@experiment-hub/engine/experiment-validation/types';
+import { useTheme } from 'next-themes';
 import { useEffect, useMemo, useState } from 'react';
 import {
   CONTAINER_COLORS,
@@ -25,6 +26,11 @@ import {
 import ContainerNode from './ContainerNode';
 import FlowEdge from './FlowEdge';
 import FlowNode from './FlowNode';
+import {
+  DEFAULT_VIEW_OPTIONS,
+  ViewOptionsContext,
+  type ViewOptions,
+} from './view-options';
 
 const NODE_TYPES: NodeType[] = [
   'start',
@@ -73,7 +79,11 @@ export default function FlowCanvas({
 }) {
   const [nodes, setNodes, onNodesChange] = useNodesState<EditorNode>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<EditorEdge>([]);
-  const [showDataFlow, setShowDataFlow] = useState(true);
+  const [view, setView] = useState<ViewOptions>(DEFAULT_VIEW_OPTIONS);
+  const { resolvedTheme } = useTheme();
+
+  const toggle = (key: keyof ViewOptions) =>
+    setView((v) => ({ ...v, [key]: !v[key] }));
 
   const graph = useMemo(() => {
     const g = toFlowGraph(experiment);
@@ -85,79 +95,97 @@ export default function FlowCanvas({
   }, [graph, setNodes]);
 
   useEffect(() => {
-    setEdges(showDataFlow ? [...graph.edges, ...graph.dataEdges] : graph.edges);
-  }, [graph, showDataFlow, setEdges]);
+    setEdges(view.dataFlow ? [...graph.edges, ...graph.dataEdges] : graph.edges);
+  }, [graph, view.dataFlow, setEdges]);
 
   const errors = issues.filter((i) => i.severity !== 'warning');
   const warnings = issues.filter((i) => i.severity === 'warning');
-  const dataEdgeCount = graph.dataEdges.length;
+
+  const toggles: { key: keyof ViewOptions; label: string; hint?: string }[] = [
+    { key: 'dataFlow', label: 'Data flow', hint: `${graph.dataEdges.length}` },
+    { key: 'fields', label: 'Fields' },
+    { key: 'preview', label: 'Screen preview' },
+    { key: 'labels', label: 'Edge labels' },
+    { key: 'details', label: 'Prop details' },
+  ];
 
   return (
     <div className="border-border-default bg-background h-[75vh] w-full overflow-hidden rounded-xl border">
-      <ReactFlow
-        nodes={nodes}
-        edges={edges}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
-        nodeTypes={nodeTypes}
-        edgeTypes={edgeTypes}
-        fitView
-        minZoom={0.2}
-        nodesConnectable={false}
-        colorMode="system"
-      >
-        <Background variant={BackgroundVariant.Dots} gap={16} size={1} />
-        <Controls showInteractive={false} />
-        <MiniMap
-          nodeColor={minimapColor}
-          pannable
-          zoomable
-          className="!bg-background-surface"
-        />
+      <ViewOptionsContext.Provider value={view}>
+        <ReactFlow
+          nodes={nodes}
+          edges={edges}
+          onNodesChange={onNodesChange}
+          onEdgesChange={onEdgesChange}
+          nodeTypes={nodeTypes}
+          edgeTypes={edgeTypes}
+          fitView
+          minZoom={0.2}
+          nodesConnectable={false}
+          colorMode={resolvedTheme === 'dark' ? 'dark' : 'light'}
+        >
+          <Background variant={BackgroundVariant.Dots} gap={16} size={1} />
+          <Controls showInteractive={false} />
+          <MiniMap
+            nodeColor={minimapColor}
+            pannable
+            zoomable
+            className="!bg-background-surface"
+          />
 
-        <Panel position="top-left">
-          <label className="bg-background-surface border-border-default text-content-primary flex cursor-pointer items-center gap-2 rounded-lg border px-2.5 py-1.5 text-xs shadow-sm">
-            <input
-              type="checkbox"
-              checked={showDataFlow}
-              onChange={(e) => setShowDataFlow(e.target.checked)}
-              className="accent-[#a78bfa]"
-            />
-            Data flow
-            <span className="text-content-secondary font-mono text-xxs">
-              {dataEdgeCount}
-            </span>
-          </label>
-        </Panel>
-
-        {issues.length > 0 && (
-          <Panel position="top-right" className="max-w-80">
-            <details className="bg-background-surface border-border-default rounded-lg border p-3 shadow-sm">
-              <summary className="text-content-primary cursor-pointer text-xs font-semibold">
-                {errors.length} errors · {warnings.length} warnings
-              </summary>
-              <ul className="mt-2 flex max-h-64 flex-col gap-1 overflow-auto">
-                {issues.map((issue, i) => (
-                  <li key={i} className="text-xxs leading-snug">
-                    <span
-                      className={
-                        issue.severity === 'warning'
-                          ? 'text-warning'
-                          : 'text-error'
-                      }
-                    >
-                      [{issue.code}]
-                    </span>{' '}
-                    <span className="text-content-secondary">
-                      {issue.message}
+          <Panel position="top-left">
+            <div className="bg-background-surface border-border-default flex flex-col gap-1 rounded-lg border p-2.5 shadow-sm">
+              {toggles.map(({ key, label, hint }) => (
+                <label
+                  key={key}
+                  className="text-content-primary flex cursor-pointer items-center gap-2 text-xs"
+                >
+                  <input
+                    type="checkbox"
+                    checked={view[key]}
+                    onChange={() => toggle(key)}
+                    className="accent-[#a78bfa]"
+                  />
+                  {label}
+                  {hint && (
+                    <span className="text-content-secondary font-mono text-xxs">
+                      {hint}
                     </span>
-                  </li>
-                ))}
-              </ul>
-            </details>
+                  )}
+                </label>
+              ))}
+            </div>
           </Panel>
-        )}
-      </ReactFlow>
+
+          {issues.length > 0 && (
+            <Panel position="top-right" className="max-w-80">
+              <details className="bg-background-surface border-border-default rounded-lg border p-3 shadow-sm">
+                <summary className="text-content-primary cursor-pointer text-xs font-semibold">
+                  {errors.length} errors · {warnings.length} warnings
+                </summary>
+                <ul className="mt-2 flex max-h-64 flex-col gap-1 overflow-auto">
+                  {issues.map((issue, i) => (
+                    <li key={i} className="text-xxs leading-snug">
+                      <span
+                        className={
+                          issue.severity === 'warning'
+                            ? 'text-warning'
+                            : 'text-error'
+                        }
+                      >
+                        [{issue.code}]
+                      </span>{' '}
+                      <span className="text-content-secondary">
+                        {issue.message}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            </Panel>
+          )}
+        </ReactFlow>
+      </ViewOptionsContext.Provider>
     </div>
   );
 }
