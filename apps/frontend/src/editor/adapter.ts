@@ -424,8 +424,6 @@ export function toFlowGraph(flow: ExperimentFlow): {
         ...(parent
           ? {
               parentId: parent,
-              extent: 'parent' as const,
-              expandParent: true,
             }
           : {}),
       };

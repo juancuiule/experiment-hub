@@ -1,5 +1,5 @@
 import type { Condition } from '@experiment-hub/engine/conditions';
-import type { FrameworkEdge } from '@experiment-hub/engine/edges';
+import { isPathEdge, type FrameworkEdge } from '@experiment-hub/engine/edges';
 import type { FrameworkNode, NodeType } from '@experiment-hub/engine/nodes';
 import type { ExperimentFlow } from '@experiment-hub/engine/types';
 import { HANDLE_NEXT, branchHandle, forkHandle } from './adapter';
@@ -234,6 +234,71 @@ export function deleteEdgeIds(
     edges: flow.edges.filter(
       (e) => !gone.has(`${e.type}:${e.from}->${e.to}`),
     ),
+  };
+}
+
+// ─── Container membership ────────────────────────────────────────────────────
+
+/**
+ * Move `nodeId` into container `parentId` (or out when null). Adds a
+ * `path-contains` edge (order appended) or `loop-template` edge. Rejects
+ * parenting into own descendants and a second loop template.
+ */
+export function setParent(
+  flow: ExperimentFlow,
+  nodeId: string,
+  parentId: string | null,
+): ExperimentFlow {
+  // Strip existing membership edges for this node.
+  const edges = flow.edges.filter(
+    (e) =>
+      !(
+        (e.type === 'path-contains' || e.type === 'loop-template') &&
+        e.to === nodeId
+      ),
+  );
+  if (!parentId) return { ...flow, edges };
+
+  const parent = flow.nodes.find((n) => n.id === parentId);
+  if (!parent || (parent.type !== 'path' && parent.type !== 'loop'))
+    return flow;
+  if (parentId === nodeId) return flow;
+
+  // No parenting into own descendants (would create a containment cycle).
+  const parentOf = new Map<string, string>();
+  for (const e of flow.edges)
+    if (e.type === 'path-contains' || e.type === 'loop-template')
+      parentOf.set(e.to, e.from);
+  for (let cur: string | undefined = parentId; cur; cur = parentOf.get(cur))
+    if (cur === nodeId) return flow;
+
+  if (parent.type === 'loop') {
+    // Loops take exactly one template member — refuse if occupied.
+    if (edges.some((e) => e.type === 'loop-template' && e.from === parentId))
+      return flow;
+    return {
+      ...flow,
+      edges: [...edges, { type: 'loop-template', from: parentId, to: nodeId }],
+    };
+  }
+  const maxOrder = Math.max(
+    -1,
+    ...edges
+      .filter(isPathEdge)
+      .filter((e) => e.from === parentId)
+      .map((e) => e.order),
+  );
+  return {
+    ...flow,
+    edges: [
+      ...edges,
+      {
+        type: 'path-contains',
+        from: parentId,
+        to: nodeId,
+        order: maxOrder + 1,
+      },
+    ],
   };
 }
 

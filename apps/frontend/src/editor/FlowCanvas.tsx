@@ -38,6 +38,7 @@ import {
   reconnect,
   removeArm,
   setNodeName,
+  setParent,
   setScreenSlug,
   updateArm,
 } from './mutations';
@@ -308,6 +309,78 @@ export default function FlowCanvas({
   const onNodeDragStop: OnNodeDrag = (_e, node) => {
     posRef.current[node.id] = node.position;
     savePositions(slug, posRef.current);
+
+    // ── Container drop / escape ──────────────────────────────────────────────
+    // Center of the dragged node inside a container's frame → member.
+    // Member dragged so its center leaves the frame (+ a small margin) →
+    // unparented back to the top level.
+    const byId = new Map(nodes.map((n) => [n.id, n]));
+    const absPos = (n: Node): XYPosition => {
+      let { x, y } = n.position;
+      for (let p = n.parentId; p; ) {
+        const par = byId.get(p);
+        if (!par) break;
+        x += par.position.x;
+        y += par.position.y;
+        p = par.parentId;
+      }
+      return { x, y };
+    };
+    const dragged = byId.get(node.id);
+    if (!dragged) return;
+    const a = absPos(dragged);
+    const w = dragged.measured?.width ?? dragged.width ?? 240;
+    const h = dragged.measured?.height ?? dragged.height ?? 90;
+    const center = { x: a.x + w / 2, y: a.y + h / 2 };
+
+    const containers = nodes.filter((n) => n.type === 'container');
+    const depthOf = (c: Node): number => {
+      let d = 0;
+      for (let p = c.parentId; p; ) {
+        d++;
+        p = byId.get(p)?.parentId;
+      }
+      return d;
+    };
+    const MARGIN = 12; // must cross the frame edge by this much to escape
+    const hit = containers
+      .filter((c) => c.id !== node.id)
+      .map((c) => {
+        const p = absPos(c);
+        const cw = Number(c.style?.width ?? 0);
+        const ch = Number(c.style?.height ?? 0);
+        const inside =
+          center.x >= p.x &&
+          center.x <= p.x + cw &&
+          center.y >= p.y &&
+          center.y <= p.y + ch;
+        // outside with margin — only counts when clearly past the border
+        const outside =
+          center.x < p.x - MARGIN ||
+          center.x > p.x + cw + MARGIN ||
+          center.y < p.y - MARGIN ||
+          center.y > p.y + ch + MARGIN;
+        return { id: c.id, inside, outside, depth: depthOf(c) };
+      })
+      .sort((x, y) => y.depth - x.depth);
+
+    const target = hit.find((c) => c.inside);
+    const currentParent = dragged.parentId;
+
+    if (target && target.id !== currentParent) {
+      // Dropped into a container — let inner dagre position it inside.
+      delete posRef.current[node.id];
+      mutate((f) => setParent(f, node.id, target.id));
+      return;
+    }
+    const parentOutside = currentParent
+      ? hit.find((c) => c.id === currentParent)
+      : undefined;
+    if (currentParent && parentOutside?.outside) {
+      // Dragged out — keep it where the drop happened (absolute coords).
+      posRef.current[node.id] = a;
+      mutate((f) => setParent(f, node.id, null));
+    }
   };
 
   const tidy = () => {

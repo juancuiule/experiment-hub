@@ -12,6 +12,7 @@ import {
   reconnect,
   removeArm,
   setNodeName,
+  setParent,
   setScreenSlug,
   updateArm,
 } from '../editor/mutations';
@@ -219,6 +220,55 @@ describe('addNode / props / arms', () => {
     expect(
       next.edges.filter((e) => e.from === `${cloneBranch}.adult`).length,
     ).toBe(1);
+  });
+
+  it('setParent moves nodes in and out of containers', () => {
+    const withPath = addNode(fixture, 'path').flow;
+    const pathId = withPath.nodes.at(-1)!.id;
+
+    // Move s-a into the path
+    const inside = setParent(withPath, 's-a', pathId);
+    const memberEdge = inside.edges.find(
+      (e) => e.type === 'path-contains' && e.to === 's-a',
+    );
+    expect(memberEdge).toMatchObject({ from: pathId, order: 0 });
+
+    // Second member gets order 1
+    const two = setParent(inside, 's-b', pathId);
+    expect(
+      two.edges.find((e) => e.type === 'path-contains' && e.to === 's-b'),
+    ).toMatchObject({ order: 1 });
+
+    // Drag s-a back out
+    const outside = setParent(two, 's-a', null);
+    expect(
+      outside.edges.some(
+        (e) => e.type === 'path-contains' && e.to === 's-a',
+      ),
+    ).toBe(false);
+    expect(
+      outside.edges.some(
+        (e) => e.type === 'path-contains' && e.to === 's-b',
+      ),
+    ).toBe(true);
+  });
+
+  it('setParent refuses a second loop template and containment cycles', () => {
+    const withLoop = addNode(fixture, 'loop').flow;
+    const loopId = withLoop.nodes.at(-1)!.id;
+    const one = setParent(withLoop, 's-a', loopId);
+    // loops take a single template — second member refused
+    const two = setParent(one, 's-b', loopId);
+    expect(two).toBe(one);
+
+    // path can't be nested inside its own descendant
+    const withPath = addNode(fixture, 'path').flow;
+    const pathId = withPath.nodes.at(-1)!.id;
+    const nested = setParent(withPath, 's-a', pathId);
+    const cycle = setParent(nested, pathId, 's-a' as string);
+    // s-a isn't a container → rejected anyway; check path→self guard too
+    expect(setParent(nested, pathId, pathId)).toBe(nested);
+    expect(cycle).toBe(nested);
   });
 
   it('updateArm patches branch configs and fork weights', () => {
