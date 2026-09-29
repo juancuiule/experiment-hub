@@ -263,7 +263,9 @@ layer(Layer.mergeAll(handlersLive(["ocean"]), HttpServer.layerServices))(
         const client = yield* makeClient;
         yield* createRun(client, "ocean");
         const error = yield* client.runs
-          .createRun({ payload: { experiment: "made-up" } })
+          .createRun({
+            payload: { experiment: "made-up", version: "0".repeat(64) },
+          })
           .pipe(Effect.flip);
         assert.strictEqual(error._tag, "UnknownExperiment");
       }).pipe(Effect.provide(AuthGood)),
@@ -281,9 +283,12 @@ layer(
   it.effect("refuses new visits past the per-run cap but accepts retries", () =>
     Effect.gen(function* () {
       const experiments = yield* Experiments;
-      yield* experiments.publish("ocean", STUB_FLOW);
+      const { version } = yield* experiments.publish("ocean", STUB_FLOW);
       const checkpoints = yield* Checkpoints;
-      const { runId, token } = yield* checkpoints.createRun("ocean");
+      const { runId, token } = yield* checkpoints.createRun(
+        "ocean",
+        version,
+      );
       const write = (seq: number) =>
         checkpoints.record({
           runId,
@@ -311,9 +316,12 @@ layer(
   it.effect("rejects contexts over the size cap", () =>
     Effect.gen(function* () {
       const experiments = yield* Experiments;
-      yield* experiments.publish("ocean", STUB_FLOW);
+      const { version } = yield* experiments.publish("ocean", STUB_FLOW);
       const checkpoints = yield* Checkpoints;
-      const { runId, token } = yield* checkpoints.createRun("ocean");
+      const { runId, token } = yield* checkpoints.createRun(
+        "ocean",
+        version,
+      );
       const error = yield* checkpoints
         .record({
           runId,

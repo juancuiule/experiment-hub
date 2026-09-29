@@ -73,13 +73,16 @@ describe('send', () => {
     );
     vi.stubGlobal('fetch', fetchMock);
 
-    await expect(createRun('ocean')).resolves.toEqual({
+    await expect(createRun('ocean', 'v1')).resolves.toEqual({
       runId: 'r-9',
       token: 't-9',
     });
     const [url, init] = fetchMock.mock.calls[0];
     expect(url).toBe('/api/runs');
-    expect(JSON.parse(init.body)).toEqual({ experiment: 'ocean' });
+    expect(JSON.parse(init.body)).toEqual({
+      experiment: 'ocean',
+      version: 'v1',
+    });
   });
 
   it('createRun() throws when the backend refuses the run', async () => {
@@ -87,6 +90,6 @@ describe('send', () => {
       'fetch',
       vi.fn().mockResolvedValue(new Response('nope', { status: 404 })),
     );
-    await expect(createRun('made-up')).rejects.toThrow('HTTP 404');
+    await expect(createRun('made-up', 'v1')).rejects.toThrow('HTTP 404');
   });
 });

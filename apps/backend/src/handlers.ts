@@ -11,7 +11,8 @@ export const RunsHandlers = HttpApiBuilder.group(
   Effect.fn(function* (handlers) {
     const checkpoints = yield* Checkpoints;
     return handlers.handleAll({
-      createRun: ({ payload }) => checkpoints.createRun(payload.experiment),
+      createRun: ({ payload }) =>
+        checkpoints.createRun(payload.experiment, payload.version),
       recordCheckpoint: ({ params, headers, payload }) =>
         checkpoints
           .record({

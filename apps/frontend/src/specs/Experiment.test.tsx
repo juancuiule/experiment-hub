@@ -55,21 +55,21 @@ describe('Experiment', () => {
   });
 
   it('restarts and shows new content when experiment prop changes', async () => {
-    const { rerender } = render(<Experiment experiment={flowA} slug="flow-a" />);
+    const { rerender } = render(<Experiment experiment={flowA} slug="flow-a" version="v1" />);
     await screen.findByText('Content from experiment A');
 
-    rerender(<Experiment experiment={flowB} slug="flow-b" />);
+    rerender(<Experiment experiment={flowB} slug="flow-b" version="v2" />);
 
     await screen.findByText('Content from experiment B');
     expect(screen.queryByText('Content from experiment A')).not.toBeInTheDocument();
   });
 
   it('does not restart when the same experiment reference is rerendered', async () => {
-    const { rerender } = render(<Experiment experiment={flowA} slug="flow-a" />);
+    const { rerender } = render(<Experiment experiment={flowA} slug="flow-a" version="v1" />);
     await screen.findByText('Content from experiment A');
     const stepBefore = useExperimentStore.getState().step;
 
-    rerender(<Experiment experiment={flowA} slug="flow-a" />);
+    rerender(<Experiment experiment={flowA} slug="flow-a" version="v1" />);
 
     await waitFor(() => {
       expect(useExperimentStore.getState().step).toBe(stepBefore);

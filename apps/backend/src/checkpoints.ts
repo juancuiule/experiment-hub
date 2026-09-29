@@ -17,6 +17,7 @@ import {
   ExperimentNotFound,
   InvalidRunToken,
   TooManyCheckpoints,
+  UnknownConfigVersion,
   UnknownExperiment,
 } from "./api.js";
 import { BackendConfig } from "./config.js";
@@ -105,7 +106,7 @@ const make = Effect.gen(function* () {
   });
 
   const createRun = Effect.fn("Checkpoints.createRun")(
-    function* (experiment: string) {
+    function* (experiment: string, version: string) {
       if (
         Option.isSome(config.allowedExperiments) &&
         !config.allowedExperiments.value.has(experiment)
@@ -113,17 +114,24 @@ const make = Effect.gen(function* () {
         return yield* new UnknownExperiment({ experiment });
       }
       // Only registered experiments can issue runs — the DB is the
-      // allowlist. The run pins the config version it was issued under, so
-      // republishing a config never retroactively rebinds this run's data.
-      const current = yield* experiments.configForSlug(experiment);
-      if (Option.isNone(current)) {
+      // allowlist. The caller supplies the config version it loaded: any
+      // historical version registered under the slug is valid, so a run
+      // always pins the config the participant is actually traversing.
+      const registered = yield* experiments.configForSlug(experiment);
+      if (Option.isNone(registered)) {
         return yield* new UnknownExperiment({ experiment });
+      }
+      if (!(yield* experiments.hasVersion(experiment, version))) {
+        return yield* new UnknownConfigVersion({
+          slug: experiment,
+          version,
+        });
       }
       const runId = yield* Effect.sync(() => randomUUID());
       const firstSeenAt = DateTime.formatIso(yield* DateTime.now);
       yield* sql`
         INSERT INTO runs (run_id, experiment, first_seen_at, config_hash)
-        VALUES (${runId}, ${experiment}, ${firstSeenAt}, ${current.value.hash})
+        VALUES (${runId}, ${experiment}, ${firstSeenAt}, ${version})
       `;
       return { runId, token: sign(runId, experiment) };
     },
@@ -246,7 +254,11 @@ export class Checkpoints extends Context.Service<
   {
     createRun: (
       experiment: string,
-    ) => Effect.Effect<{ runId: string; token: string }, UnknownExperiment>;
+      version: string,
+    ) => Effect.Effect<
+      { runId: string; token: string },
+      UnknownExperiment | UnknownConfigVersion
+    >;
     record: (
       input: RecordCheckpointInput,
     ) => Effect.Effect<

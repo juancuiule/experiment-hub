@@ -25,6 +25,7 @@ export const testConfig = (allowed?: ReadonlyArray<string>) =>
     allowedExperiments: allowed
       ? Option.some<ReadonlySet<string>>(new Set(allowed))
       : Option.none(),
+    seedConfigsDir: Option.none<string>(),
     nodeEnv: "test",
   });
 
@@ -122,8 +123,10 @@ export const createRun = Effect.fnUntraced(function* (
 ) {
   // Runs only exist for registered experiments — seed a stub config first.
   // Idempotent: identical content hashes to the same version.
-  yield* publish(client, experiment);
-  const run = yield* client.runs.createRun({ payload: { experiment } });
+  const { version } = yield* publish(client, experiment);
+  const run = yield* client.runs.createRun({
+    payload: { experiment, version },
+  });
   return { ...run, experiment } satisfies Run;
 });
 

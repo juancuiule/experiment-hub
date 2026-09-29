@@ -1,7 +1,7 @@
 import { assert, layer } from "@effect/vitest";
 import { DateTime, Effect, Layer } from "effect";
 import { HttpServer } from "effect/unstable/http";
-import { Experiments } from "./experiments.js";
+import { Experiments, MAX_CONFIG_DEPTH } from "./experiments.js";
 import {
   AuthBad,
   AuthGood,
@@ -164,25 +164,44 @@ layer(Layer.mergeAll(handlersLive(), HttpServer.layerServices))(
       Effect.gen(function* () {
         const client = yield* makeClient;
         const error = yield* client.runs
-          .createRun({ payload: { experiment: "ghost-study" } })
+          .createRun({
+            payload: { experiment: "ghost-study", version: "0".repeat(64) },
+          })
           .pipe(Effect.flip);
         assert.strictEqual(error._tag, "UnknownExperiment");
       }).pipe(Effect.provide(AuthGood)),
     );
 
-    it.effect("runs pin the config version they were issued under", () =>
+    it.effect("rejects a version never published under the slug", () =>
+      Effect.gen(function* () {
+        const client = yield* makeClient;
+        yield* publish(client, "versioned");
+        const error = yield* client.runs
+          .createRun({
+            payload: { experiment: "versioned", version: "9".repeat(64) },
+          })
+          .pipe(Effect.flip);
+        assert.strictEqual(error._tag, "UnknownConfigVersion");
+      }).pipe(Effect.provide(AuthGood)),
+    );
+
+    it.effect("runs pin the config version the client loaded", () =>
       Effect.gen(function* () {
         const client = yield* makeClient;
         const v1 = yield* publish(client, "pinned");
         const runV1 = yield* createRun(client, "pinned");
         yield* record(client, runV1, 0);
 
-        // Republish under the same slug: new runs get the new version while
-        // the existing run's checkpoints still report v1.
+        // Republish under the same slug, then simulate a participant whose
+        // browser still holds v1: the run must pin v1, not the new latest —
+        // and a run issued with the new version pins v2.
         const v2 = yield* publish(client, "pinned", STUB_FLOW_V2);
         assert.notStrictEqual(v1.version, v2.version);
+        const runStale = yield* client.runs.createRun({
+          payload: { experiment: "pinned", version: v1.version },
+        });
         const runV2 = yield* client.runs.createRun({
-          payload: { experiment: "pinned" },
+          payload: { experiment: "pinned", version: v2.version },
         });
         yield* client.runs.recordCheckpoint({
           params: { runId: runV2.runId },
@@ -195,12 +214,74 @@ layer(Layer.mergeAll(handlersLive(), HttpServer.layerServices))(
             at: DateTime.makeUnsafe("2026-09-25T12:00:00.000Z"),
           },
         });
+        yield* client.runs.recordCheckpoint({
+          params: { runId: runStale.runId },
+          headers: { "x-run-token": runStale.token },
+          payload: {
+            experiment: "pinned",
+            checkpoint: "mid",
+            seq: 0,
+            context: { data: {} },
+            at: DateTime.makeUnsafe("2026-09-25T12:00:00.000Z"),
+          },
+        });
 
         const rows = lines(yield* exportNdjson(client, "pinned"));
         const v1Row = rows.find((r) => r.runId === runV1.runId);
         const v2Row = rows.find((r) => r.runId === runV2.runId);
+        const staleRow = rows.find((r) => r.runId === runStale.runId);
         assert.strictEqual(v1Row.configVersion, v1.version);
         assert.strictEqual(v2Row.configVersion, v2.version);
+        // The republish raced the register — the run still reports the
+        // version the participant actually traversed.
+        assert.strictEqual(staleRow.configVersion, v1.version);
+      }).pipe(Effect.provide(AuthGood)),
+    );
+
+    it.effect(
+      "publishIfMissing fills the registry without moving set pointers",
+      () =>
+        Effect.gen(function* () {
+          const experiments = yield* Experiments;
+          const first = yield* experiments.publishIfMissing(
+            "boot-seeded",
+            STUB_FLOW,
+          );
+          assert.isTrue(first.created);
+
+          // A researcher-published pointer is never overwritten by the
+          // backfill — the exact upgrade-preservation case.
+          const again = yield* experiments.publishIfMissing(
+            "boot-seeded",
+            STUB_FLOW_V2,
+          );
+          assert.isFalse(again.created);
+          assert.strictEqual(again.version, first.version);
+          const served = yield* experiments.getBySlug("boot-seeded");
+          assert.strictEqual(served.version, first.version);
+        }),
+    );
+
+    it.effect("rejects configs nested beyond the depth cap", () =>
+      Effect.gen(function* () {
+        const client = yield* makeClient;
+        const nest = (depth: number): unknown =>
+          depth === 0 ? { leaf: true } : { a: nest(depth - 1) };
+        const error = yield* client.experimentsAdmin
+          .publishExperiment({
+            params: { slug: "deep" },
+            payload: {
+              nodes: [],
+              edges: [],
+              screens: [],
+              extra: nest(MAX_CONFIG_DEPTH + 4),
+            },
+          })
+          .pipe(Effect.flip);
+        if (error._tag !== "InvalidExperiment") {
+          assert.fail(`expected InvalidExperiment, got ${error._tag}`);
+        }
+        assert.strictEqual(error.errors[0]?.code, "CONFIG_TOO_DEEP");
       }).pipe(Effect.provide(AuthGood)),
     );
   },

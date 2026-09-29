@@ -21,16 +21,24 @@ const MAX_CONFIG_BYTES = 4_500_000;
 // Deterministic serialization: object keys are sorted recursively so two
 // submissions of the same config hash identically regardless of authoring
 // key order or whitespace. Array order is semantic, so it's preserved.
-const canonicalize = (value: unknown): string => {
+// Depth is bounded — this walk runs before validateExperiment, so it is the
+// resource bound for adversarial nesting, not just canonicalization.
+export const MAX_CONFIG_DEPTH = 128;
+export class ConfigTooDeep extends Error {
+  readonly _tag = "ConfigTooDeep";
+}
+
+export const canonicalize = (value: unknown, depth = 0): string => {
+  if (depth > MAX_CONFIG_DEPTH) throw new ConfigTooDeep();
   if (Array.isArray(value)) {
-    return `[${value.map(canonicalize).join(",")}]`;
+    return `[${value.map((v) => canonicalize(v, depth + 1)).join(",")}]`;
   }
   if (value !== null && typeof value === "object") {
     const entries = Object.keys(value as Record<string, unknown>)
       .sort()
       .map(
         (key) =>
-          `${JSON.stringify(key)}:${canonicalize((value as Record<string, unknown>)[key])}`,
+          `${JSON.stringify(key)}:${canonicalize((value as Record<string, unknown>)[key], depth + 1)}`,
       );
     return `{${entries.join(",")}}`;
   }
@@ -77,6 +85,22 @@ export class Experiments extends Context.Service<
     configForSlug: (
       slug: string,
     ) => Effect.Effect<Option.Option<{ hash: string }>>;
+    // Was this exact content ever published under this slug? Runs pin a
+    // historical version as happily as the current one — a participant's
+    // already-loaded page must keep registering runs after a republish.
+    hasVersion: (
+      slug: string,
+      hash: string,
+    ) => Effect.Effect<boolean>;
+    // Backfill semantics for boot-time seeding: fill the registry where it's
+    // empty, never move a pointer a researcher already set.
+    publishIfMissing: (
+      slug: string,
+      config: unknown,
+    ) => Effect.Effect<
+      { slug: string; version: string; created: boolean },
+      InvalidExperiment
+    >;
   }
 >()("backend/Experiments") {
   static readonly layerNoDeps = Layer.effect(
@@ -122,6 +146,19 @@ export class Experiments extends Context.Service<
           Effect.catchTags({ SqlError: Effect.die, SchemaError: Effect.die }),
         );
 
+      const hasVersion = (slug: string, hash: string) =>
+        SqlSchema.findOneOption({
+          Request: Schema.Struct({ slug: Schema.String, hash: Schema.String }),
+          Result: Schema.Struct({ hash: Schema.String }),
+          execute: ({ slug, hash }) => sql`
+            SELECT hash FROM experiment_configs
+            WHERE slug = ${slug} AND hash = ${hash}
+          `,
+        })({ slug, hash }).pipe(
+          Effect.map(Option.isSome),
+          Effect.catchTags({ SqlError: Effect.die, SchemaError: Effect.die }),
+        );
+
       const getBySlug = Effect.fn("Experiments.getBySlug")(
         function* (slug: string) {
           const found = yield* findCurrent(slug);
@@ -150,9 +187,34 @@ export class Experiments extends Context.Service<
               ],
             });
           }
-          // Validate and store the ORIGINAL value — the Struct decode above
+          // Resource bounds come first: canonicalize walks the whole input
+          // recursively, so the depth cap and byte cap run before the
+          // validator's own traversal of untrusted nested JSON. The store
+          // keeps the ORIGINAL value either way — the Struct decode above
           // drops sibling keys (options, messages, dictionary) that
           // validateExperiment needs and researchers authored.
+          const canonical = yield* Effect.try({
+            try: () => canonicalize(config),
+            catch: (e) =>
+              new InvalidExperiment({
+                slug,
+                errors: [
+                  issue(
+                    e instanceof ConfigTooDeep
+                      ? "CONFIG_TOO_DEEP"
+                      : "CONFIG_NOT_SERIALIZABLE",
+                    `config could not be serialized: ${e}`,
+                  ),
+                ],
+              }),
+          });
+          if (Buffer.byteLength(canonical, "utf8") > MAX_CONFIG_BYTES) {
+            return yield* new InvalidExperiment({
+              slug,
+              errors: [issue("CONFIG_TOO_LARGE", "config exceeds the size cap")],
+            });
+          }
+
           const errors = yield* Effect.try({
             try: () => validateExperiment(config as ExperimentFlow),
             catch: (e) =>
@@ -166,14 +228,6 @@ export class Experiments extends Context.Service<
             return yield* new InvalidExperiment({
               slug,
               errors: hard.map(toIssue),
-            });
-          }
-
-          const canonical = canonicalize(config);
-          if (Buffer.byteLength(canonical, "utf8") > MAX_CONFIG_BYTES) {
-            return yield* new InvalidExperiment({
-              slug,
-              errors: [issue("CONFIG_TOO_LARGE", "config exceeds the size cap")],
             });
           }
           const hash = createHash("sha256").update(canonical).digest("hex");
@@ -210,7 +264,25 @@ export class Experiments extends Context.Service<
         Effect.catchTag("SqlError", Effect.die),
       );
 
-      return Experiments.of({ publish, getBySlug, list, configForSlug });
+      const publishIfMissing = Effect.fn("Experiments.publishIfMissing")(
+        function* (slug: string, config: unknown) {
+          const current = yield* configForSlug(slug);
+          if (Option.isSome(current)) {
+            return { slug, version: current.value.hash, created: false };
+          }
+          const published = yield* publish(slug, config);
+          return { slug, version: published.version, created: true };
+        },
+      );
+
+      return Experiments.of({
+        publish,
+        publishIfMissing,
+        getBySlug,
+        list,
+        configForSlug,
+        hasVersion,
+      });
     }),
   );
 

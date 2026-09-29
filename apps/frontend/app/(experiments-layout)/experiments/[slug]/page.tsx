@@ -18,11 +18,13 @@ export default async function Home(props: Props) {
   const { slug } = await props.params;
   const searchParams = await props.searchParams;
 
-  const experiment = await fetchExperiment(slug);
+  const loaded = await fetchExperiment(slug);
 
-  if (!experiment) {
+  if (!loaded) {
     notFound();
   }
+
+  const { config: experiment, version } = loaded;
 
   const errors = validateExperiment(experiment);
 
@@ -50,6 +52,7 @@ export default async function Home(props: Props) {
         experiment={experiment}
         locale={locale}
         slug={slug}
+        version={version}
       />
       {process.env.NODE_ENV === 'development' && (
         <details className="my-2">

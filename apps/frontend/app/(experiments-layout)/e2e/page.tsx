@@ -13,15 +13,21 @@ export default async function E2EPage() {
 
   // The e2e fixture experiment is served from the backend like any other —
   // the playwright webServer seeds it under this slug before starting.
-  const experiment = await fetchExperiment('e2e');
-  if (!experiment) {
+  const loaded = await fetchExperiment('e2e');
+  if (!loaded) {
     notFound();
   }
 
-  const errors = validateExperiment(experiment);
+  const errors = validateExperiment(loaded.config);
   if (errors.length > 0) {
     return <ValidationErrors errors={errors} />;
   }
 
-  return <Experiment experiment={experiment} slug="e2e" />;
+  return (
+    <Experiment
+      experiment={loaded.config}
+      slug="e2e"
+      version={loaded.version}
+    />
+  );
 }

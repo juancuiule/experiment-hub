@@ -26,12 +26,16 @@ export type CheckpointMeta = Run & {
 // (default http://localhost:3100).
 export async function createRun(
   experiment: string,
+  version: string | undefined,
   session?: AbortSignal,
 ): Promise<Run> {
   const response = await fetch('/api/runs', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ experiment }),
+    // version is the config hash the page loaded — the run pins that exact
+    // immutable config, so a republish between load and register can't
+    // mislabel this run's data.
+    body: JSON.stringify({ experiment, version }),
     signal: requestSignal(session),
   });
   if (!response.ok) {

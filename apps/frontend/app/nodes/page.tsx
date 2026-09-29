@@ -76,9 +76,9 @@ function NodeCard({
 }
 
 export default async function NodesPage() {
-  const experiment = await fetchExperiment('experiment');
+  const loaded = await fetchExperiment('experiment');
 
-  if (!experiment) {
+  if (!loaded) {
     return (
       <p className="text-content-secondary text-sm">
         No published config for the &quot;experiment&quot; slug — seed or
@@ -87,7 +87,7 @@ export default async function NodesPage() {
     );
   }
 
-  const { nodes, edges, screens = [] } = experiment;
+  const { nodes, edges, screens = [] } = loaded.config;
 
   return (
     <div className="flex flex-col gap-4">

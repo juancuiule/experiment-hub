@@ -70,6 +70,14 @@ export class UnknownExperiment extends Schema.TaggedError<UnknownExperiment>()(
   { httpApiStatus: 404 },
 ) {}
 
+// The slug is published but no config with this hash was ever registered
+// under it — a stale or forged version reference.
+export class UnknownConfigVersion extends Schema.TaggedError<UnknownConfigVersion>()(
+  "UnknownConfigVersion",
+  { slug: Schema.String, version: Schema.String },
+  { httpApiStatus: 404 },
+) {}
+
 export class CheckpointTooLarge extends Schema.TaggedError<CheckpointTooLarge>()(
   "CheckpointTooLarge",
   { runId: Schema.String },
@@ -94,12 +102,18 @@ export class InvalidExperiment extends Schema.TaggedError<InvalidExperiment>()(
 // Runs are server-issued: createRun mints the runId and a token signed over
 // (runId, experiment). Checkpoint writes must present it, so clients can no
 // longer pick arbitrary run ids or write under a slug they didn't register.
+// `version` is the config hash the client loaded — runs pin THAT immutable
+// config, not whatever happens to be latest at registration time, so a
+// republish mid-load can't mislabel a run's data.
 export class RunsApiGroup extends HttpApiGroup.make("runs")
   .add(
     HttpApiEndpoint.post("createRun", "/runs", {
-      payload: Schema.Struct({ experiment: SlugSchema }),
+      payload: Schema.Struct({
+        experiment: SlugSchema,
+        version: BoundedString(128),
+      }),
       success: Schema.Struct({ runId: Schema.String, token: Schema.String }),
-      error: UnknownExperiment,
+      error: [UnknownExperiment, UnknownConfigVersion],
     }),
   )
   .add(

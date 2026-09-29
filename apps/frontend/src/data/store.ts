@@ -24,6 +24,7 @@ type ExperimentStore = {
     startNodeId?: string,
     locale?: string,
     slug?: string,
+    version?: string,
   ) => Promise<void>;
   next: (data?: Context['data']) => Promise<void>;
 };
@@ -106,6 +107,7 @@ export const useExperimentStore = create<ExperimentStore>()((set, get) => {
       startNodeId?: string,
       locale?: string,
       slug?: string,
+      version?: string,
     ) => {
       // Reuse the run only when retrying start() for the same experiment:
       // if its first checkpoint committed but the response was lost, a new
@@ -137,6 +139,7 @@ export const useExperimentStore = create<ExperimentStore>()((set, get) => {
         if (!session.run) {
           const run = await createRun(
             slug ?? FALLBACK_SLUG,
+            version,
             session.controller.signal,
           );
           if (!owns(session)) return;

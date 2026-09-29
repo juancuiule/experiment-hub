@@ -8,9 +8,13 @@ import type { ExperimentFlow } from '@experiment-hub/engine/types';
 const BACKEND_URL = process.env.BACKEND_URL ?? 'http://localhost:3100';
 const FETCH_TIMEOUT_MS = 10_000;
 
+export type LoadedExperiment = { config: ExperimentFlow; version: string };
+
+// version is the config's content hash — createRun pins it so the run's
+// data is provably collected under the graph the participant loaded.
 export async function fetchExperiment(
   slug: string,
-): Promise<ExperimentFlow | null> {
+): Promise<LoadedExperiment | null> {
   const res = await fetch(`${BACKEND_URL}/api/experiments/${slug}`, {
     cache: 'no-store',
     signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
@@ -19,8 +23,11 @@ export async function fetchExperiment(
   if (!res.ok) {
     throw new Error(`experiment fetch failed: ${res.status} ${res.statusText}`);
   }
-  const body = (await res.json()) as { config: ExperimentFlow };
-  return body.config;
+  const body = (await res.json()) as {
+    config: ExperimentFlow;
+    version: string;
+  };
+  return { config: body.config, version: body.version };
 }
 
 export type PublishedExperiment = { slug: string; version: string };
