@@ -8,6 +8,7 @@ import {
   deleteEdgeIds,
   deleteNodes,
   edgeTypeFor,
+  reconnect,
   removeArm,
   setNodeName,
   setScreenSlug,
@@ -132,6 +133,29 @@ describe('connect', () => {
       target: 's-a',
     });
     expect(same.edges).toHaveLength(fixture.edges.length);
+  });
+});
+
+describe('reconnect', () => {
+  it('rewires an edge to a new target, freeing the old output slot', () => {
+    // Re-point s-consent's sequential edge at s-b — legal only because the
+    // old edge is removed first (otherwise max-1 sequential would reject).
+    const next = reconnect(fixture, 'sequential:s-consent->b-age', {
+      source: 's-consent',
+      sourceHandle: 'next',
+      target: 's-b',
+    });
+    expect(next.edges.some((e) => e.from === 's-consent' && e.to === 'b-age')).toBe(false);
+    expect(next.edges.some((e) => e.from === 's-consent' && e.to === 's-b')).toBe(true);
+  });
+
+  it('no-ops when the new connection is illegal', () => {
+    const next = reconnect(fixture, 'sequential:s-consent->b-age', {
+      source: 's-consent',
+      sourceHandle: 'next',
+      target: 's-consent', // self
+    });
+    expect(next).toBe(fixture);
   });
 });
 

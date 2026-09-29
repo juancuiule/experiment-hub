@@ -33,6 +33,7 @@ import {
   connect,
   deleteEdgeIds,
   deleteNodes,
+  reconnect,
   removeArm,
   setNodeName,
   setScreenSlug,
@@ -262,6 +263,12 @@ export default function FlowCanvas({
     mutate((f) => connect(f, { source, sourceHandle, target }));
   };
 
+  const onReconnect = (oldEdge: Edge, conn: Connection) => {
+    const { source, target, sourceHandle } = conn;
+    if (!source || !target || !sourceHandle || !conn.targetHandle) return;
+    mutate((f) => reconnect(f, oldEdge.id, { source, sourceHandle, target }));
+  };
+
   const onNodesDelete = (deleted: Node[]) => {
     if (deleted.length) mutate((f) => deleteNodes(f, deleted.map((n) => n.id)));
   };
@@ -361,6 +368,8 @@ export default function FlowCanvas({
           minZoom={0.2}
           isValidConnection={isValidConnection}
           onConnect={onConnect}
+          onReconnect={onReconnect}
+          reconnectRadius={20}
           onNodesDelete={onNodesDelete}
           onEdgesDelete={onEdgesDelete}
           deleteKeyCode={['Backspace', 'Delete']}

@@ -117,6 +117,17 @@ function buildEdge(
   return { type, from: spec.source, to: spec.target } as FrameworkEdge;
 }
 
+/** Re-point an existing edge: drop the old one first so max-1 outputs free up. */
+export function reconnect(
+  flow: ExperimentFlow,
+  oldEdgeId: string,
+  spec: ConnectSpec,
+): ExperimentFlow {
+  const without = deleteEdgeIds(flow, [oldEdgeId]);
+  if (!canConnect(without, spec)) return flow;
+  return connect(without, spec);
+}
+
 /** Build the framework edge a connection implies (null if illegal). */
 export function connect(
   flow: ExperimentFlow,

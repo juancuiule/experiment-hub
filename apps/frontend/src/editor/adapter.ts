@@ -171,6 +171,7 @@ function toEditorEdge(
     target: edge.to,
     targetHandle: HANDLE_IN,
     markerEnd: { type: MarkerType.ArrowClosed, color, width: 18, height: 18 },
+    reconnectable: true,
     data: { edge, label, color, dashed },
   };
 }
@@ -343,6 +344,7 @@ function buildDataEdges(flow: ExperimentFlow): EditorEdge[] {
       source,
       target,
       targetHandle: HANDLE_IN,
+      reconnectable: false,
       markerEnd: {
         type: MarkerType.ArrowClosed,
         color: EDGE_DATAFLOW,
