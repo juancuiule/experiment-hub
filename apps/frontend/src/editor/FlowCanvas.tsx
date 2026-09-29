@@ -16,6 +16,7 @@ import type { ExperimentFlow } from '@experiment-hub/engine/types';
 import type { ValidationError } from '@experiment-hub/engine/experiment-validation/types';
 import { useTheme } from 'next-themes';
 import { useEffect, useMemo, useState } from 'react';
+import LiveScreenPreview from './LiveScreenPreview';
 import {
   CONTAINER_COLORS,
   layoutFlow,
@@ -82,6 +83,7 @@ export default function FlowCanvas({
   const [edges, setEdges, onEdgesChange] = useEdgesState<EditorEdge>([]);
   const [view, setView] = useState<ViewOptions>(DEFAULT_VIEW_OPTIONS);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [inspectorTab, setInspectorTab] = useState<'raw' | 'live'>('raw');
   const { resolvedTheme } = useTheme();
 
   const toggle = (key: keyof ViewOptions) =>
@@ -119,8 +121,16 @@ export default function FlowCanvas({
     return { node, screen, edges: touching };
   }, [selectedId, graph, experiment]);
 
-  const onSelectionChange = ({ nodes: sel }: OnSelectionChangeParams) =>
-    setSelectedId(sel[0]?.id ?? null);
+  const onSelectionChange = ({ nodes: sel }: OnSelectionChangeParams) => {
+    const id = sel[0]?.id ?? null;
+    setSelectedId(id);
+    // Default to the live preview when a screen node is selected.
+    const node = id
+      ? (graph.nodes.find((n) => n.id === id)?.data as { node: FrameworkNode })
+          ?.node
+      : null;
+    setInspectorTab(node?.type === 'screen' ? 'live' : 'raw');
+  };
 
   const toggles: { key: keyof ViewOptions; label: string; hint?: string }[] = [
     { key: 'dataFlow', label: 'Data flow', hint: `${graph.dataEdges.length}` },
@@ -189,53 +199,80 @@ export default function FlowCanvas({
             >
               {raw && (
                 <div className="bg-background-surface border-border-default overflow-hidden rounded-lg border shadow-sm">
-                  <div className="border-border-default flex items-center justify-between border-b px-3 py-1.5">
-                    <span className="text-content-primary font-mono text-xs font-semibold">
+                  <div className="border-border-default flex items-center justify-between gap-2 border-b px-3 py-1.5">
+                    <span className="text-content-primary min-w-0 truncate font-mono text-xs font-semibold">
                       {raw.node.id}
                     </span>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedId(null)}
-                      className="text-content-secondary hover:text-content-primary cursor-pointer text-xs"
-                      aria-label="Close raw view"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                  <div className="max-h-96 overflow-auto p-3">
-                    <pre className="text-content-primary font-mono text-xxs leading-relaxed whitespace-pre-wrap">
-                      {JSON.stringify(
-                        {
-                          id: raw.node.id,
-                          type: raw.node.type,
-                          props:
-                            'props' in raw.node ? raw.node.props : undefined,
-                        },
-                        null,
-                        2,
+                    <div className="flex shrink-0 items-center gap-1">
+                      {raw.screen && (
+                        <div className="border-border-default mr-1 flex overflow-hidden rounded-md border text-xxs">
+                          {(['live', 'raw'] as const).map((t) => (
+                            <button
+                              key={t}
+                              type="button"
+                              onClick={() => setInspectorTab(t)}
+                              className={`cursor-pointer px-2 py-0.5 ${
+                                inspectorTab === t
+                                  ? 'bg-content-primary/10 text-content-primary font-medium'
+                                  : 'text-content-secondary'
+                              }`}
+                            >
+                              {t}
+                            </button>
+                          ))}
+                        </div>
                       )}
-                    </pre>
-                    {raw.screen && (
-                      <>
-                        <p className="text-content-secondary border-border-default mt-2 border-t pt-2 font-mono text-xxs">
-                          screen — {raw.screen.slug}
-                        </p>
-                        <pre className="text-content-primary font-mono text-xxs leading-relaxed whitespace-pre-wrap">
-                          {JSON.stringify(raw.screen.components, null, 2)}
-                        </pre>
-                      </>
-                    )}
-                    {raw.edges.length > 0 && (
-                      <>
-                        <p className="text-content-secondary border-border-default mt-2 border-t pt-2 font-mono text-xxs">
-                          edges
-                        </p>
-                        <pre className="text-content-primary font-mono text-xxs leading-relaxed whitespace-pre-wrap">
-                          {JSON.stringify(raw.edges, null, 2)}
-                        </pre>
-                      </>
-                    )}
+                      <button
+                        type="button"
+                        onClick={() => setSelectedId(null)}
+                        className="text-content-secondary hover:text-content-primary cursor-pointer text-xs"
+                        aria-label="Close inspector"
+                      >
+                        ✕
+                      </button>
+                    </div>
                   </div>
+
+                  {inspectorTab === 'live' && raw.screen ? (
+                    <div className="max-h-[70vh] overflow-auto p-3">
+                      <LiveScreenPreview flow={experiment} screen={raw.screen} />
+                    </div>
+                  ) : (
+                    <div className="max-h-96 overflow-auto p-3">
+                      <pre className="text-content-primary font-mono text-xxs leading-relaxed whitespace-pre-wrap">
+                        {JSON.stringify(
+                          {
+                            id: raw.node.id,
+                            type: raw.node.type,
+                            props:
+                              'props' in raw.node ? raw.node.props : undefined,
+                          },
+                          null,
+                          2,
+                        )}
+                      </pre>
+                      {raw.screen && (
+                        <>
+                          <p className="text-content-secondary border-border-default mt-2 border-t pt-2 font-mono text-xxs">
+                            screen — {raw.screen.slug}
+                          </p>
+                          <pre className="text-content-primary font-mono text-xxs leading-relaxed whitespace-pre-wrap">
+                            {JSON.stringify(raw.screen.components, null, 2)}
+                          </pre>
+                        </>
+                      )}
+                      {raw.edges.length > 0 && (
+                        <>
+                          <p className="text-content-secondary border-border-default mt-2 border-t pt-2 font-mono text-xxs">
+                            edges
+                          </p>
+                          <pre className="text-content-primary font-mono text-xxs leading-relaxed whitespace-pre-wrap">
+                            {JSON.stringify(raw.edges, null, 2)}
+                          </pre>
+                        </>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
 
