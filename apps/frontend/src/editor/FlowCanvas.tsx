@@ -161,6 +161,11 @@ export default function FlowCanvas({
   const past = useRef<ExperimentFlow[]>([]);
   const future = useRef<ExperimentFlow[]>([]);
   const [depth, setDepth] = useState({ undo: 0, redo: 0 });
+  const [dirty, setDirty] = useState(false);
+  const [publish, setPublish] = useState<{
+    status: 'idle' | 'saving' | 'ok' | 'error';
+    msg?: string;
+  }>({ status: 'idle' });
   const syncDepth = () =>
     setDepth({ undo: past.current.length, redo: future.current.length });
 
@@ -173,6 +178,7 @@ export default function FlowCanvas({
       return next;
     });
     syncDepth();
+    setDirty(true);
   };
 
   const undo = () => {
@@ -402,6 +408,36 @@ export default function FlowCanvas({
     URL.revokeObjectURL(a.href);
   };
 
+  const onPublish = async () => {
+    setPublish({ status: 'saving' });
+    try {
+      const res = await fetch(`/publish/${slug}`, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(draft),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setDirty(false);
+        setPublish({
+          status: 'ok',
+          msg: `published ${String(data.version ?? '').slice(0, 12)}`,
+        });
+      } else {
+        setPublish({
+          status: 'error',
+          msg:
+            data.error ??
+            data.message ??
+            JSON.stringify(data).slice(0, 120) ??
+            `HTTP ${res.status}`,
+        });
+      }
+    } catch {
+      setPublish({ status: 'error', msg: 'publish request failed' });
+    }
+  };
+
   const selected = raw?.node;
   const selectedHasName =
     selected && 'props' in selected && 'name' in (selected.props ?? {});
@@ -497,6 +533,29 @@ export default function FlowCanvas({
                 >
                   Download JSON
                 </button>
+                <button
+                  type="button"
+                  onClick={onPublish}
+                  disabled={publish.status === 'saving'}
+                  className="text-primary border-border-default hover:bg-primary/10 cursor-pointer rounded-md border px-2 py-1 text-left text-xxs font-medium disabled:opacity-50"
+                >
+                  {publish.status === 'saving'
+                    ? 'Publishing…'
+                    : dirty
+                      ? 'Publish ●'
+                      : 'Publish'}
+                </button>
+                {publish.msg && (
+                  <span
+                    className={`font-mono text-xxs leading-snug ${
+                      publish.status === 'error'
+                        ? 'text-error'
+                        : 'text-content-secondary'
+                    }`}
+                  >
+                    {publish.msg}
+                  </span>
+                )}
               </div>
               <p className="text-content-secondary border-border-default mt-1 border-t pt-1.5 text-xxs">
                 Click a node to inspect
