@@ -19,6 +19,9 @@ RUN pnpm --filter @experiment-hub/backend deploy --prod /app/deploy
 FROM node:24-alpine AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
+# Canonical config artifacts backfill the registry at boot when
+# SEED_CONFIGS_DIR is set — see scripts/export-configs.ts and the sync test.
+COPY apps/backend/configs ./configs
 COPY --from=build /app/deploy/dist ./dist
 COPY --from=build /app/deploy/node_modules ./node_modules
 COPY --from=build /app/deploy/package.json ./package.json
