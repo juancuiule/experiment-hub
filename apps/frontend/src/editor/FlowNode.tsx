@@ -144,29 +144,34 @@ function DataSocket({ fieldKey }: { fieldKey: string }) {
  *  key(s) right, so the collected data lines up with what produces it. */
 function ComponentRow({ row }: { row: AdapterComponentRow }) {
   const view = useViewOptions();
+  const hasKeys = view.fields && row.keys.length > 0;
   return (
-    <div className="flex items-baseline justify-between gap-2 px-3 py-0.5">
+    <div
+      className={twMerge(
+        'grid items-start gap-2 px-3 py-0.5',
+        hasKeys ? 'grid-cols-[minmax(0,1fr)_auto]' : 'grid-cols-1',
+      )}
+    >
       <span
         className="flex min-w-0 items-baseline gap-1.5"
         style={{ paddingLeft: row.depth * 10 }}
       >
         <span
-          className="size-1.5 shrink-0 rounded-full"
+          className="size-1.5 shrink-0 translate-y-px rounded-full"
           style={{ backgroundColor: FAMILY_COLORS[row.family] ?? '#94a3b8' }}
         />
         <span className="text-content-secondary wrap-anywhere font-mono text-xxs">
           {row.template}
         </span>
       </span>
-      {view.fields && row.keys.length > 0 && (
-        <span className="flex min-w-0 flex-col items-end">
+      {hasKeys && (
+        <span className="flex w-40 flex-col items-end gap-0.5">
           {row.keys.map((k) => (
-            <span
-              key={k}
-              className="text-content-primary wrap-anywhere flex items-center gap-1 text-right font-mono text-xxs"
-            >
-              {k}
-              <span className="border-content-active bg-background-surface size-1.5 shrink-0 rounded-full border" />
+            <span key={k} className="flex items-start gap-1">
+              <span className="text-content-primary wrap-anywhere text-right font-mono text-xxs">
+                {k}
+              </span>
+              <span className="border-content-active bg-background-surface mt-1 size-1.5 shrink-0 rounded-full border" />
             </span>
           ))}
         </span>
