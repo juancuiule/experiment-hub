@@ -7,6 +7,7 @@ import {
   connect,
   deleteEdgeIds,
   deleteNodes,
+  duplicateNodes,
   edgeTypeFor,
   reconnect,
   removeArm,
@@ -197,6 +198,27 @@ describe('addNode / props / arms', () => {
     expect((reslugged as { props: { slug: string } }).props.slug).toBe(
       'consent',
     );
+  });
+
+  it('duplicateNodes clones nodes with fresh ids and remaps internal edges', () => {
+    const { flow: next, ids, map } = duplicateNodes(fixture, [
+      'b-age',
+      's-a',
+    ]);
+    // 2 cloned nodes (container-descendant expansion irrelevant here)
+    expect(next.nodes).toHaveLength(fixture.nodes.length + 2);
+    const cloneBranch = map.get('b-age')!;
+    const cloneA = map.get('s-a')!;
+    expect(ids).toContain(cloneBranch);
+    // Internal arm edge remapped to cloned ids; external edges not copied
+    expect(
+      next.edges.some(
+        (e) => e.from === `${cloneBranch}.adult` && e.to === cloneA,
+      ),
+    ).toBe(true);
+    expect(
+      next.edges.filter((e) => e.from === `${cloneBranch}.adult`).length,
+    ).toBe(1);
   });
 
   it('updateArm patches branch configs and fork weights', () => {

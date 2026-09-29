@@ -665,9 +665,10 @@ export function layoutFlow(
       w = Math.max(w, p.x + s.width);
       h = Math.max(h, p.y + s.height);
     }
+    // Top inset (GAP + PAD_Y) mirrors the bottom inset for symmetric framing.
     sizes.set(containerId, {
       width: w + CONTAINER_PAD * 2,
-      height: cardH + CONTAINER_GAP + FRAME_PAD_Y + h + CONTAINER_PAD,
+      height: cardH + (CONTAINER_GAP + FRAME_PAD_Y) * 2 + h,
     });
   }
 

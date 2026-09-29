@@ -34,6 +34,7 @@ import {
   connect,
   deleteEdgeIds,
   deleteNodes,
+  duplicateNodes,
   reconnect,
   removeArm,
   setNodeName,
@@ -223,7 +224,8 @@ export default function FlowCanvas({
   // Live positions — updated on every position change so draft edits rebuild
   // nodes without losing where the user put things.
   const posRef = useRef<Record<string, XYPosition>>({});
-  const selRef = useRef<string | null>(null);
+  const selRef = useRef<Set<string>>(new Set());
+  const clipboard = useRef<string[]>([]);
 
   const handleNodesChange: OnNodesChange<EditorNode> = (changes) => {
     for (const c of changes)
@@ -238,7 +240,7 @@ export default function FlowCanvas({
       graph.nodes.map((n) => ({
         ...n,
         position: posRef.current[n.id] ?? n.position,
-        selected: n.id === selRef.current || undefined,
+        selected: selRef.current.has(n.id) || undefined,
       })),
     );
   }, [graph, setNodes]);
@@ -325,28 +327,58 @@ export default function FlowCanvas({
   }, [selectedId, draft]);
 
   const onSelectionChange = ({ nodes: sel }: OnSelectionChangeParams) => {
+    selRef.current = new Set(sel.map((n) => n.id));
     const id = sel[0]?.id ?? null;
-    selRef.current = id;
     setSelectedId(id);
     const node = id ? draft.nodes.find((n) => n.id === id) : null;
     setInspectorTab(node?.type === 'screen' ? 'live' : 'raw');
   };
 
-  // ── Keyboard: undo/redo ────────────────────────────────────────────────────
+  // ── Keyboard: undo/redo + copy/paste ───────────────────────────────────────
+
+  const copy = () => {
+    const ids = [...selRef.current];
+    if (ids.length) clipboard.current = ids;
+  };
+
+  const paste = () => {
+    if (!clipboard.current.length) return;
+    const { flow: next, ids: newIds, map } = duplicateNodes(
+      draft,
+      clipboard.current,
+    );
+    // Children copy their relative position; top-level copies offset so the
+    // paste reads as a new cluster.
+    for (const [oldId, newId] of map) {
+      const old = nodes.find((n) => n.id === oldId);
+      const oldPos = posRef.current[oldId] ?? old?.position;
+      if (!oldPos) continue;
+      const d = old?.parentId ? 0 : 72;
+      posRef.current[newId] = { x: oldPos.x + d, y: oldPos.y + d };
+    }
+    selRef.current = new Set(newIds);
+    setSelectedId(newIds[0] ?? null);
+    mutate(() => next);
+    savePositions(slug, posRef.current);
+  };
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement).tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z') {
+      if (!(e.metaKey || e.ctrlKey)) return;
+      const k = e.key.toLowerCase();
+      if (k === 'z') {
         e.preventDefault();
         if (e.shiftKey) redo();
         else undo();
       }
+      if (k === 'c') copy();
+      if (k === 'v') paste();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, []);
+  });
 
   const errors = issues.filter((i) => i.severity !== 'warning');
   const warnings = issues.filter((i) => i.severity === 'warning');
@@ -395,6 +427,8 @@ export default function FlowCanvas({
           onNodesDelete={onNodesDelete}
           onEdgesDelete={onEdgesDelete}
           deleteKeyCode={['Backspace', 'Delete']}
+          multiSelectionKeyCode={['Shift', 'Meta', 'Control']}
+          selectionKeyCode="Shift"
           onNodeDragStop={onNodeDragStop}
           onSelectionChange={onSelectionChange}
           colorMode={resolvedTheme === 'dark' ? 'dark' : 'light'}
@@ -466,6 +500,8 @@ export default function FlowCanvas({
               </div>
               <p className="text-content-secondary border-border-default mt-1 border-t pt-1.5 text-xxs">
                 Click a node to inspect
+                <br />
+                ⇧ multi-select · ⌘Z undo · ⌘C/V copy/paste
               </p>
             </div>
           </Panel>

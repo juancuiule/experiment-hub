@@ -156,6 +156,73 @@ export function deleteNodes(
   };
 }
 
+/** Duplicate nodes (plus container descendants) with fresh ids; edges whose
+ *  endpoints are all inside the copied set get cloned and remapped. */
+export function duplicateNodes(
+  flow: ExperimentFlow,
+  ids: string[],
+): { flow: ExperimentFlow; ids: string[]; map: Map<string, string> } {
+  // Expand the selection with descendants of copied containers — a path/loop
+  // copy should carry its members, and RF's multi-select doesn't include them.
+  const childrenOf = new Map<string, string[]>();
+  for (const e of flow.edges) {
+    if (e.type !== 'path-contains' && e.type !== 'loop-template') continue;
+    if (!childrenOf.has(e.from)) childrenOf.set(e.from, []);
+    childrenOf.get(e.from)!.push(e.to);
+  }
+  const all = new Set(ids);
+  const queue = [...ids];
+  while (queue.length) {
+    for (const c of childrenOf.get(queue.pop()!) ?? [])
+      if (!all.has(c)) {
+        all.add(c);
+        queue.push(c);
+      }
+  }
+
+  const idMap = new Map<string, string>();
+  const fresh = (base: string): string => {
+    let i = 0;
+    let candidate = `${base}-copy`;
+    while (
+      flow.nodes.some((n) => n.id === candidate) ||
+      [...idMap.values()].includes(candidate)
+    )
+      candidate = `${base}-copy${++i + 1}`;
+    return candidate;
+  };
+  for (const id of all) idMap.set(id, fresh(id));
+  const remap = (ref: string) =>
+    ref
+      .split('.')
+      .map((seg) => idMap.get(seg) ?? seg)
+      .join('.');
+
+  const clonedNodes = flow.nodes
+    .filter((n) => all.has(n.id))
+    .map((n) => ({ ...structuredClone(n), id: idMap.get(n.id)! }));
+  const clonedEdges = flow.edges
+    .filter((e) => all.has(e.from.split('.')[0]) && all.has(e.to))
+    .map(
+      (e) =>
+        ({
+          ...e,
+          from: remap(e.from) as typeof e.from,
+          to: idMap.get(e.to)!,
+        }) as FrameworkEdge,
+    );
+
+  return {
+    flow: {
+      ...flow,
+      nodes: [...flow.nodes, ...clonedNodes],
+      edges: [...flow.edges, ...clonedEdges],
+    },
+    ids: [...idMap.values()],
+    map: idMap,
+  };
+}
+
 /** Delete by editor edge id ("type:from->to"). */
 export function deleteEdgeIds(
   flow: ExperimentFlow,
