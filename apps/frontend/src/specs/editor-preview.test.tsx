@@ -3,6 +3,7 @@ import type { ExperimentFlow } from '@experiment-hub/engine/types';
 import { describe, expect, it } from 'vitest';
 import LiveScreenPreview from '../editor/LiveScreenPreview';
 import { buildMockContext } from '../editor/mock-context';
+import { EXPERIMENTS } from '../data/experiments';
 
 const flow: ExperimentFlow = {
   nodes: [
@@ -125,4 +126,26 @@ describe('LiveScreenPreview', () => {
     // for-each rendered 3 items → 3 text inputs
     expect(screen.getAllByRole('textbox').length).toBeGreaterThanOrEqual(3);
   });
+});
+
+describe('real configs', () => {
+  // Regression: psychoactive-quarantine-change iterates $$psychoactive-options
+  // .psychoactive-substances — a *string* array produced by a checkboxes
+  // screen. Object-shaped fakes used to interpolate [object Object] into
+  // $dataKeys and crash getValue().
+  it('renders pandemic screens live without resolution errors', () => {
+    const pandemic = EXPERIMENTS.experiment;
+    // The heaviest ref-dependent screens: for-each over a $$ checkboxes
+    // answer, nested conditionals on $ keys, likert batteries.
+    for (const slug of [
+      'psychoactive-quarantine-change',
+      'stai-state',
+      'panas',
+    ]) {
+      const s = pandemic.screens!.find((sc) => sc.slug === slug)!;
+      expect(() =>
+        render(<LiveScreenPreview flow={pandemic} screen={s} />),
+      ).not.toThrow();
+    }
+  }, 15000);
 });
