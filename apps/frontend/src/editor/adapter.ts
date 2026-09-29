@@ -479,6 +479,8 @@ const NODE_WIDTH = 240;
 const ROW_HEIGHT = 24;
 const CONTAINER_PAD = 30;
 const CONTAINER_GAP = 14;
+/** Vertical inset between the frame's top edge and its children. */
+const FRAME_PAD_Y = 26;
 const CARD_BASE = 42;
 
 /** Extra lines a long unbreakable-ish string may wrap to (w-60 ≈ 30 mono xxs chars). */
@@ -656,14 +658,14 @@ export function layoutFlow(
       const s = sizes.get(child)!;
       childPositions.set(child, {
         x: p.x + CONTAINER_PAD,
-        y: p.y + cardH + CONTAINER_GAP,
+        y: p.y + cardH + CONTAINER_GAP + FRAME_PAD_Y,
       });
       w = Math.max(w, p.x + s.width);
       h = Math.max(h, p.y + s.height);
     }
     sizes.set(containerId, {
       width: w + CONTAINER_PAD * 2,
-      height: cardH + CONTAINER_GAP + h + CONTAINER_PAD,
+      height: cardH + CONTAINER_GAP + FRAME_PAD_Y + h + CONTAINER_PAD,
     });
   }
 
