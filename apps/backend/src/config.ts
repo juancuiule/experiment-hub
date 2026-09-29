@@ -45,6 +45,10 @@ export class BackendConfig extends Context.Service<
     exportToken: Redacted.Redacted<string>;
     runTokenSecret: Redacted.Redacted<string>;
     allowedExperiments: Option.Option<ReadonlySet<string>>;
+    // Directory of <slug>.json canonical configs to backfill at boot —
+    // fills missing slugs only, so it upgrades deployments without
+    // touching versions a researcher already published.
+    seedConfigsDir: Option.Option<string>;
     nodeEnv: string;
   }
 >()("backend/BackendConfig") {
@@ -82,6 +86,11 @@ export class BackendConfig extends Context.Service<
         ),
       );
 
+      const seedConfigsDir = yield* Config.String("SEED_CONFIGS_DIR").pipe(
+        Config.option,
+        Effect.map(Option.filter((d) => d.length > 0)),
+      );
+
       return Layer.succeed(BackendConfig, {
         port,
         host,
@@ -89,6 +98,7 @@ export class BackendConfig extends Context.Service<
         exportToken,
         runTokenSecret,
         allowedExperiments,
+        seedConfigsDir,
         nodeEnv,
       });
     }),

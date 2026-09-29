@@ -2,8 +2,12 @@ FROM node:24-alpine AS build
 WORKDIR /app
 # Manifests first so dependency layers survive source-only rebuilds.
 COPY pnpm-workspace.yaml package.json pnpm-lock.yaml ./
+COPY packages/engine/package.json ./packages/engine/package.json
 COPY apps/backend/package.json ./apps/backend/package.json
 RUN corepack enable && pnpm install --frozen-lockfile
+# The engine ships raw .ts; esbuild bundles it (and its zod dep) into
+# dist/server.js, so the deploy stage still only needs dist + prod deps.
+COPY packages/engine ./packages/engine
 COPY apps/backend ./apps/backend
 RUN pnpm --filter @experiment-hub/backend build
 # pnpm deploy relies on packlist semantics: "files": ["dist"] in
@@ -15,6 +19,9 @@ RUN pnpm --filter @experiment-hub/backend deploy --prod /app/deploy
 FROM node:24-alpine AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
+# Canonical config artifacts backfill the registry at boot when
+# SEED_CONFIGS_DIR is set — see scripts/export-configs.ts and the sync test.
+COPY apps/backend/configs ./configs
 COPY --from=build /app/deploy/dist ./dist
 COPY --from=build /app/deploy/node_modules ./node_modules
 COPY --from=build /app/deploy/package.json ./package.json

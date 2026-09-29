@@ -11,10 +11,13 @@ type Props = {
   experiment: ExperimentFlow;
   locale?: string;
   slug: string;
+  // The config hash the page loaded — runs pin it so a republish between
+  // load and register can't mislabel this run's checkpoints.
+  version: string;
 };
 
 export default function Experiment(props: Props) {
-  const { startingNode, experiment, locale, slug } = props;
+  const { startingNode, experiment, locale, slug, version } = props;
   // Per-field selectors: run/seq churn on every checkpoint must not
   // re-render the screen subtree.
   const step = useExperimentStore((s) => s.step);
@@ -26,9 +29,9 @@ export default function Experiment(props: Props) {
 
   useEffect(() => {
     if (!step || step.experiment !== experiment) {
-      start(experiment, startingNode, locale, slug);
+      start(experiment, startingNode, locale, slug, version);
     }
-  }, [experiment, startingNode, locale, slug]);
+  }, [experiment, startingNode, locale, slug, version]);
 
   useEffect(() => reset, [reset]);
 
@@ -42,7 +45,9 @@ export default function Experiment(props: Props) {
           <button
             type="button"
             disabled={isLoading}
-            onClick={() => start(experiment, startingNode, locale, slug)}
+            onClick={() =>
+              start(experiment, startingNode, locale, slug, version)
+            }
             className="border-edge text-content hover:bg-surface-raised cursor-pointer rounded-md border px-4 py-2"
           >
             Try again

@@ -76,6 +76,43 @@ const MigratorLive = SqliteMigrator.layer({
       `;
       yield* sql`ALTER TABLE checkpoints DROP COLUMN context_hash`;
     }),
+    "0005_experiments": Effect.gen(function* () {
+      const sql = yield* SqlClient.SqlClient;
+      // Experiment configs move out of the frontend bundle and into the DB.
+      // Config rows are content-addressed within their slug — sha256 of
+      // canonical JSON keyed (slug, hash) — and immutable: republishing
+      // identical content is a no-op, a change creates a new row, and
+      // `experiments` just points each slug at the current hash. Scoping
+      // the key by slug matters: identical content published under two
+      // slugs must register for each (runs verify hash membership under
+      // the slug they're for). Runs pin the version they were issued
+      // under, so republishing can never retroactively rebind in-flight
+      // checkpoint data to a different config.
+      yield* sql`
+        CREATE TABLE IF NOT EXISTS experiment_configs (
+          slug TEXT NOT NULL,
+          hash TEXT NOT NULL,
+          config TEXT NOT NULL,
+          created_at TEXT NOT NULL,
+          PRIMARY KEY (slug, hash)
+        )
+      `;
+      yield* sql`
+        CREATE TABLE IF NOT EXISTS experiments (
+          slug TEXT PRIMARY KEY,
+          config_hash TEXT NOT NULL,
+          updated_at TEXT NOT NULL,
+          FOREIGN KEY (slug, config_hash)
+            REFERENCES experiment_configs (slug, hash)
+        )
+      `;
+      // Nullable for pre-existing runs, same precedent as checkpoints.seq.
+      // No FK here — composite references can't be expressed on ALTER ADD
+      // COLUMN; createRun validates membership before inserting anyway.
+      yield* sql`
+        ALTER TABLE runs ADD COLUMN config_hash TEXT
+      `;
+    }),
   }),
 });
 

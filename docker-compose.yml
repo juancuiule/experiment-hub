@@ -21,6 +21,9 @@ services:
       EXPORT_TOKEN: ${EXPORT_TOKEN}
       RUN_TOKEN_SECRET: ${RUN_TOKEN_SECRET}
       ALLOWED_EXPERIMENTS: ${ALLOWED_EXPERIMENTS:-}
+      # Backfill the authored configs at boot — upgrades keep serving
+      # experiment pages; publishIfMissing preserves researcher versions.
+      SEED_CONFIGS_DIR: /app/configs
     networks:
       # The backend has no outbound calls — it only sits on the proxy
       # network so nginx can reach it. No egress network attached.
@@ -49,12 +52,25 @@ services:
     build:
       context: .
       dockerfile: apps/frontend/Dockerfile
+    environment:
+      # Server components fetch published experiment configs straight from
+      # the backend over the internal network — the same BACKEND_URL the
+      # dev /api rewrite honors, pointed at the container.
+      BACKEND_URL: http://backend:3000
     networks:
+      # backend_proxy membership lets server components reach the backend
+      # for config fetches without a hop through nginx.
+      backend_proxy:
       # Pinned because nginx resolves upstream hostnames once at config
       # load — a recreated frontend with a fresh IP would 502 until nginx
       # restarted.
       frontend_proxy:
         ipv4_address: 172.30.70.22
+    depends_on:
+      # Cold starts should serve the first experiment page immediately, not
+      # 500 while the backend is still migrating.
+      backend:
+        condition: service_healthy
     cap_drop:
       - ALL
     security_opt:

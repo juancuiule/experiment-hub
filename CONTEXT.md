@@ -7,8 +7,11 @@ An adaptive experiment runner for behavioral research: a researcher authors a br
 ### Authoring — the flow graph
 
 **Experiment**:
-A complete study definition — one `ExperimentFlow` object literal pairing a node/edge graph with the screens it renders. Registered in `EXPERIMENTS` under a slug, which is also its URL.
+A complete study definition — one `ExperimentFlow` object literal pairing a node/edge graph with the screens it renders. Authored as a typed literal under `apps/frontend/src/data/experiments/` and **published** to the backend DB under a slug, which is also its URL. The `/experiments/<slug>` page fetches the published config; an unpublished slug 404s.
 _Avoid_: study, survey, questionnaire.
+
+**Published config / config version**:
+The immutable, content-addressed form of an experiment as the backend serves it — canonical JSON keyed `(slug, sha256)`. Publishing (`PUT /api/experiments/:slug`, researcher-token-gated, or `pnpm --filter @experiment-hub/backend seed` for the repo's authored corpus) stores the config and points the slug at it. Republishing identical content is a no-op; a change creates a new version. The runner's `createRun` sends the version its page actually loaded — any historical version registered under the slug is accepted — so a republish can neither rebind in-flight data nor mislabel a run that registered after the pointer moved. Exports report the pinned version per row as `configVersion`. On container boot, `SEED_CONFIGS_DIR` configs backfill only *absent* slugs (`publishIfMissing`), preserving versions a researcher already published.
 
 **Node**:
 A single step in the experiment graph. Only `screen` nodes render participant UI; every other node type is auto-traversed control or data plumbing. For the ten node types, see the Node types section below.
@@ -131,5 +134,5 @@ The durable form of hitting a checkpoint node: a row (`run_id`, `experiment`, `c
 _Avoid_: save, submission.
 
 **Export**:
-The researcher-facing pull of collected data: `GET /api/experiments/:slug/export` streams all checkpoint records for a slug as NDJSON, gated by a bearer token (`EXPORT_TOKEN`).
+The researcher-facing pull of collected data: `GET /api/experiments/:slug/export` streams all checkpoint records for a slug as NDJSON, gated by a bearer token (`EXPORT_TOKEN`). Each row carries `configVersion` — the config hash the run pinned — so analyses can tell apart data collected under different versions of the same slug.
 _Avoid_: download, dump.

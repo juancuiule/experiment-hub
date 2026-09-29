@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation';
 import { validateExperiment } from '@experiment-hub/engine/experiment-validation';
+import { fetchExperiment } from '@/src/data/fetch-experiment';
 import Experiment from '@/src/Experiment';
 import { ValidationErrors } from '@/src/ValidationErrors';
 
@@ -10,12 +11,23 @@ export default async function E2EPage() {
     notFound();
   }
 
-  const { testExperiment } = await import('@/e2e/test-experiment');
+  // The e2e fixture experiment is served from the backend like any other —
+  // the playwright webServer seeds it under this slug before starting.
+  const loaded = await fetchExperiment('e2e');
+  if (!loaded) {
+    notFound();
+  }
 
-  const errors = validateExperiment(testExperiment);
+  const errors = validateExperiment(loaded.config);
   if (errors.length > 0) {
     return <ValidationErrors errors={errors} />;
   }
 
-  return <Experiment experiment={testExperiment} slug="e2e" />;
+  return (
+    <Experiment
+      experiment={loaded.config}
+      slug="e2e"
+      version={loaded.version}
+    />
+  );
 }

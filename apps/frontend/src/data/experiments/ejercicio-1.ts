@@ -33,6 +33,7 @@ const ejercicio1: ExperimentFlow = {
       type: 'screen',
       props: { slug: 'thanks' },
     },
+    { id: 'end', type: 'end' },
   ],
   edges: [
     { type: 'sequential', from: 'start', to: 'screen-intro' },
@@ -54,6 +55,7 @@ const ejercicio1: ExperimentFlow = {
       from: 'path-questions',
       to: 'screen-thanks',
     },
+    { type: 'sequential', from: 'screen-thanks', to: 'end' },
   ],
   options: {},
   screens: [

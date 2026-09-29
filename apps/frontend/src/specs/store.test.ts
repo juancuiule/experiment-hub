@@ -345,14 +345,14 @@ describe('overlapping starts', () => {
       .mockImplementationOnce(() => runB.promise);
 
     useExperimentStore.getState().start(flow, undefined, undefined, 'a');
-    const signalA = vi.mocked(createRun).mock.calls[0][1];
+    const signalA = vi.mocked(createRun).mock.calls[0][2];
     expect(signalA?.aborted).toBe(false);
 
     // Takeover aborts the pending request for the replaced session.
     useExperimentStore.getState().start(flow, undefined, undefined, 'b');
     expect(signalA?.aborted).toBe(true);
 
-    const signalB = vi.mocked(createRun).mock.calls[1][1];
+    const signalB = vi.mocked(createRun).mock.calls[1][2];
     useExperimentStore.getState().reset();
     expect(signalB?.aborted).toBe(true);
 

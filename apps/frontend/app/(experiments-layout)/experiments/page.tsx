@@ -1,10 +1,12 @@
-import { EXPERIMENTS } from '@/src/data/experiments';
+import { listExperiments } from '@/src/data/fetch-experiment';
 
-function ExperimentCard({ slug }: { slug: string }) {
-  const experiment = EXPERIMENTS[slug];
-
-  const { nodes, edges, screens = [] } = experiment;
-
+function ExperimentCard({
+  slug,
+  version,
+}: {
+  slug: string;
+  version: string;
+}) {
   return (
     <a
       href={`/experiments/${slug}`}
@@ -12,21 +14,25 @@ function ExperimentCard({ slug }: { slug: string }) {
     >
       <span className="text-sm font-semibold">{slug}</span>
       <div>
-        <p className="text-content-secondary text-xs">
-          {nodes.length} nodes, {edges.length} edges, {screens.length} screens
+        <p className="text-content-secondary font-mono text-xs">
+          {version.slice(0, 12)}
         </p>
       </div>
     </a>
   );
 }
 
-export default function Page() {
+// Lists what the backend actually serves — published configs, not the
+// authored corpus (which can contain unpublished work in progress).
+export default async function Page() {
+  const experiments = await listExperiments();
+
   return (
     <div className="mt-2 flex flex-col gap-2">
       <h1 className="mb-4 text-2xl font-bold">Experiments</h1>
       <div className="flex flex-col gap-2">
-        {Object.keys(EXPERIMENTS).map((slug) => (
-          <ExperimentCard key={slug} slug={slug} />
+        {experiments.map((e) => (
+          <ExperimentCard key={e.slug} slug={e.slug} version={e.version} />
         ))}
       </div>
     </div>
