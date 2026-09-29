@@ -4,6 +4,7 @@ import {
   conditionToString,
   layoutFlow,
   toFlowGraph,
+  type EditorNodeData,
 } from '@/src/editor/adapter';
 
 const fixture: ExperimentFlow = {
@@ -56,7 +57,7 @@ const fixture: ExperimentFlow = {
     {
       id: 'loop-trials',
       type: 'loop',
-      props: { type: 'static', values: ['x', 'y', 'z'] },
+      props: { type: 'dynamic', dataKey: '$$config.items' },
     },
     { id: 'screen-trial', type: 'screen', props: { slug: 'trial' } },
     {
@@ -73,7 +74,11 @@ const fixture: ExperimentFlow = {
       },
     },
     { id: 'checkpoint-1', type: 'checkpoint', props: { name: 'mid' } },
-    { id: 'config', type: 'data', props: { name: 'Cfg', data: { n: 1 } } },
+    {
+      id: 'config',
+      type: 'data',
+      props: { name: 'Cfg', data: { n: 1, items: ['x'] } },
+    },
     { id: 'end', type: 'end' },
   ],
   edges: [
@@ -113,7 +118,9 @@ const fixture: ExperimentFlow = {
 };
 
 describe('toFlowGraph', () => {
-  const { nodes, edges } = toFlowGraph(fixture);
+  const { nodes, edges, dataEdges } = toFlowGraph(fixture);
+  const dataOf = (id: string) =>
+    nodes.find((n) => n.id === id)!.data as EditorNodeData;
 
   it('maps every node to an editor node typed by node type', () => {
     expect(nodes).toHaveLength(fixture.nodes.length);
@@ -146,13 +153,41 @@ describe('toFlowGraph', () => {
     expect(edge?.data?.label).toBe('Group B ×2');
   });
 
-  it('routes containment and template edges through structural handles', () => {
-    const contains = edges.find((e) => e.id === 'path-contains:path-steps->screen-b');
-    expect(contains?.sourceHandle).toBe('children');
-    expect(contains?.data?.label).toBe('2');
+  it('turns containment edges into parentId membership on container frames', () => {
+    // containment edges never render as edges
+    expect(edges.some((e) => e.id.startsWith('path-contains'))).toBe(false);
+    expect(edges.some((e) => e.id.startsWith('loop-template'))).toBe(false);
 
-    const template = edges.find((e) => e.id === 'loop-template:loop-trials->screen-trial');
-    expect(template?.sourceHandle).toBe('template');
+    // path/loop render as containers; children carry parentId
+    expect(nodes.find((n) => n.id === 'path-steps')?.type).toBe('container');
+    expect(nodes.find((n) => n.id === 'loop-trials')?.type).toBe('container');
+    expect(nodes.find((n) => n.id === 'screen-a')?.parentId).toBe('path-steps');
+    expect(nodes.find((n) => n.id === 'screen-b')?.parentId).toBe('path-steps');
+    expect(nodes.find((n) => n.id === 'screen-trial')?.parentId).toBe(
+      'loop-trials',
+    );
+  });
+
+  it('marks ordered path children with a childIndex badge', () => {
+    expect(dataOf('screen-a').childIndex).toBe(0);
+    expect(dataOf('screen-b').childIndex).toBe(1);
+  });
+
+  it('derives data-dependency edges from $$ and @ references', () => {
+    // branch condition reads $$consent.age → produced by the consent screen
+    expect(
+      dataEdges.find((e) => e.id === 'dataflow:screen-consent->branch-age'),
+    ).toBeTruthy();
+    // dynamic loop reads $$config.items → produced by the data node
+    expect(
+      dataEdges.find((e) => e.id === 'dataflow:config->loop-trials'),
+    ).toBeTruthy();
+    // compute reads $$trial.value → produced by the trial screen (by slug)
+    expect(
+      dataEdges.find((e) => e.id === 'dataflow:screen-trial->compute-score'),
+    ).toBeTruthy();
+    // data edges are not flow edges
+    expect(dataEdges.every((e) => e.data?.dataflow)).toBe(true);
   });
 
   it('routes sequential edges through the next handle', () => {
@@ -162,14 +197,9 @@ describe('toFlowGraph', () => {
   });
 
   it('collects screen fields and node outputs for data sockets', () => {
-    const screen = nodes.find((n) => n.id === 'screen-consent');
-    expect(screen?.data.fields).toEqual(['age', 'ok']);
-
-    const compute = nodes.find((n) => n.id === 'compute-score');
-    expect(compute?.data.outputs).toEqual(['total']);
-
-    const data = nodes.find((n) => n.id === 'config');
-    expect(data?.data.outputs).toEqual(['n']);
+    expect(dataOf('screen-consent').fields).toEqual(['age', 'ok']);
+    expect(dataOf('compute-score').outputs).toEqual(['total']);
+    expect(dataOf('config').outputs).toEqual(['n', 'items']);
   });
 });
 

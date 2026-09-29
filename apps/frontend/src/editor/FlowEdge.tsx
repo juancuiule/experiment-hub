@@ -29,7 +29,8 @@ export default function FlowEdge(props: EdgeProps<EditorEdge>) {
         markerEnd={props.markerEnd}
         style={{
           stroke: color,
-          strokeWidth: 2,
+          strokeWidth: data?.dataflow ? 1.25 : 2,
+          strokeOpacity: data?.dataflow ? 0.75 : 1,
           strokeDasharray: data?.dashed ? '5 4' : undefined,
         }}
       />

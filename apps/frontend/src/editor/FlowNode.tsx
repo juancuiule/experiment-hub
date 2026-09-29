@@ -26,6 +26,7 @@ import {
   conditionToString,
   forkHandle,
   type EditorNode,
+  type EditorNodeData,
 } from './adapter';
 
 // ─── Type meta ───────────────────────────────────────────────────────────────
@@ -132,7 +133,13 @@ function DataSocket({ fieldKey }: { fieldKey: string }) {
 
 // ─── Per-type bodies ─────────────────────────────────────────────────────────
 
-function NodeBody({ node, data }: { node: FrameworkNode; data: EditorNode['data'] }) {
+function NodeBody({
+  node,
+  data,
+}: {
+  node: FrameworkNode;
+  data: EditorNodeData;
+}) {
   switch (node.type) {
     case 'start':
       return node.props ? (
@@ -272,11 +279,12 @@ export default function FlowNode({ data, type }: NodeProps<EditorNode>) {
   const meta = TYPE_META[type as NodeType];
   const Icon = meta.icon;
   const node = data.node;
+  const { childIndex } = data as EditorNodeData;
 
   return (
     <div
       className={twMerge(
-        'bg-background-surface border-border-default w-60 rounded-xl border shadow-sm',
+        'bg-background-surface border-border-default relative w-60 rounded-xl border shadow-sm',
         'shadow-black/5',
       )}
     >
@@ -287,6 +295,12 @@ export default function FlowNode({ data, type }: NodeProps<EditorNode>) {
           position={Position.Left}
           className={handleClass}
         />
+      )}
+
+      {childIndex != null && (
+        <span className="border-border-default bg-background-surface text-content-secondary absolute -top-2 -left-2 z-10 flex size-5 items-center justify-center rounded-full border font-mono text-xxs">
+          {childIndex + 1}
+        </span>
       )}
 
       <div className="border-border-default flex items-center gap-2 border-b px-3 py-2">
@@ -305,7 +319,7 @@ export default function FlowNode({ data, type }: NodeProps<EditorNode>) {
       </div>
 
       <div className="py-1">
-        <NodeBody node={node} data={data} />
+        <NodeBody node={node} data={data as EditorNodeData} />
       </div>
 
       {['start', 'screen', 'checkpoint', 'compute', 'data'].includes(node.type) && (
