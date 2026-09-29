@@ -244,18 +244,33 @@ export default function FlowCanvas({
 
   // ── Edit callbacks ─────────────────────────────────────────────────────────
 
-  const isValidConnection: IsValidConnection = (conn) =>
-    !!(
+  // While an edge endpoint is being reconnected, validate against the draft
+  // *without* that edge — otherwise max-1 outputs stay occupied by the edge
+  // the user is trying to move.
+  const reconnecting = useRef<string | null>(null);
+  const onReconnectStart = (_e: unknown, edge: Edge) => {
+    reconnecting.current = edge.id;
+  };
+  const onReconnectEnd = () => {
+    reconnecting.current = null;
+  };
+
+  const isValidConnection: IsValidConnection = (conn) => {
+    const base = reconnecting.current
+      ? deleteEdgeIds(draft, [reconnecting.current])
+      : draft;
+    return !!(
       conn.source &&
       conn.target &&
       conn.sourceHandle &&
       conn.targetHandle &&
-      canConnect(draft, {
+      canConnect(base, {
         source: conn.source,
         sourceHandle: conn.sourceHandle,
         target: conn.target,
       })
     );
+  };
 
   const onConnect = (conn: Connection) => {
     const { source, target, sourceHandle } = conn;
@@ -369,6 +384,8 @@ export default function FlowCanvas({
           isValidConnection={isValidConnection}
           onConnect={onConnect}
           onReconnect={onReconnect}
+          onReconnectStart={onReconnectStart}
+          onReconnectEnd={onReconnectEnd}
           reconnectRadius={20}
           onNodesDelete={onNodesDelete}
           onEdgesDelete={onEdgesDelete}
