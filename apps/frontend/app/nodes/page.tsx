@@ -1,108 +1,48 @@
-import { fetchExperiment } from '@/src/data/fetch-experiment';
-import { FrameworkEdge } from '@experiment-hub/engine/edges';
-import { collectFields } from '@experiment-hub/engine/fields';
-import { FrameworkNode } from '@experiment-hub/engine/nodes';
-import { FrameworkScreen } from '@experiment-hub/engine/screen';
-import { twMerge } from 'tailwind-merge';
+import { listExperiments } from '@/src/data/fetch-experiment';
+import { GitBranch } from 'lucide-react';
+import Link from 'next/link';
 
-function edgeId(edge: FrameworkEdge) {
-  return `${edge.from}->${edge.to}`;
-}
+export const revalidate = 0;
 
-const EDGE_COLOR: Record<FrameworkEdge['type'], string> = {
-  sequential: 'bg-amber-400 text-amber-400',
-  'branch-condition': 'bg-blue-400 text-blue-400',
-  'branch-default': 'bg-blue-400 text-blue-400',
-  'fork-edge': 'bg-green-400 text-green-400',
-  'loop-template': 'bg-purple-400 text-purple-400',
-  'path-contains': 'bg-pink-400 text-pink-400',
-};
+export default async function NodesIndexPage() {
+  let experiments: Awaited<ReturnType<typeof listExperiments>> = [];
+  let unreachable = false;
 
-function NodeCard({
-  node,
-  edges,
-  screen,
-}: {
-  node: FrameworkNode;
-  edges: FrameworkEdge[];
-  screen?: FrameworkScreen;
-}) {
-  const fields = screen
-    ? collectFields(screen.components, {}).map((_) =>
-        _.kind === 'static' ? _.key : _.keyTemplate,
-      )
-    : [];
+  try {
+    experiments = await listExperiments();
+  } catch {
+    unreachable = true;
+  }
 
-  return (
-    <div className="border-border-default w-fit max-w-60 min-w-32 rounded border font-mono">
-      <div className="border-border-default w-full border-b p-2 text-center text-sm">
-        {node.type}
-      </div>
-      <div className="relative flex min-h-48 flex-col p-2">
-        <div className="absolute top-1/2 -right-1 flex -translate-y-1/2 flex-col gap-4">
-          {edges.map((edge) => {
-            return (
-              <div
-                key={edgeId(edge)}
-                className={twMerge(
-                  'relative size-2 rounded-full',
-                  EDGE_COLOR[edge.type],
-                )}
-              >
-                <span className="absolute left-3 w-fit -translate-y-1/3 text-xs text-nowrap">
-                  {edge.type}
-                </span>
-              </div>
-            );
-          })}
-          {fields.map((fieldKey) => {
-            return (
-              <div
-                key={fieldKey}
-                className={twMerge(
-                  'bg-content-primary relative size-2 rounded-full',
-                )}
-              >
-                <span className="absolute left-3 w-fit -translate-y-1/3 text-xs text-nowrap">
-                  {fieldKey}
-                </span>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-export default async function NodesPage() {
-  const loaded = await fetchExperiment('experiment');
-
-  if (!loaded) {
+  if (unreachable) {
     return (
       <p className="text-content-secondary text-sm">
-        No published config for the &quot;experiment&quot; slug — seed or
-        publish one to inspect its graph.
+        Can&apos;t reach the backend — start it with{' '}
+        <code className="font-mono">pnpm dev:backend</code> and seed with{' '}
+        <code className="font-mono">pnpm --filter @experiment-hub/backend seed</code>.
       </p>
     );
   }
 
-  const { nodes, edges, screens = [] } = loaded.config;
-
   return (
-    <div className="flex flex-col gap-4">
-      {nodes.map((node) => (
-        <NodeCard
-          key={node.id}
-          node={node}
-          edges={edges.filter((e) => e.from.includes(node.id))}
-          screen={
-            node.type === 'screen'
-              ? screens.find((s) => s.slug === node.props.slug)
-              : undefined
-          }
-        />
-      ))}
+    <div className="flex flex-col gap-3">
+      <h1 className="text-content-primary text-lg font-semibold">
+        Experiment graphs
+      </h1>
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        {experiments.map((exp) => (
+          <Link
+            key={exp.slug}
+            href={`/nodes/${exp.slug}`}
+            className="bg-background-surface border-border-default hover:border-content-active flex items-center gap-2 rounded-lg border p-3 transition-colors"
+          >
+            <GitBranch size={14} className="text-content-secondary" />
+            <span className="text-content-primary truncate text-sm">
+              {exp.slug}
+            </span>
+          </Link>
+        ))}
+      </div>
     </div>
   );
 }
