@@ -19,6 +19,7 @@ import {
   type OnSelectionChangeParams,
   type XYPosition,
 } from '@xyflow/react';
+import type { Condition } from '@experiment-hub/engine/conditions';
 import { validateExperiment } from '@experiment-hub/engine/experiment-validation';
 import type { NodeType } from '@experiment-hub/engine/nodes';
 import type { ExperimentFlow } from '@experiment-hub/engine/types';
@@ -37,7 +38,10 @@ import {
   removeArm,
   setNodeName,
   setScreenSlug,
+  updateArm,
 } from './mutations';
+import ConditionEditor from './ConditionEditor';
+import { refSuggestions } from './ref-suggestions';
 import {
   CONTAINER_COLORS,
   layoutFlow,
@@ -214,6 +218,7 @@ export default function FlowCanvas({
   }, [draft, slug, layoutVersion]); // layoutVersion: "Tidy" re-runs layout
 
   const issues = useMemo(() => validateExperiment(draft), [draft]);
+  const refs = useMemo(() => refSuggestions(draft), [draft]);
 
   // Live positions — updated on every position change so draft edits rebuild
   // nodes without losing where the user put things.
@@ -514,10 +519,11 @@ export default function FlowCanvas({
                           name
                         </span>
                         <input
+                          key={(selected.props as { name: string }).name}
                           className="border-border-default bg-background text-content-primary min-w-0 flex-1 rounded border px-1.5 py-0.5 font-mono"
-                          value={(selected.props as { name: string }).name}
-                          onChange={(e) =>
-                            setDraft((d) =>
+                          defaultValue={(selected.props as { name: string }).name}
+                          onBlur={(e) =>
+                            mutate((d) =>
                               setNodeName(d, selected.id, e.target.value),
                             )
                           }
@@ -548,45 +554,96 @@ export default function FlowCanvas({
                     )}
                     {(selected.type === 'branch' ||
                       selected.type === 'fork') && (
-                      <div className="flex items-center gap-2 text-xxs">
-                        <span className="text-content-secondary w-12 shrink-0">
-                          arms
-                        </span>
-                        <div className="flex flex-wrap items-center gap-1">
+                      <div className="flex flex-col gap-1.5 text-xxs">
+                        <div className="flex items-center gap-2">
+                          <span className="text-content-secondary w-12 shrink-0">
+                            arms
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => mutate((f) => addArm(f, selected.id))}
+                            className="border-border-default text-content-secondary hover:text-content-primary cursor-pointer rounded-full border border-dashed px-1.5 py-px"
+                          >
+                            + arm
+                          </button>
+                        </div>
+                        <div className="flex max-h-72 flex-col gap-1.5 overflow-auto">
                           {(
                             (selected.type === 'branch'
                               ? selected.props.branches
                               : selected.props.forks) as {
                               id: string;
                               name: string;
+                              weight?: number;
+                              config?: Condition;
                             }[]
                           ).map((arm) => (
-                            <span
+                            <div
                               key={arm.id}
-                              className="border-border-default bg-background flex items-center gap-1 rounded-full border px-1.5 py-px font-mono"
+                              className="border-border-default bg-background flex flex-col gap-1 rounded-md border p-1.5"
                             >
-                              {arm.name}
-                              <button
-                                type="button"
-                                aria-label={`Remove arm ${arm.name}`}
-                                onClick={() =>
-                                  mutate((f) =>
-                                    removeArm(f, selected.id, arm.id),
-                                  )
-                                }
-                                className="text-content-secondary hover:text-error cursor-pointer"
-                              >
-                                ×
-                              </button>
-                            </span>
+                              <div className="flex items-center gap-1">
+                                <input
+                                  key={arm.name}
+                                  className="border-border-default bg-background-surface text-content-primary min-w-0 flex-1 rounded border px-1.5 py-0.5 font-mono text-xxs"
+                                  defaultValue={arm.name}
+                                  onBlur={(e) =>
+                                    mutate((f) =>
+                                      updateArm(f, selected.id, arm.id, {
+                                        name: e.target.value,
+                                      }),
+                                    )
+                                  }
+                                  aria-label={`Arm ${arm.id} name`}
+                                />
+                                {selected.type === 'fork' && (
+                                  <input
+                                    key={arm.weight ?? 'w'}
+                                    type="number"
+                                    className="border-border-default bg-background-surface text-content-primary w-14 rounded border px-1.5 py-0.5 font-mono text-xxs"
+                                    defaultValue={arm.weight ?? ''}
+                                    placeholder="weight"
+                                    onBlur={(e) =>
+                                      mutate((f) =>
+                                        updateArm(f, selected.id, arm.id, {
+                                          weight:
+                                            e.target.value === ''
+                                              ? undefined
+                                              : Number(e.target.value),
+                                        }),
+                                      )
+                                    }
+                                    aria-label={`Arm ${arm.id} weight`}
+                                  />
+                                )}
+                                <button
+                                  type="button"
+                                  aria-label={`Remove arm ${arm.name}`}
+                                  onClick={() =>
+                                    mutate((f) =>
+                                      removeArm(f, selected.id, arm.id),
+                                    )
+                                  }
+                                  className="text-content-secondary hover:text-error cursor-pointer text-xs"
+                                >
+                                  ×
+                                </button>
+                              </div>
+                              {selected.type === 'branch' && arm.config && (
+                                <ConditionEditor
+                                  condition={arm.config}
+                                  refs={refs}
+                                  onChange={(c) =>
+                                    mutate((f) =>
+                                      updateArm(f, selected.id, arm.id, {
+                                        config: c,
+                                      }),
+                                    )
+                                  }
+                                />
+                              )}
+                            </div>
                           ))}
-                          <button
-                            type="button"
-                            onClick={() => mutate((f) => addArm(f, selected.id))}
-                            className="border-border-default text-content-secondary hover:text-content-primary cursor-pointer rounded-full border border-dashed px-1.5 py-px"
-                          >
-                            +
-                          </button>
                         </div>
                       </div>
                     )}

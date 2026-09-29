@@ -12,6 +12,7 @@ import {
   removeArm,
   setNodeName,
   setScreenSlug,
+  updateArm,
 } from '../editor/mutations';
 
 const fixture: ExperimentFlow = {
@@ -196,6 +197,28 @@ describe('addNode / props / arms', () => {
     expect((reslugged as { props: { slug: string } }).props.slug).toBe(
       'consent',
     );
+  });
+
+  it('updateArm patches branch configs and fork weights', () => {
+    const renamed = updateArm(fixture, 'b-age', 'adult', { name: 'Grown' });
+    const b = renamed.nodes.find((n) => n.id === 'b-age')!;
+    expect(
+      (b as { props: { branches: { name: string }[] } }).props.branches[0].name,
+    ).toBe('Grown');
+
+    const config = {
+      type: 'simple' as const,
+      dataKey: '$$x.y' as `$$${string}`,
+      operator: 'eq' as const,
+      value: 1,
+    };
+    const reconfigured = updateArm(fixture, 'b-age', 'adult', { config });
+    const arm = (
+      reconfigured.nodes.find((n) => n.id === 'b-age')! as {
+        props: { branches: { config: unknown }[] };
+      }
+    ).props.branches[0];
+    expect(arm.config).toEqual(config);
   });
 
   it('removing an arm drops its edges', () => {

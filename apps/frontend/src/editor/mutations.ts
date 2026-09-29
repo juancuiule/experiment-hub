@@ -1,3 +1,4 @@
+import type { Condition } from '@experiment-hub/engine/conditions';
 import type { FrameworkEdge } from '@experiment-hub/engine/edges';
 import type { FrameworkNode, NodeType } from '@experiment-hub/engine/nodes';
 import type { ExperimentFlow } from '@experiment-hub/engine/types';
@@ -285,6 +286,61 @@ export function setScreenSlug(
 }
 
 // ─── Branch/fork arms ────────────────────────────────────────────────────────
+
+export type ArmPatch = {
+  name?: string;
+  weight?: number;
+  config?: Condition;
+};
+
+/** Update one arm's name/weight (fork) or name/config (branch). */
+export function updateArm(
+  flow: ExperimentFlow,
+  nodeId: string,
+  armId: string,
+  patch: ArmPatch,
+): ExperimentFlow {
+  return {
+    ...flow,
+    nodes: flow.nodes.map((n) => {
+      if (n.id !== nodeId) return n;
+      if (n.type === 'branch')
+        return {
+          ...n,
+          props: {
+            ...n.props,
+            branches: n.props.branches.map((b) =>
+              b.id === armId
+                ? {
+                    ...b,
+                    ...(patch.name !== undefined && { name: patch.name }),
+                    ...(patch.config !== undefined && { config: patch.config }),
+                  }
+                : b,
+            ),
+          },
+        };
+      if (n.type === 'fork')
+        return {
+          ...n,
+          props: {
+            ...n.props,
+            forks: n.props.forks.map((f) =>
+              f.id === armId
+                ? {
+                    ...f,
+                    ...(patch.name !== undefined && { name: patch.name }),
+                    // `'weight' in patch` lets callers clear it via undefined.
+                    ...('weight' in patch && { weight: patch.weight }),
+                  }
+                : f,
+            ),
+          },
+        };
+      return n;
+    }),
+  };
+}
 
 export function addArm(flow: ExperimentFlow, nodeId: string): ExperimentFlow {
   return {
