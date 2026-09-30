@@ -60,6 +60,8 @@ export type ContainerNodeData = {
   kind: 'path' | 'loop';
   /** Declared member position inside the parent container (layout ordering). */
   memberIndex?: number;
+  /** Size computed by layoutFlow — the floor for runtime frame resizing. */
+  layoutSize?: { width: number; height: number };
 };
 
 export type EditorNode = Node<EditorNodeData | ContainerNodeData, string>;
@@ -171,6 +173,7 @@ function toEditorEdge(
     target: edge.to,
     targetHandle: HANDLE_IN,
     markerEnd: { type: MarkerType.ArrowClosed, color, width: 18, height: 18 },
+    reconnectable: true,
     data: { edge, label, color, dashed },
   };
 }
@@ -305,9 +308,17 @@ function buildDataEdges(flow: ExperimentFlow): EditorEdge[] {
 
   // producer -> consumer -> refs seen
   const deps = new Map<string, Set<string>>();
+  // A member reading its own loop via @loopId is implicit — the frame
+  // already says it; don't draw a wire into the container's own member.
+  const parentOf = new Map<string, string>();
+  for (const e of flow.edges) {
+    if (e.type === 'path-contains' || e.type === 'loop-template')
+      parentOf.set(e.to, e.from);
+  }
 
   const record = (consumerId: string, producerId: string, ref: string) => {
     if (producerId === consumerId) return;
+    if (parentOf.get(consumerId) === producerId) return;
     const key = `${producerId}->${consumerId}`;
     if (!deps.has(key)) deps.set(key, new Set());
     deps.get(key)!.add(ref);
@@ -343,6 +354,7 @@ function buildDataEdges(flow: ExperimentFlow): EditorEdge[] {
       source,
       target,
       targetHandle: HANDLE_IN,
+      reconnectable: false,
       markerEnd: {
         type: MarkerType.ArrowClosed,
         color: EDGE_DATAFLOW,
@@ -415,15 +427,15 @@ export function toFlowGraph(flow: ExperimentFlow): {
     .sort((a, b) => depth(a.id) - depth(b.id))
     .map((node) => {
       const parent = childToParent.get(node.id);
-      const isContainer = members.has(node.id);
+      // Every path/loop is a container — even with zero members it keeps an
+      // empty frame so nodes can be dropped back in.
+      const isContainer = node.type === 'path' || node.type === 'loop';
       const base = {
         id: node.id,
         position: { x: 0, y: 0 }, // replaced by layoutFlow
         ...(parent
           ? {
               parentId: parent,
-              extent: 'parent' as const,
-              expandParent: true,
             }
           : {}),
       };
@@ -477,7 +489,7 @@ export function toFlowGraph(flow: ExperimentFlow): {
 
 const NODE_WIDTH = 240;
 const ROW_HEIGHT = 24;
-const CONTAINER_PAD = 30;
+export const CONTAINER_PAD = 30;
 const CONTAINER_GAP = 14;
 /** Vertical inset between the frame's top edge and its children. */
 const FRAME_PAD_Y = 26;
@@ -627,13 +639,14 @@ export function layoutFlow(
     }
     return n;
   };
-  const containersByDepth = [...members.keys()].sort(
-    (a, b) => depth(b) - depth(a),
-  );
+  const containersByDepth = nodes
+    .filter((n) => n.type === 'container')
+    .map((n) => n.id)
+    .sort((a, b) => depth(b) - depth(a));
 
   const childPositions = new Map<string, { x: number; y: number }>();
   for (const containerId of containersByDepth) {
-    const children = members.get(containerId)!;
+    const children = members.get(containerId) ?? [];
     // Order children: path members keep their edge order (children were
     // appended in `order` sequence); internal flow edges feed dagre.
     const innerEdges = edges
@@ -663,9 +676,12 @@ export function layoutFlow(
       w = Math.max(w, p.x + s.width);
       h = Math.max(h, p.y + s.height);
     }
+    // Top inset (GAP + PAD_Y) mirrors the bottom inset for symmetric framing.
+    // Width never shrinks below the card — an empty frame should still be
+    // card-wide, not a sliver.
     sizes.set(containerId, {
-      width: w + CONTAINER_PAD * 2,
-      height: cardH + CONTAINER_GAP + FRAME_PAD_Y + h + CONTAINER_PAD,
+      width: Math.max(NODE_WIDTH, w + CONTAINER_PAD * 2),
+      height: cardH + (CONTAINER_GAP + FRAME_PAD_Y) * 2 + h,
     });
   }
 
@@ -698,6 +714,10 @@ export function layoutFlow(
         node.type === 'container'
           ? { width: size.width, height: size.height }
           : undefined,
+      data:
+        node.type === 'container'
+          ? { ...node.data, layoutSize: size }
+          : node.data,
     };
   });
 }

@@ -1,0 +1,642 @@
+import type { Condition } from '@experiment-hub/engine/conditions';
+import { isPathEdge, type FrameworkEdge } from '@experiment-hub/engine/edges';
+import type {
+  Computation,
+  FrameworkNode,
+  NodeType,
+} from '@experiment-hub/engine/nodes';
+import type { ExperimentFlow } from '@experiment-hub/engine/types';
+import { HANDLE_NEXT, branchHandle, forkHandle } from './adapter';
+
+export type ConnectSpec = {
+  source: string;
+  sourceHandle: string;
+  target: string;
+};
+
+// ─── Connection rules ────────────────────────────────────────────────────────
+
+const SEQUENTIAL_SOURCES: NodeType[] = [
+  'start',
+  'screen',
+  'checkpoint',
+  'compute',
+  'data',
+  'path',
+  'loop',
+];
+
+/** Which FrameworkEdge a (source node, handle) pair would produce. */
+export function edgeTypeFor(
+  node: FrameworkNode,
+  sourceHandle: string,
+): FrameworkEdge['type'] | null {
+  if (sourceHandle === HANDLE_NEXT)
+    return SEQUENTIAL_SOURCES.includes(node.type) ? 'sequential' : null;
+  if (node.type === 'branch') {
+    if (sourceHandle === 'default') return 'branch-default';
+    if (
+      sourceHandle.startsWith('branch.') &&
+      node.props.branches.some((b) => sourceHandle === branchHandle(b.id))
+    )
+      return 'branch-condition';
+  }
+  if (node.type === 'fork') {
+    if (
+      sourceHandle.startsWith('fork.') &&
+      node.props.forks.some((f) => sourceHandle === forkHandle(f.id))
+    )
+      return 'fork-edge';
+  }
+  return null;
+}
+
+const hasPath = (
+  edges: FrameworkEdge[],
+  from: string,
+  to: string,
+): boolean => {
+  // DFS over non-containment edges (containment is membership, not traversal —
+  // a child can never reach its parent's upstream anyway).
+  const adj = new Map<string, string[]>();
+  for (const e of edges) {
+    const src = e.from.split('.')[0];
+    if (!adj.has(src)) adj.set(src, []);
+    adj.get(src)!.push(e.to);
+  }
+  const seen = new Set<string>();
+  const stack = [from];
+  while (stack.length) {
+    const cur = stack.pop()!;
+    if (cur === to) return true;
+    if (seen.has(cur)) continue;
+    seen.add(cur);
+    stack.push(...(adj.get(cur) ?? []));
+  }
+  return false;
+};
+
+/** Would connecting source→target be legal? Arity, arm validity, no cycles. */
+export function canConnect(
+  flow: ExperimentFlow,
+  spec: ConnectSpec,
+): boolean {
+  if (spec.source === spec.target) return false;
+  const source = flow.nodes.find((n) => n.id === spec.source);
+  const target = flow.nodes.find((n) => n.id === spec.target);
+  if (!source || !target) return false;
+
+  const type = edgeTypeFor(source, spec.sourceHandle);
+  if (!type) return false;
+
+  // Max-1 outputs (sequential / branch-default) stay connectable when
+  // occupied — `connect` replaces the existing edge rather than refusing.
+
+  // No cycles — a new edge must not let target reach source.
+  return !hasPath(
+    [...flow.edges, buildEdge(type, spec)],
+    spec.target,
+    spec.source,
+  );
+}
+
+function buildEdge(
+  type: FrameworkEdge['type'],
+  spec: ConnectSpec,
+): FrameworkEdge {
+  if (type === 'branch-condition' || type === 'fork-edge') {
+    return {
+      type,
+      from: `${spec.source}.${spec.sourceHandle.split('.')[1]}` as `${string}.${string}`,
+      to: spec.target,
+    };
+  }
+  return { type, from: spec.source, to: spec.target } as FrameworkEdge;
+}
+
+/** Re-point an existing edge: drop the old one first so max-1 outputs free up. */
+export function reconnect(
+  flow: ExperimentFlow,
+  oldEdgeId: string,
+  spec: ConnectSpec,
+): ExperimentFlow {
+  const without = deleteEdgeIds(flow, [oldEdgeId]);
+  if (!canConnect(without, spec)) return flow;
+  return connect(without, spec);
+}
+
+/** Add the framework edge a connection implies — a no-op on illegal
+ *  connections; replaces the existing edge on occupied max-1 outputs. */
+export function connect(
+  flow: ExperimentFlow,
+  spec: ConnectSpec,
+): ExperimentFlow {
+  if (!canConnect(flow, spec)) return flow;
+  const source = flow.nodes.find((n) => n.id === spec.source)!;
+  const type = edgeTypeFor(source, spec.sourceHandle)!;
+  // Max-1 slot already occupied → swap the old edge for the new one.
+  const edges =
+    type === 'sequential' || type === 'branch-default'
+      ? flow.edges.filter(
+          (e) => !(e.type === type && e.from.split('.')[0] === spec.source),
+        )
+      : flow.edges;
+  return { ...flow, edges: [...edges, buildEdge(type, spec)] };
+}
+
+// ─── Deletion ────────────────────────────────────────────────────────────────
+
+export function deleteNodes(
+  flow: ExperimentFlow,
+  ids: string[],
+): ExperimentFlow {
+  const gone = new Set(ids);
+  return {
+    ...flow,
+    nodes: flow.nodes.filter((n) => !gone.has(n.id)),
+    edges: flow.edges.filter(
+      (e) => !gone.has(e.from.split('.')[0]) && !gone.has(e.to),
+    ),
+  };
+}
+
+/** Duplicate nodes (plus container descendants) with fresh ids; edges whose
+ *  endpoints are all inside the copied set get cloned and remapped. */
+export function duplicateNodes(
+  flow: ExperimentFlow,
+  ids: string[],
+): { flow: ExperimentFlow; ids: string[]; map: Map<string, string> } {
+  // Expand the selection with descendants of copied containers — a path/loop
+  // copy should carry its members, and RF's multi-select doesn't include them.
+  const childrenOf = new Map<string, string[]>();
+  for (const e of flow.edges) {
+    if (e.type !== 'path-contains' && e.type !== 'loop-template') continue;
+    if (!childrenOf.has(e.from)) childrenOf.set(e.from, []);
+    childrenOf.get(e.from)!.push(e.to);
+  }
+  const all = new Set(ids);
+  const queue = [...ids];
+  while (queue.length) {
+    for (const c of childrenOf.get(queue.pop()!) ?? [])
+      if (!all.has(c)) {
+        all.add(c);
+        queue.push(c);
+      }
+  }
+
+  const idMap = new Map<string, string>();
+  const fresh = (base: string): string => {
+    let i = 0;
+    let candidate = `${base}-copy`;
+    while (
+      flow.nodes.some((n) => n.id === candidate) ||
+      [...idMap.values()].includes(candidate)
+    )
+      candidate = `${base}-copy${++i + 1}`;
+    return candidate;
+  };
+  for (const id of all) idMap.set(id, fresh(id));
+  const remap = (ref: string) =>
+    ref
+      .split('.')
+      .map((seg) => idMap.get(seg) ?? seg)
+      .join('.');
+
+  const clonedNodes = flow.nodes
+    .filter((n) => all.has(n.id))
+    .map((n) => ({ ...structuredClone(n), id: idMap.get(n.id)! }));
+  const clonedEdges = flow.edges
+    .filter((e) => all.has(e.from.split('.')[0]) && all.has(e.to))
+    .map(
+      (e) =>
+        ({
+          ...e,
+          from: remap(e.from) as typeof e.from,
+          to: idMap.get(e.to)!,
+        }) as FrameworkEdge,
+    );
+
+  return {
+    flow: {
+      ...flow,
+      nodes: [...flow.nodes, ...clonedNodes],
+      edges: [...flow.edges, ...clonedEdges],
+    },
+    ids: [...idMap.values()],
+    map: idMap,
+  };
+}
+
+/** Delete by editor edge id ("type:from->to"). */
+export function deleteEdgeIds(
+  flow: ExperimentFlow,
+  ids: string[],
+): ExperimentFlow {
+  const gone = new Set(ids);
+  return {
+    ...flow,
+    edges: flow.edges.filter(
+      (e) => !gone.has(`${e.type}:${e.from}->${e.to}`),
+    ),
+  };
+}
+
+// ─── Container membership ────────────────────────────────────────────────────
+
+/** Would `setParent(flow, nodeId, parentId)` change anything? Used to decide
+ *  whether a drop target is valid before the user releases. */
+export function canParent(
+  flow: ExperimentFlow,
+  nodeId: string,
+  parentId: string,
+): boolean {
+  return setParent(flow, nodeId, parentId) !== flow;
+}
+
+/**
+ * Move `nodeId` into container `parentId` (or out when null). Adds a
+ * `path-contains` edge (order appended) or `loop-template` edge. Rejects
+ * parenting into own descendants and a second loop template.
+ */
+export function setParent(
+  flow: ExperimentFlow,
+  nodeId: string,
+  parentId: string | null,
+): ExperimentFlow {
+  // Strip existing membership edges for this node.
+  const edges = flow.edges.filter(
+    (e) =>
+      !(
+        (e.type === 'path-contains' || e.type === 'loop-template') &&
+        e.to === nodeId
+      ),
+  );
+  if (!parentId) return { ...flow, edges };
+
+  const parent = flow.nodes.find((n) => n.id === parentId);
+  if (!parent || (parent.type !== 'path' && parent.type !== 'loop'))
+    return flow;
+  if (parentId === nodeId) return flow;
+
+  // No parenting into own descendants (would create a containment cycle).
+  const parentOf = new Map<string, string>();
+  for (const e of flow.edges)
+    if (e.type === 'path-contains' || e.type === 'loop-template')
+      parentOf.set(e.to, e.from);
+  for (let cur: string | undefined = parentId; cur; cur = parentOf.get(cur))
+    if (cur === nodeId) return flow;
+
+  if (parent.type === 'loop') {
+    // Loops take exactly one template member — refuse if occupied.
+    if (edges.some((e) => e.type === 'loop-template' && e.from === parentId))
+      return flow;
+    return {
+      ...flow,
+      edges: [...edges, { type: 'loop-template', from: parentId, to: nodeId }],
+    };
+  }
+  const maxOrder = Math.max(
+    -1,
+    ...edges
+      .filter(isPathEdge)
+      .filter((e) => e.from === parentId)
+      .map((e) => e.order),
+  );
+  return {
+    ...flow,
+    edges: [
+      ...edges,
+      {
+        type: 'path-contains',
+        from: parentId,
+        to: nodeId,
+        order: maxOrder + 1,
+      },
+    ],
+  };
+}
+
+/** Members of a container in declared order (`order` on path-contains). */
+export function containerMembersOf(
+  flow: ExperimentFlow,
+  containerId: string,
+): string[] {
+  return flow.edges
+    .filter(
+      (e) =>
+        (e.type === 'path-contains' || e.type === 'loop-template') &&
+        e.from === containerId,
+    )
+    .sort((a, b) => ('order' in a ? a.order : 0) - ('order' in b ? b.order : 0))
+    .map((e) => e.to);
+}
+
+/** Move `nodeId` to `index` within its path's member order. */
+export function reorderMember(
+  flow: ExperimentFlow,
+  containerId: string,
+  nodeId: string,
+  index: number,
+): ExperimentFlow {
+  const memberEdges = flow.edges
+    .filter((e): e is Extract<FrameworkEdge, { type: 'path-contains' }> =>
+      isPathEdge(e),
+    )
+    .filter((e) => e.from === containerId)
+    .sort((a, b) => a.order - b.order);
+  const moved = memberEdges.find((e) => e.to === nodeId);
+  if (!moved) return flow;
+  const others = memberEdges.filter((e) => e.to !== nodeId);
+  const idx = Math.max(0, Math.min(index, others.length));
+  const reordered = [
+    ...others.slice(0, idx),
+    moved,
+    ...others.slice(idx),
+  ].map((e, i) => ({ ...e, order: i }));
+  return {
+    ...flow,
+    edges: [
+      ...flow.edges.filter(
+        (e) => !(isPathEdge(e) && e.from === containerId),
+      ),
+      ...reordered,
+    ],
+  };
+}
+
+// ─── Node creation ───────────────────────────────────────────────────────────
+
+const uid = (flow: ExperimentFlow, base: string): string => {
+  let i = 1;
+  while (flow.nodes.some((n) => n.id === `${base}-${i}`)) i++;
+  return `${base}-${i}`;
+};
+
+export function addNode(
+  flow: ExperimentFlow,
+  type: NodeType,
+): { flow: ExperimentFlow; id: string } {
+  const id = uid(flow, type);
+  const node = ((): FrameworkNode => {
+    switch (type) {
+      case 'screen':
+        return {
+          id,
+          type,
+          props: { slug: flow.screens?.[0]?.slug ?? 'new-screen' },
+        };
+      case 'branch':
+        return {
+          id,
+          type,
+          props: {
+            name: 'Branch',
+            branches: [
+              {
+                id: 'a',
+                name: 'A',
+                config: {
+                  type: 'simple' as const,
+                  dataKey: '$$data',
+                  operator: 'eq' as const,
+                  value: '',
+                },
+              },
+            ],
+          },
+        };
+      case 'fork':
+        return {
+          id,
+          type,
+          props: {
+            name: 'Fork',
+            forks: [
+              { id: 'a', name: 'A' },
+              { id: 'b', name: 'B' },
+            ],
+          },
+        };
+      case 'path':
+        return { id, type, props: { name: 'Path' } };
+      case 'loop':
+        return {
+          id,
+          type,
+          props: {
+            type: 'static',
+            values: [] as (string | Record<string, unknown>)[],
+          },
+        };
+      case 'compute':
+        return { id, type, props: { name: 'Compute', computations: [] } };
+      case 'data':
+        return { id, type, props: { name: 'Data', data: {} } };
+      case 'checkpoint':
+        return { id, type, props: { name: 'checkpoint' } };
+      case 'start':
+        return {
+          id,
+          type,
+          props: { name: 'Start', param: { key: 'condition', value: 'a' } },
+        };
+      case 'end':
+        return { id, type };
+    }
+  })();
+  return { flow: { ...flow, nodes: [...flow.nodes, node] }, id };
+}
+
+// ─── Prop edits ──────────────────────────────────────────────────────────────
+
+export function setNodeName(
+  flow: ExperimentFlow,
+  id: string,
+  name: string,
+): ExperimentFlow {
+  return {
+    ...flow,
+    nodes: flow.nodes.map((n) =>
+      n.id === id && 'props' in n
+        ? ({ ...n, props: { ...n.props, name } } as FrameworkNode)
+        : n,
+    ),
+  };
+}
+
+export function setComputations(
+  flow: ExperimentFlow,
+  id: string,
+  computations: Computation[],
+): ExperimentFlow {
+  return {
+    ...flow,
+    nodes: flow.nodes.map((n) =>
+      n.id === id && n.type === 'compute'
+        ? { ...n, props: { ...n.props, computations } }
+        : n,
+    ),
+  };
+}
+
+export function setDataMap(
+  flow: ExperimentFlow,
+  id: string,
+  data: Record<string, unknown>,
+): ExperimentFlow {
+  return {
+    ...flow,
+    nodes: flow.nodes.map((n) =>
+      n.id === id && n.type === 'data'
+        ? { ...n, props: { ...n.props, data } }
+        : n,
+    ),
+  };
+}
+
+export function setScreenSlug(
+  flow: ExperimentFlow,
+  id: string,
+  slug: string,
+): ExperimentFlow {
+  return {
+    ...flow,
+    nodes: flow.nodes.map((n) =>
+      n.id === id && n.type === 'screen'
+        ? { ...n, props: { ...n.props, slug } }
+        : n,
+    ),
+  };
+}
+
+// ─── Branch/fork arms ────────────────────────────────────────────────────────
+
+export type ArmPatch = {
+  name?: string;
+  weight?: number;
+  config?: Condition;
+};
+
+/** Update one arm's name/weight (fork) or name/config (branch). */
+export function updateArm(
+  flow: ExperimentFlow,
+  nodeId: string,
+  armId: string,
+  patch: ArmPatch,
+): ExperimentFlow {
+  return {
+    ...flow,
+    nodes: flow.nodes.map((n) => {
+      if (n.id !== nodeId) return n;
+      if (n.type === 'branch')
+        return {
+          ...n,
+          props: {
+            ...n.props,
+            branches: n.props.branches.map((b) =>
+              b.id === armId
+                ? {
+                    ...b,
+                    ...(patch.name !== undefined && { name: patch.name }),
+                    ...(patch.config !== undefined && { config: patch.config }),
+                  }
+                : b,
+            ),
+          },
+        };
+      if (n.type === 'fork')
+        return {
+          ...n,
+          props: {
+            ...n.props,
+            forks: n.props.forks.map((f) =>
+              f.id === armId
+                ? {
+                    ...f,
+                    ...(patch.name !== undefined && { name: patch.name }),
+                    // `'weight' in patch` lets callers clear it via undefined.
+                    ...('weight' in patch && { weight: patch.weight }),
+                  }
+                : f,
+            ),
+          },
+        };
+      return n;
+    }),
+  };
+}
+
+export function addArm(flow: ExperimentFlow, nodeId: string): ExperimentFlow {
+  return {
+    ...flow,
+    nodes: flow.nodes.map((n) => {
+      if (n.id !== nodeId) return n;
+      if (n.type === 'branch') {
+        const next = String.fromCharCode(97 + n.props.branches.length); // a,b,c…
+        return {
+          ...n,
+          props: {
+            ...n.props,
+            branches: [
+              ...n.props.branches,
+              {
+                id: next,
+                name: next.toUpperCase(),
+                config: {
+                  type: 'simple' as const,
+                  dataKey: '$$data',
+                  operator: 'eq' as const,
+                  value: '',
+                },
+              },
+            ],
+          },
+        };
+      }
+      if (n.type === 'fork') {
+        const next = String.fromCharCode(97 + n.props.forks.length);
+        return {
+          ...n,
+          props: {
+            ...n.props,
+            forks: [...n.props.forks, { id: next, name: next.toUpperCase() }],
+          },
+        };
+      }
+      return n;
+    }),
+  };
+}
+
+export function removeArm(
+  flow: ExperimentFlow,
+  nodeId: string,
+  armId: string,
+): ExperimentFlow {
+  const from = `${nodeId}.${armId}`;
+  return {
+    ...flow,
+    nodes: flow.nodes.map((n) => {
+      if (n.id !== nodeId) return n;
+      if (n.type === 'branch' && n.props.branches.length > 1)
+        return {
+          ...n,
+          props: {
+            ...n.props,
+            branches: n.props.branches.filter((b) => b.id !== armId),
+          },
+        };
+      if (n.type === 'fork' && n.props.forks.length > 2)
+        return {
+          ...n,
+          props: {
+            ...n.props,
+            forks: n.props.forks.filter((f) => f.id !== armId),
+          },
+        };
+      return n;
+    }),
+    // Drop edges that referenced the removed arm.
+    edges: flow.edges.filter((e) => e.from !== from),
+  };
+}
