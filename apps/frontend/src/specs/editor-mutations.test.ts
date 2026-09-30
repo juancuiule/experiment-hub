@@ -83,14 +83,14 @@ describe('canConnect', () => {
     ).toBe(false);
   });
 
-  it('rejects a second sequential edge from the same node', () => {
+  it('accepts a second sequential edge — the old edge gets replaced', () => {
     expect(
       canConnect(fixture, {
         source: 's-consent',
         sourceHandle: 'next',
         target: 's-b',
       }),
-    ).toBe(false);
+    ).toBe(true);
   });
 
   it('rejects cycles', () => {
@@ -128,6 +128,31 @@ describe('connect', () => {
       from: 'b-age.b',
       to: 's-b',
     });
+  });
+
+  it('replaces the existing edge on a max-1 slot', () => {
+    // s-consent.next → b-age exists; connecting next → s-b swaps it.
+    const next = connect(fixture, {
+      source: 's-consent',
+      sourceHandle: 'next',
+      target: 's-b',
+    });
+    expect(
+      next.edges.some(
+        (e) => e.type === 'sequential' && e.from === 's-consent' && e.to === 'b-age',
+      ),
+    ).toBe(false);
+    expect(
+      next.edges.some(
+        (e) => e.type === 'sequential' && e.from === 's-consent' && e.to === 's-b',
+      ),
+    ).toBe(true);
+    // Still exactly one sequential edge out of s-consent.
+    expect(
+      next.edges.filter(
+        (e) => e.type === 'sequential' && e.from === 's-consent',
+      ),
+    ).toHaveLength(1);
   });
 
   it('is a no-op on illegal connections', () => {

@@ -89,16 +89,8 @@ export function canConnect(
   const type = edgeTypeFor(source, spec.sourceHandle);
   if (!type) return false;
 
-  // Max-1 outputs: sequential / branch-default / loop-template
-  if (
-    type === 'sequential' ||
-    type === 'branch-default'
-  ) {
-    if (
-      flow.edges.some((e) => e.type === type && e.from.split('.')[0] === spec.source)
-    )
-      return false;
-  }
+  // Max-1 outputs (sequential / branch-default) stay connectable when
+  // occupied — `connect` replaces the existing edge rather than refusing.
 
   // No cycles — a new edge must not let target reach source.
   return !hasPath(
@@ -133,7 +125,8 @@ export function reconnect(
   return connect(without, spec);
 }
 
-/** Build the framework edge a connection implies (null if illegal). */
+/** Add the framework edge a connection implies — a no-op on illegal
+ *  connections; replaces the existing edge on occupied max-1 outputs. */
 export function connect(
   flow: ExperimentFlow,
   spec: ConnectSpec,
@@ -141,7 +134,14 @@ export function connect(
   if (!canConnect(flow, spec)) return flow;
   const source = flow.nodes.find((n) => n.id === spec.source)!;
   const type = edgeTypeFor(source, spec.sourceHandle)!;
-  return { ...flow, edges: [...flow.edges, buildEdge(type, spec)] };
+  // Max-1 slot already occupied → swap the old edge for the new one.
+  const edges =
+    type === 'sequential' || type === 'branch-default'
+      ? flow.edges.filter(
+          (e) => !(e.type === type && e.from.split('.')[0] === spec.source),
+        )
+      : flow.edges;
+  return { ...flow, edges: [...edges, buildEdge(type, spec)] };
 }
 
 // ─── Deletion ────────────────────────────────────────────────────────────────
