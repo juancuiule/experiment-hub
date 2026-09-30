@@ -173,6 +173,7 @@ const walkComponents = (
 export function buildMockContext(
   flow: ExperimentFlow,
   screen: FrameworkScreen,
+  overrides?: Record<string, ContextData>,
 ): Context {
   const data: ContextData = {};
   const loopData: Record<string, { value: unknown; index: number }> = {};
@@ -391,6 +392,15 @@ export function buildMockContext(
   for (const m of json.matchAll(/#[\w-]+/g)) {
     const feId = m[0].slice(1);
     if (!foreachData[feId]) foreachData[feId] = { value: 'item-a', index: 0 };
+  }
+
+  // Answers captured in other previews override fakes — `$$slug.field`
+  // resolves to what the user actually typed.
+  if (overrides) {
+    for (const [slug, fields] of Object.entries(overrides)) {
+      for (const [key, v] of Object.entries(fields))
+        setData(`$$${slug}.${key}`, v);
+    }
   }
 
   const locale = defaultLocaleOf(flow);

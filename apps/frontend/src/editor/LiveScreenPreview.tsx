@@ -17,11 +17,16 @@ import { buildMockContext } from './mock-context';
 export default function LiveScreenPreview({
   flow,
   screen,
+  overrides,
 }: {
   flow: ExperimentFlow;
   screen: FrameworkScreen;
+  overrides?: Record<string, ContextData>;
 }) {
-  const context = useMemo(() => buildMockContext(flow, screen), [flow, screen]);
+  const context = useMemo(
+    () => buildMockContext(flow, screen, overrides),
+    [flow, screen, overrides],
+  );
   const { schema, defaultValues } = useMemo(
     () => buildScreenBindings(screen.components, context),
     [screen, context],

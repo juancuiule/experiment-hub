@@ -1,10 +1,17 @@
 'use client';
 import type { ScreenComponent } from '@experiment-hub/engine/components';
-import type { ExperimentFlow } from '@experiment-hub/engine/types';
+import { resolveValuesInString } from '@experiment-hub/engine/resolve';
+import type { ContextData, ExperimentFlow } from '@experiment-hub/engine/types';
 import { useMemo, useState } from 'react';
 import ComponentInspector from './ComponentInspector';
 import ComponentOutline from './ComponentOutline';
-import LiveScreenPreview from './LiveScreenPreview';
+import EditablePreview, { type EditHandlers } from './EditablePreview';
+import { buildMockContext } from './mock-context';
+import {
+  clearPreviewData,
+  saveScreenAnswers,
+  usePreviewDataState,
+} from './preview-data';
 import { refSuggestions } from './ref-suggestions';
 import {
   countDataKeys,
@@ -57,6 +64,13 @@ export default function ScreenEditor({
 }) {
   const [draft, setDraft] = useState(experiment);
   const [selectedPath, setSelectedPath] = useState<CompPath | null>(null);
+  const [hoveredPath, setHoveredPath] = useState<CompPath | null>(null);
+  const [editingPath, setEditingPath] = useState<CompPath | null>(null);
+  const [dragPath, setDragPath] = useState<CompPath | null>(null);
+  const [liveData, setLiveData] = useState<ContextData>({});
+  // Answers typed into ANY screen's preview — `$$slug.field` resolves to them.
+  // Loaded post-mount via the hook so SSR and hydration output match.
+  const [overrides, setOverrides] = usePreviewDataState(slug);
   const [history, setHistory] = useState<{
     past: ExperimentFlow[];
     future: ExperimentFlow[];
@@ -73,6 +87,44 @@ export default function ScreenEditor({
   const refs = useMemo(() => refSuggestions(draft), [draft]);
   const rows = useMemo(() => listComponents(components), [components]);
   const selected = selectedPath ? getAt(components, selectedPath) : undefined;
+  // Outline labels resolve `[[key]]` dictionary + `{{ref}}` tokens against
+  // the same faked context the preview uses.
+  const labelCtx = useMemo(
+    () =>
+      screen
+        ? buildMockContext(draft, screen, overrides)
+        : buildMockContext(draft, { slug: screenSlug, components: [] }, overrides),
+    [draft, screen, screenSlug, overrides],
+  );
+  const resolve = (s: string) => resolveValuesInString(s, labelCtx);
+
+  const handlers: EditHandlers = {
+    selectedKey: pathKey(selectedPath),
+    hoveredKey: pathKey(hoveredPath),
+    editingKey: pathKey(editingPath),
+    onSelect: (p) => setSelectedPath(p.length ? p : null),
+    onHover: setHoveredPath,
+    onEdit: setEditingPath,
+    onPatch: (path, props) =>
+      mutateComponents((c) =>
+        updateAt(c, path, (comp) => ({ ...comp, props }) as ScreenComponent),
+      ),
+    onMove: (arrPath, from, to) =>
+      mutateComponents((c) => moveInArray(c, arrPath, from, to)),
+    dragKey: pathKey(dragPath),
+    onDragChange: setDragPath,
+    onData: (data) => {
+      // form.watch() returns a new object each render — dedupe by value
+      // before setting state or we'd loop. Other screens' previews read
+      // the store fresh on mount, so self-overrides stay mount-snapshot.
+      setLiveData((prev) =>
+        JSON.stringify(prev) === JSON.stringify(data) ? prev : data,
+      );
+      saveScreenAnswers(slug, screenSlug, data);
+    },
+    seedData: overrides[screenSlug],
+    overrides,
+  };
 
   const mutate = (next: (f: ExperimentFlow) => ExperimentFlow) => {
     setHistory((h) => ({ past: [...h.past, draft], future: [] }));
@@ -180,7 +232,10 @@ export default function ScreenEditor({
         <ComponentOutline
           components={components}
           selectedKey={pathKey(selectedPath)}
+          hoveredKey={pathKey(hoveredPath)}
           onSelect={setSelectedPath}
+          onHover={setHoveredPath}
+          resolve={resolve}
           onRemove={(path) => {
             mutateComponents((c) => removeAt(c, path));
             if (selectedPath && pathKey(selectedPath) === pathKey(path))
@@ -192,16 +247,37 @@ export default function ScreenEditor({
           addMenu={addMenu}
         />
       </div>
-      {/* live preview */}
-      <div className="bg-surface-subtle min-w-0 flex-1 overflow-auto p-4">
-        <div className="mx-auto max-w-lg">
+      {/* live preview — every component is hover/select/drag/inline-edit */}
+      <div className="bg-surface-subtle flex min-w-0 flex-1 flex-col overflow-auto">
+        <div className="mx-auto w-full max-w-lg flex-1 p-4">
           {screen ? (
-            <LiveScreenPreview flow={draft} screen={screen} />
+            <EditablePreview flow={draft} screen={screen} h={handlers} />
           ) : (
             <span className="text-content-secondary text-xs">
               screen not found
             </span>
           )}
+        </div>
+        {/* collected data — live as you interact with the preview */}
+        <div className="border-border-default bg-background-surface mt-auto flex items-center gap-2 border-t px-3 py-1.5">
+          <span className="text-content-secondary shrink-0 text-xxs">
+            screen data
+          </span>
+          <code className="text-content-secondary min-w-0 flex-1 truncate font-mono text-xxs">
+            {JSON.stringify(liveData)}
+          </code>
+          <button
+            type="button"
+            title="Clear saved answers for this experiment"
+            className="text-content-secondary hover:text-content-primary shrink-0 cursor-pointer text-xxs underline"
+            onClick={() => {
+              clearPreviewData(slug);
+              setOverrides({});
+              setLiveData({});
+            }}
+          >
+            reset
+          </button>
         </div>
       </div>
       {/* inspector */}

@@ -40,3 +40,52 @@ test('dataKey rename propagates to refs', async ({ page }) => {
   await page.getByRole('button', { name: '← undo' }).click();
   await expect(page.locator('input[value="answer"]')).toBeVisible();
 });
+
+test('canvas: click-select + inline text edit + drag reorder', async ({
+  page,
+}) => {
+  await page.goto('/screens/experiment/psychoactive-options');
+
+  // Click the checkboxes component on the canvas → inspector selects it.
+  await page.locator('[data-comp-path="[1]"]').click();
+  await expect(
+    page.locator('input[value="psychoactive-substances"]'),
+  ).toBeVisible();
+
+  // Double-click the rich-text → inline edit; blur commits.
+  await page.locator('[data-comp-path="[0]"]').dblclick();
+  const inline = page.locator('[data-comp-path="[0]"] textarea');
+  await expect(inline).toBeVisible();
+  await inline.fill('### ¿Pregunta editada?');
+  await page.locator('h1').click(); // blur → commit
+  await expect(
+    page.getByRole('heading', { name: '¿Pregunta editada?' }),
+  ).toBeVisible();
+
+  // Hover the conditional → drag its handle above the rich-text → row 0.
+  const firstRow = page.locator('div.group').first();
+  await expect(firstRow).toContainText('rich-text');
+  await page.locator('[data-comp-path="[2]"]').hover();
+  await page
+    .locator('[data-comp-path="[2]"] [data-drag-handle]')
+    .dragTo(page.locator('[data-comp-path="[0]"]'), {
+      targetPosition: { x: 12, y: 4 },
+    });
+  await expect(page.locator('div.group').first()).toContainText('conditional');
+});
+
+test('answers persist across screens ($$ refs resolve to them)', async ({
+  page,
+}) => {
+  await page.goto('/screens/experiment/psychoactive-options');
+  await page.locator('#psychoactive-substances-alcohol').click();
+  await expect(
+    page.locator('code', { hasText: '"psychoactive-substances":["alcohol"]' }),
+  ).toBeVisible();
+
+  // The downstream screen's for-each iterates $$psychoactive-options.* —
+  // it should render ONLY the checked substance.
+  await page.goto('/screens/experiment/psychoactive-quarantine-change');
+  await expect(page.getByText('Alcohol').first()).toBeVisible();
+  await expect(page.getByText('Marihuana')).toHaveCount(0);
+});

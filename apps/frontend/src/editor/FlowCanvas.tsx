@@ -33,6 +33,7 @@ import {
   useState,
 } from 'react';
 import LiveScreenPreview from './LiveScreenPreview';
+import { usePreviewData } from './preview-data';
 import {
   clearPositions,
   loadPositions,
@@ -259,6 +260,8 @@ export default function FlowCanvas({
   const [draft, setDraft] = useState(experiment);
   const past = useRef<ExperimentFlow[]>([]);
   const future = useRef<ExperimentFlow[]>([]);
+  // Answers typed into screen-editor previews — `$$` refs resolve to them.
+  const previewData = usePreviewData(slug);
   const [depth, setDepth] = useState({ undo: 0, redo: 0 });
   const [dirty, setDirty] = useState(false);
   const [publish, setPublish] = useState<{
@@ -1100,7 +1103,11 @@ export default function FlowCanvas({
 
                   {inspectorTab === 'live' && raw.screen ? (
                     <div className="max-h-[70vh] overflow-auto p-3">
-                      <LiveScreenPreview flow={draft} screen={raw.screen} />
+                      <LiveScreenPreview
+                        flow={draft}
+                        screen={raw.screen}
+                        overrides={previewData}
+                      />
                     </div>
                   ) : (
                     <div className="max-h-96 overflow-auto p-3">

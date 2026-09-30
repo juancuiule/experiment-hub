@@ -52,12 +52,16 @@ const TEMPLATE_ICON: Record<string, typeof Type> = {
   checkboxes: CheckSquare,
 };
 
-/** Best-effort human label for an outline row. */
-function labelOf(c: ScreenComponent): string {
+/** Best-effort human label for an outline row — `[[key]]` dictionary
+ *  tokens resolve to real messages. */
+function labelOf(
+  c: ScreenComponent,
+  resolve: (s: string) => string,
+): string {
   const p = c.props as Record<string, unknown>;
   const v =
     p.label ?? p.text ?? p.title ?? p.name ?? p.content ?? p.dataKey ?? p.url;
-  if (typeof v === 'string' && v) return v;
+  if (typeof v === 'string' && v) return resolve(v);
   return c.template;
 }
 
@@ -70,17 +74,23 @@ function childArrPath(rowPath: CompPath, c: ScreenComponent): CompPath | null {
 export default function ComponentOutline({
   components,
   selectedKey,
+  hoveredKey,
   onSelect,
+  onHover,
   onRemove,
   onMove,
   addMenu,
+  resolve,
 }: {
   components: ScreenComponent[];
   selectedKey: string | null;
+  hoveredKey?: string | null;
   onSelect: (path: CompPath) => void;
+  onHover?: (path: CompPath | null) => void;
   onRemove: (path: CompPath) => void;
   onMove: (arrPath: CompPath, from: number, to: number) => void;
   addMenu: (arrPath: CompPath) => React.ReactNode;
+  resolve?: (s: string) => string;
 }) {
   const rows = listComponents(components);
   const dupes = new Set(
@@ -96,6 +106,7 @@ export default function ComponentOutline({
           TEMPLATE_ICON[component.template] ?? FAMILY_ICON[component.componentFamily];
         const key = pathKey(path);
         const sel = key === selectedKey;
+        const hov = key === hoveredKey;
         const p = component.props as Record<string, unknown>;
         const dataKey = typeof p.dataKey === 'string' ? p.dataKey : undefined;
         const arrPath = inArray ? path.slice(0, -1) : null;
@@ -117,9 +128,13 @@ export default function ComponentOutline({
             className={`group flex items-center gap-1 rounded px-1 py-0.5 ${
               sel
                 ? 'bg-accent-subtle text-content-primary'
-                : 'hover:bg-surface-subtle text-content-secondary'
+                : hov
+                  ? 'bg-accent-subtle/60 text-content-primary'
+                  : 'hover:bg-surface-subtle text-content-secondary'
             }`}
             style={{ paddingLeft: `${4 + depth * 12}px` }}
+            onMouseOver={() => onHover?.(path)}
+            onMouseOut={() => onHover?.(null)}
           >
             <button
               type="button"
@@ -127,7 +142,9 @@ export default function ComponentOutline({
               onClick={() => onSelect(path)}
             >
               <Icon className="h-3 w-3 shrink-0 opacity-70" />
-              <span className="min-w-0 flex-1 truncate">{labelOf(component)}</span>
+              <span className="min-w-0 flex-1 truncate">
+                {labelOf(component, resolve ?? ((s) => s))}
+              </span>
               <span className="opacity-50">{component.template}</span>
               {dataKey && (
                 <span
