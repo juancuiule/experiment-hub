@@ -304,12 +304,30 @@ function FormulaEditor({
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-1">
             <span className="text-content-secondary">input</span>
-            <RefInput
-              value={String(formula.input)}
-              refs={refs}
-              className="w-40"
-              onCommit={(v) => set({ input: v as never })}
-            />
+            {typeof formula.input === 'string' ? (
+              <RefInput
+                value={formula.input}
+                refs={refs}
+                className="w-40"
+                onCommit={(v) => set({ input: v as never })}
+              />
+            ) : (
+              <>
+                <span className="border-border-default bg-surface-subtle text-content-secondary rounded border px-1.5 py-0.5 text-xxs">
+                  {Array.isArray(formula.input)
+                    ? `${formula.input.length} items`
+                    : 'inline value'}
+                </span>
+                <button
+                  type="button"
+                  title="Convert to a $$ ref"
+                  className="text-content-secondary hover:text-content-primary cursor-pointer text-xxs underline"
+                  onClick={() => set({ input: '$$' as never })}
+                >
+                  → ref
+                </button>
+              </>
+            )}
           </div>
           {formula.type === 'split' && (
             <div className="flex items-center gap-1">
