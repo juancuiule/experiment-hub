@@ -23,6 +23,7 @@ import type { Condition } from '@experiment-hub/engine/conditions';
 import { validateExperiment } from '@experiment-hub/engine/experiment-validation';
 import type { NodeType } from '@experiment-hub/engine/nodes';
 import type { ExperimentFlow } from '@experiment-hub/engine/types';
+import { useRouter } from 'next/navigation';
 import { useTheme } from 'next-themes';
 import {
   createContext,
@@ -299,6 +300,7 @@ export default function FlowCanvas({
     syncDepth();
   };
 
+  const router = useRouter();
   const [nodes, setNodes, onNodesChange] = useNodesState<EditorNode>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<EditorEdge>([]);
   const [view, setView] = useState<ViewOptions>(DEFAULT_VIEW_OPTIONS);
@@ -585,6 +587,13 @@ export default function FlowCanvas({
     setInspectorTab(node?.type === 'screen' ? 'live' : 'raw');
   };
 
+  // Double-click a screen node → drill into its screen editor.
+  const onNodeDoubleClick = (_: unknown, node: { id: string }) => {
+    const n = draft.nodes.find((x) => x.id === node.id);
+    if (n?.type === 'screen')
+      router.push(`/screens/${slug}/${n.props.slug}`);
+  };
+
   // ── Keyboard: undo/redo + copy/paste ───────────────────────────────────────
 
   const copy = () => {
@@ -735,6 +744,7 @@ export default function FlowCanvas({
           onNodeDrag={onNodeDrag}
           onNodeDragStop={onNodeDragStop}
           onSelectionChange={onSelectionChange}
+          onNodeDoubleClick={onNodeDoubleClick}
           colorMode={resolvedTheme === 'dark' ? 'dark' : 'light'}
         >
           <Background variant={BackgroundVariant.Dots} gap={16} size={1} />

@@ -5,6 +5,7 @@ import type {
   LoopAggregateFormula,
 } from '@experiment-hub/engine/nodes';
 import ConditionEditor from './ConditionEditor';
+import RefInput from './RefInput';
 
 const inputClass =
   'border-border-default bg-background text-content-primary min-w-0 rounded border px-1.5 py-0.5 font-mono text-xxs';
@@ -75,39 +76,6 @@ const FORMULA_TYPES: Formula['type'][] = [
   'loop-aggregate',
   'collect-loop',
 ];
-
-/** Ref-ish input with suggestion datalist. */
-function RefInput({
-  value,
-  refs,
-  onCommit,
-  placeholder = '$$x.y',
-  className = '',
-}: {
-  value: string;
-  refs: string[];
-  onCommit: (v: string) => void;
-  placeholder?: string;
-  className?: string;
-}) {
-  return (
-    <>
-      <input
-        key={value}
-        list="ce-refs"
-        className={`${inputClass} ${className}`}
-        defaultValue={value}
-        placeholder={placeholder}
-        onBlur={(e) => onCommit(e.target.value)}
-      />
-      <datalist id="ce-refs">
-        {refs.map((r) => (
-          <option key={r} value={r} />
-        ))}
-      </datalist>
-    </>
-  );
-}
 
 function FormulaEditor({
   formula,
