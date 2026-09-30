@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
 const MEMBER = '[data-id="screen-energy-sleep-mood"]';
+const MEMBER_LAST = '[data-id="screen-mind-stress-body"]';
 const FRAME = '[data-id="path-questions"]';
 
 const box = async (page: Page, sel: string) => {
@@ -42,23 +43,35 @@ const dragNode = async (
   await page.waitForTimeout(400);
 };
 
-/** Drag `sel` so its grab point lands at `to` (screen coords). */
-const dragNodeTo = async (
+/** Drag `sel` so its CENTER lands at `to` — grabs at a verified point and
+ *  compensates for the grab offset (needed for tall nodes). */
+const dragNodeCenterTo = async (
   page: Page,
   sel: string,
   to: { x: number; y: number },
 ) => {
   const p = await grabPoint(page, sel);
+  const b = await box(page, sel);
+  const center = { x: b.x + b.width / 2, y: b.y + b.height / 2 };
   await page.mouse.move(p.x, p.y);
   await page.mouse.down();
-  await page.mouse.move(to.x, to.y, { steps: 12 });
+  await page.mouse.move(
+    to.x + (p.x - center.x),
+    to.y + (p.y - center.y),
+    { steps: 12 },
+  );
   await page.mouse.up();
   await page.waitForTimeout(400);
 };
 
 const publishedFlow = async (page: Page) => {
+  // The draft rebuilds after drags — wait for the UI to settle before the
+  // click so the button isn't mid-relayout.
+  await page.waitForTimeout(600);
   const download = page.waitForEvent('download');
-  await page.getByRole('button', { name: 'Download JSON' }).click();
+  await page
+    .getByRole('button', { name: 'Download JSON' })
+    .click({ timeout: 15_000 });
   const path = await (await download).path();
   const { readFileSync } = await import('fs');
   return JSON.parse(readFileSync(path, 'utf8')) as {
@@ -78,15 +91,17 @@ test('container frame grows, shrinks, and members can leave/rejoin', async ({
 
   const frame0 = await box(page, FRAME);
 
-  // 1. Drag member toward the right border (center stays inside) → frame grows.
-  await dragNode(page, MEMBER, frame0.width - 120, 0);
+  // 1. Drag the LAST member right so its edge pokes past the border while
+  //    the center stays inside (a bigger drag escapes; a left-of-last drag
+  //    would reorder) → frame grows.
+  await dragNode(page, MEMBER_LAST, 60, 0);
   const frame1 = await box(page, FRAME);
   expect(frame1.width).toBeGreaterThan(frame0.width + 20);
 
   // 2. Drag it back inward → frame shrinks back toward layout size.
-  await dragNode(page, MEMBER, -(frame1.width - frame0.width + 60), 0);
+  await dragNode(page, MEMBER_LAST, -60, 0);
   const frame2 = await box(page, FRAME);
-  expect(frame2.width).toBeLessThanOrEqual(frame0.width + 60);
+  expect(frame2.width).toBeLessThanOrEqual(frame0.width + 40);
 
   // 3. Drag member clearly out (center >12px past border) → unparented.
   const f2 = await box(page, FRAME);
@@ -104,7 +119,7 @@ test('container frame grows, shrinks, and members can leave/rejoin', async ({
   await page.keyboard.press('Escape');
   await page.waitForTimeout(200);
   const f3 = await box(page, FRAME);
-  await dragNodeTo(page, MEMBER, {
+  await dragNodeCenterTo(page, MEMBER, {
     x: f3.x + f3.width / 2,
     y: f3.y + f3.height - 20,
   });
@@ -116,10 +131,37 @@ test('container frame grows, shrinks, and members can leave/rejoin', async ({
   ).toBe(true);
 });
 
-test('loop template member can leave and rejoin', async ({ page }) => {
-  page.on('console', (m) => {
-    if (m.text().startsWith('[dragstop]')) console.log(m.text());
+test('dragging a member across a sibling reorders the path', async ({
+  page,
+}) => {
+  await page.goto('/nodes/ejercicio-1');
+  await page.waitForSelector('.react-flow__node');
+  await page.waitForTimeout(500);
+
+  const orderOf = async () => {
+    const flow = await publishedFlow(page);
+    return flow.edges
+      .filter(
+        (e) =>
+          e.type === 'path-contains' && e.from === 'path-questions',
+      )
+      .map((e) => `${e.to}:${(e as { order?: number }).order}`);
+  };
+
+  // energy-sleep-mood (order 0) center dragged past mind-stress-body's
+  // center while staying inside the frame → becomes order 1.
+  const last = await box(page, '[data-id="screen-mind-stress-body"]');
+  await dragNodeCenterTo(page, MEMBER, {
+    x: last.x + last.width - 20,
+    y: last.y + 60,
   });
+
+  const order = await orderOf();
+  expect(order).toContain('screen-energy-sleep-mood:1');
+  expect(order).toContain('screen-mind-stress-body:0');
+});
+
+test('loop template member can leave and rejoin', async ({ page }) => {
   await page.goto('/nodes/emociones');
   await page.waitForSelector('.react-flow__node');
   await page.waitForTimeout(500);
@@ -144,7 +186,7 @@ test('loop template member can leave and rejoin', async ({ page }) => {
   const f1 = await box(page, '[data-id="loop-miradas"]');
   // Grab a point verified to hit the member (it may be stacked under
   // another node), and drop it overlapping the frame's lower edge.
-  await dragNodeTo(page, member, {
+  await dragNodeCenterTo(page, member, {
     x: f1.x + f1.width / 2,
     y: f1.y + f1.height - 20,
   });

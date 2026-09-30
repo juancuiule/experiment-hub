@@ -316,6 +316,54 @@ export function setParent(
   };
 }
 
+/** Members of a container in declared order (`order` on path-contains). */
+export function containerMembersOf(
+  flow: ExperimentFlow,
+  containerId: string,
+): string[] {
+  return flow.edges
+    .filter(
+      (e) =>
+        (e.type === 'path-contains' || e.type === 'loop-template') &&
+        e.from === containerId,
+    )
+    .sort((a, b) => ('order' in a ? a.order : 0) - ('order' in b ? b.order : 0))
+    .map((e) => e.to);
+}
+
+/** Move `nodeId` to `index` within its path's member order. */
+export function reorderMember(
+  flow: ExperimentFlow,
+  containerId: string,
+  nodeId: string,
+  index: number,
+): ExperimentFlow {
+  const memberEdges = flow.edges
+    .filter((e): e is Extract<FrameworkEdge, { type: 'path-contains' }> =>
+      isPathEdge(e),
+    )
+    .filter((e) => e.from === containerId)
+    .sort((a, b) => a.order - b.order);
+  const moved = memberEdges.find((e) => e.to === nodeId);
+  if (!moved) return flow;
+  const others = memberEdges.filter((e) => e.to !== nodeId);
+  const idx = Math.max(0, Math.min(index, others.length));
+  const reordered = [
+    ...others.slice(0, idx),
+    moved,
+    ...others.slice(idx),
+  ].map((e, i) => ({ ...e, order: i }));
+  return {
+    ...flow,
+    edges: [
+      ...flow.edges.filter(
+        (e) => !(isPathEdge(e) && e.from === containerId),
+      ),
+      ...reordered,
+    ],
+  };
+}
+
 // ─── Node creation ───────────────────────────────────────────────────────────
 
 const uid = (flow: ExperimentFlow, base: string): string => {

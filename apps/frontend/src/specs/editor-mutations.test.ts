@@ -11,6 +11,7 @@ import {
   edgeTypeFor,
   reconnect,
   removeArm,
+  reorderMember,
   setNodeName,
   setParent,
   setScreenSlug,
@@ -269,6 +270,29 @@ describe('addNode / props / arms', () => {
     // s-a isn't a container → rejected anyway; check path→self guard too
     expect(setParent(nested, pathId, pathId)).toBe(nested);
     expect(cycle).toBe(nested);
+  });
+
+  it('reorderMember rewrites path-contains order', () => {
+    let f = addNode(fixture, 'path').flow;
+    const pathId = f.nodes.at(-1)!.id;
+    f = setParent(f, 's-a', pathId);
+    f = setParent(f, 's-b', pathId);
+    const withThree = setParent(f, 'b-age', pathId); // a, b, branch
+
+    // Move b-age to the front
+    const next = reorderMember(withThree, pathId, 'b-age', 0);
+    const orderOf = (id: string) =>
+      next.edges
+        .filter(
+          (e) =>
+            e.type === 'path-contains' &&
+            e.from === pathId &&
+            e.to === id,
+        )
+        .map((e) => ('order' in e ? e.order : -1))[0];
+    expect(orderOf('b-age')).toBe(0);
+    expect(orderOf('s-a')).toBe(1);
+    expect(orderOf('s-b')).toBe(2);
   });
 
   it('updateArm patches branch configs and fork weights', () => {

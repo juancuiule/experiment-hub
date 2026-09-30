@@ -47,8 +47,10 @@ import {
   deleteNodes,
   duplicateNodes,
   canParent,
+  containerMembersOf,
   reconnect,
   removeArm,
+  reorderMember,
   setNodeName,
   setParent,
   setComputations,
@@ -514,6 +516,38 @@ export default function FlowCanvas({
       }
     }
 
+    // Member dropped inside its own frame (reaching here means it didn't
+    // escape) — check for a reorder: if its center-x now sorts it among
+    // siblings differently than the declared order, rewrite `path-contains`
+    // orders and let the layout reseat them.
+    if (currentParent) {
+      const sibs = nodes.filter((n) => n.parentId === currentParent);
+      if (sibs.length > 1) {
+        const byX = sibs
+          .map((s) => ({
+            id: s.id,
+            cx:
+              nodeAbs(s, byId).x +
+              (s.measured?.width ?? s.width ?? 240) / 2,
+          }))
+          .sort((a, b) => a.cx - b.cx);
+        const newIndex = byX.findIndex((s) => s.id === node.id);
+        const curIndex = containerMembersOf(draft, currentParent).indexOf(
+          node.id,
+        );
+        if (newIndex >= 0 && newIndex !== curIndex) {
+          // Clear member positions so the inner layout reseats in new order.
+          for (const s of sibs) delete posRef.current[s.id];
+          removePositions(
+            slug,
+            sibs.map((s) => s.id),
+          );
+          mutate((f) => reorderMember(f, currentParent, node.id, newIndex));
+          return;
+        }
+      }
+    }
+
     // Plain move — refit frames so a member dropped near the border gets
     // covered (and an inward move shrinks the frame back to fit).
     posRef.current[node.id] = node.position;
@@ -660,6 +694,19 @@ export default function FlowCanvas({
   const selected = raw?.node;
   const selectedHasName =
     selected && 'props' in selected && 'name' in (selected.props ?? {});
+  const memberIdsOfSelected =
+    selected && (selected.type === 'path' || selected.type === 'loop')
+      ? containerMembersOf(draft, selected.id)
+      : [];
+  const memberLabel = (id: string) => {
+    const m = draft.nodes.find((n) => n.id === id);
+    return m && 'props' in m && m.props && 'name' in m.props
+      ? (m.props.name as string)
+      : id;
+  };
+  const moveMember = (nodeId: string, index: number) => {
+    if (selected) mutate((f) => reorderMember(f, selected.id, nodeId, index));
+  };
 
   return (
     <div className="border-border-default bg-background h-[75vh] w-full overflow-hidden rounded-xl border">
@@ -961,6 +1008,53 @@ export default function FlowCanvas({
                             </div>
                           ))}
                         </div>
+                      </div>
+                    )}
+                    {(selected.type === 'path' ||
+                      selected.type === 'loop') && (
+                      <div className="flex flex-col gap-1.5 text-xxs">
+                        <span className="text-content-secondary">
+                          {selected.type === 'loop' ? 'template' : 'steps'}
+                        </span>
+                        {memberIdsOfSelected.length === 0 && (
+                          <span className="text-content-secondary">
+                            drop nodes onto the frame
+                          </span>
+                        )}
+                        {memberIdsOfSelected.map((id, i) => (
+                          <div key={id} className="flex items-center gap-1.5">
+                            <span className="text-content-secondary w-4 shrink-0 font-mono">
+                              {i + 1}.
+                            </span>
+                            <span className="text-content-primary min-w-0 flex-1 wrap-anywhere font-mono">
+                              {memberLabel(id)}
+                            </span>
+                            {selected.type === 'path' && (
+                              <>
+                                <button
+                                  type="button"
+                                  aria-label={`Move ${id} up`}
+                                  disabled={i === 0}
+                                  onClick={() => moveMember(id, i - 1)}
+                                  className="text-content-secondary hover:text-content-primary cursor-pointer disabled:opacity-30"
+                                >
+                                  ↑
+                                </button>
+                                <button
+                                  type="button"
+                                  aria-label={`Move ${id} down`}
+                                  disabled={
+                                    i === memberIdsOfSelected.length - 1
+                                  }
+                                  onClick={() => moveMember(id, i + 1)}
+                                  className="text-content-secondary hover:text-content-primary cursor-pointer disabled:opacity-30"
+                                >
+                                  ↓
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        ))}
                       </div>
                     )}
                     {selected.type === 'compute' && (
