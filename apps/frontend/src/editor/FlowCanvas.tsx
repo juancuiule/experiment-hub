@@ -62,6 +62,7 @@ import DataEditor from './DataEditor';
 import { refSuggestions } from './ref-suggestions';
 import {
   CONTAINER_COLORS,
+  CONTAINER_PAD,
   layoutFlow,
   toFlowGraph,
   type ContainerNodeData,
@@ -324,21 +325,61 @@ export default function FlowCanvas({
   const selRef = useRef<Set<string>>(new Set());
   const clipboard = useRef<string[]>([]);
 
+  /** Grow container styles so members never poke past the frame edge.
+   *  Only children whose center is still inside count — a member dragged
+   *  fully out does NOT grow the frame (that's the escape gesture). */
+  const fitFrames = (list: EditorNode[]): EditorNode[] =>
+    list.map((n) => {
+      if (n.type !== 'container') return n;
+      const curW = Number(n.style?.width ?? 0);
+      const curH = Number(n.style?.height ?? 0);
+      const kids = list.filter((k) => {
+        if (k.parentId !== n.id) return false;
+        const kw = k.measured?.width ?? k.width ?? 240;
+        const kh = k.measured?.height ?? k.height ?? 90;
+        // center still inside the *current* rect → the frame must cover it
+        const cx = k.position.x + kw / 2;
+        const cy = k.position.y + kh / 2;
+        return cx >= 0 && cx <= curW && cy >= 0 && cy <= curH;
+      });
+      if (!kids.length) return n;
+      const maxX = Math.max(
+        ...kids.map(
+          (k) =>
+            k.position.x + (k.measured?.width ?? k.width ?? 240),
+        ),
+      );
+      const maxY = Math.max(
+        ...kids.map(
+          (k) =>
+            k.position.y + (k.measured?.height ?? k.height ?? 90),
+        ),
+      );
+      const w = Math.max(curW, maxX + CONTAINER_PAD);
+      const h = Math.max(curH, maxY + CONTAINER_PAD);
+      return w === curW && h === curH
+        ? n
+        : { ...n, style: { ...n.style, width: w, height: h } };
+    });
+
   const handleNodesChange: OnNodesChange<EditorNode> = (changes) => {
     for (const c of changes)
       if (c.type === 'position' && c.position) posRef.current[c.id] = c.position;
     onNodesChange(changes);
+    setNodes((prev) => fitFrames(prev));
   };
 
   // Rebuild nodes only when the graph changes (draft edits, layout re-runs).
   // Positions come from posRef (authoritative in-session) → saved → dagre.
   useEffect(() => {
     setNodes(
-      graph.nodes.map((n) => ({
-        ...n,
-        position: posRef.current[n.id] ?? n.position,
-        selected: selRef.current.has(n.id) || undefined,
-      })),
+      fitFrames(
+        graph.nodes.map((n) => ({
+          ...n,
+          position: posRef.current[n.id] ?? n.position,
+          selected: selRef.current.has(n.id) || undefined,
+        })),
+      ),
     );
   }, [graph, setNodes]);
 

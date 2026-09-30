@@ -477,7 +477,7 @@ export function toFlowGraph(flow: ExperimentFlow): {
 
 const NODE_WIDTH = 240;
 const ROW_HEIGHT = 24;
-const CONTAINER_PAD = 30;
+export const CONTAINER_PAD = 30;
 const CONTAINER_GAP = 14;
 /** Vertical inset between the frame's top edge and its children. */
 const FRAME_PAD_Y = 26;
