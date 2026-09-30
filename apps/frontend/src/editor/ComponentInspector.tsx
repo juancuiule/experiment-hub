@@ -51,23 +51,52 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
   );
 }
 
-function Text({ k, p, set, area }: { k: string; p: Props; set: Patch; area?: boolean }) {
+type Ctx = {
+  resolve?: (s: string) => string;
+  /** flattened dictionary messages — enables [[key]] autocomplete + hints */
+  dict?: Record<string, string>;
+};
+
+function Text({
+  k,
+  p,
+  set,
+  area,
+  ctx,
+}: {
+  k: string;
+  p: Props;
+  set: Patch;
+  area?: boolean;
+  ctx?: Ctx;
+}) {
   const v = (p[k] as string) ?? '';
-  return area ? (
-    <textarea
-      key={v}
-      defaultValue={v}
-      rows={3}
-      className={`${inputCls} font-sans`}
-      onBlur={(e) => set({ [k]: e.target.value })}
-    />
-  ) : (
-    <input
-      key={v}
-      defaultValue={v}
-      className={inputCls}
-      onBlur={(e) => set({ [k]: e.target.value })}
-    />
+  const resolved = ctx?.resolve?.(v);
+  const showHint = resolved !== undefined && resolved !== v;
+  const shared = {
+    key: v,
+    defaultValue: v,
+    list: ctx?.dict ? 'dict-keys' : undefined,
+    onBlur: (
+      e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>,
+    ) => set({ [k]: e.target.value }),
+  };
+  return (
+    <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+      {area ? (
+        <textarea {...shared} rows={3} className={`${inputCls} font-sans`} />
+      ) : (
+        <input {...shared} className={inputCls} />
+      )}
+      {showHint && (
+        <span
+          className="text-content-secondary truncate opacity-60"
+          title={resolved}
+        >
+          → {resolved}
+        </span>
+      )}
+    </span>
   );
 }
 
@@ -98,7 +127,17 @@ function Bool({ k, p, set }: { k: string; p: Props; set: Patch }) {
 }
 
 /** Options editor: inline list / %-$$-$-@ ref / {source,labelKey} dict. */
-function OptionsEditor({ p, set, refs }: { p: Props; set: Patch; refs: string[] }) {
+function OptionsEditor({
+  p,
+  set,
+  refs,
+  ctx,
+}: {
+  p: Props;
+  set: Patch;
+  refs: string[];
+  ctx?: Ctx;
+}) {
   const options = p.options as unknown;
   const mode = Array.isArray(options)
     ? 'inline'
@@ -138,6 +177,8 @@ function OptionsEditor({ p, set, refs }: { p: Props; set: Patch; refs: string[] 
                 key={`l${o.label}`}
                 defaultValue={o.label}
                 placeholder="label"
+                list={ctx?.dict ? 'dict-keys' : undefined}
+                title={ctx?.resolve?.(o.label)}
                 className={`${inputCls} w-20`}
                 onBlur={(e) =>
                   set({
@@ -237,6 +278,7 @@ function OptionsEditor({ p, set, refs }: { p: Props; set: Patch; refs: string[] 
           <input
             key={(options as { labelKey?: string }).labelKey}
             defaultValue={(options as { labelKey?: string }).labelKey ?? ''}
+            list="dict-groups"
             className={`${inputCls} w-24`}
             onBlur={(e) =>
               set({
@@ -259,11 +301,13 @@ function TemplateFields({
   set,
   refs,
   setProp,
+  ctx,
 }: {
   c: ScreenComponent;
   set: Patch;
   refs: string[];
   setProp: (key: string, value: unknown) => void;
+  ctx?: Ctx;
 }) {
   const p = c.props as Props;
   const t = c.template;
@@ -271,22 +315,22 @@ function TemplateFields({
     case 'rich-text':
       return (
         <Row label="content">
-          <Text k="content" p={p} set={set} area />
+          <Text k="content" p={p} set={set} area ctx={ctx} />
         </Row>
       );
     case 'image':
       return (
         <>
-          <Row label="url"><Text k="url" p={p} set={set} /></Row>
-          <Row label="alt"><Text k="alt" p={p} set={set} /></Row>
-          <Row label="className"><Text k="className" p={p} set={set} /></Row>
+          <Row label="url"><Text k="url" p={p} set={set} ctx={ctx} /></Row>
+          <Row label="alt"><Text k="alt" p={p} set={set} ctx={ctx} /></Row>
+          <Row label="className"><Text k="className" p={p} set={set} ctx={ctx} /></Row>
         </>
       );
     case 'video':
     case 'audio':
       return (
         <>
-          <Row label="url"><Text k="url" p={p} set={set} /></Row>
+          <Row label="url"><Text k="url" p={p} set={set} ctx={ctx} /></Row>
           <Row label="autoplay"><Bool k="autoplay" p={p} set={set} /></Row>
           {t === 'video' && (
             <Row label="muted"><Bool k="muted" p={p} set={set} /></Row>
@@ -298,14 +342,14 @@ function TemplateFields({
     case 'accordion':
       return (
         <>
-          <Row label="title"><Text k="title" p={p} set={set} /></Row>
-          <Row label="body"><Text k="body" p={p} set={set} area /></Row>
+          <Row label="title"><Text k="title" p={p} set={set} ctx={ctx} /></Row>
+          <Row label="body"><Text k="body" p={p} set={set} area ctx={ctx} /></Row>
         </>
       );
     case 'button':
       return (
         <>
-          <Row label="text"><Text k="text" p={p} set={set} /></Row>
+          <Row label="text"><Text k="text" p={p} set={set} ctx={ctx} /></Row>
           <Row label="disabled"><Bool k="disabled" p={p} set={set} /></Row>
           <Row label="alignBottom"><Bool k="alignBottom" p={p} set={set} /></Row>
           <PayloadEditor p={p} set={set} />
@@ -313,7 +357,7 @@ function TemplateFields({
       );
     case 'group':
       return (
-        <Row label="name"><Text k="name" p={p} set={set} /></Row>
+        <Row label="name"><Text k="name" p={p} set={set} ctx={ctx} /></Row>
       );
     case 'conditional':
       return (
@@ -333,7 +377,7 @@ function TemplateFields({
       const type = p.type as 'static' | 'dynamic';
       return (
         <div className="flex flex-col gap-1">
-          <Row label="id"><Text k="id" p={p} set={set} /></Row>
+          <Row label="id"><Text k="id" p={p} set={set} ctx={ctx} /></Row>
           <div className="flex items-center gap-1.5">
             <span className="text-content-secondary w-16 shrink-0">items</span>
             <select
@@ -391,8 +435,8 @@ function TemplateFields({
       const isSlider = t === 'slider' || t === 'range-slider';
       return (
         <div className="flex flex-col gap-1">
-          <Row label="label"><Text k="label" p={p} set={set} /></Row>
-          {isChoices && <OptionsEditor p={p} set={set} refs={refs} />}
+          <Row label="label"><Text k="label" p={p} set={set} ctx={ctx} /></Row>
+          {isChoices && <OptionsEditor p={p} set={set} refs={refs} ctx={ctx} />}
           {isSlider && (
             <>
               <Row label="min"><Num k="min" p={p} set={set} /></Row>
@@ -419,10 +463,10 @@ function TemplateFields({
             </Row>
           )}
           {(t === 'text-input' || t === 'text-area') && (
-            <Row label="placeholder"><Text k="placeholder" p={p} set={set} /></Row>
+            <Row label="placeholder"><Text k="placeholder" p={p} set={set} ctx={ctx} /></Row>
           )}
           {t === 'single-checkbox' && (
-            <Row label="text"><Text k="text" p={p} set={set} /></Row>
+            <Row label="text"><Text k="text" p={p} set={set} ctx={ctx} /></Row>
           )}
           {isChoices && (
             <>
@@ -431,7 +475,7 @@ function TemplateFields({
             </>
           )}
           <Row label="required"><Bool k="required" p={p} set={set} /></Row>
-          <Row label="error msg"><Text k="errorMessage" p={p} set={set} /></Row>
+          <Row label="error msg"><Text k="errorMessage" p={p} set={set} ctx={ctx} /></Row>
         </div>
       );
     }
@@ -497,6 +541,7 @@ export default function ComponentInspector({
   onPatch,
   onRenameDataKey,
   onTemplateChange,
+  ctx,
 }: {
   component: ScreenComponent;
   refs: string[];
@@ -505,6 +550,7 @@ export default function ComponentInspector({
   onPatch: (props: Props) => void;
   onRenameDataKey?: (next: string) => void;
   onTemplateChange: (template: string) => void;
+  ctx?: Ctx;
 }) {
   const p = component.props as Props;
   const set: Patch = (patch) => {
@@ -554,7 +600,28 @@ export default function ComponentInspector({
         set={set}
         refs={refs}
         setProp={(k, v) => set({ [k]: v })}
+        ctx={ctx}
       />
+      {ctx?.dict && (
+        <>
+          {/* [[key]] autocomplete — option labels show the resolved text */}
+          <datalist id="dict-keys">
+            {Object.entries(ctx.dict).map(([k, v]) => (
+              <option key={k} value={`[[${k}]]`} label={v} />
+            ))}
+          </datalist>
+          {/* dict groups for options' labelKey (first segment of keys) */}
+          <datalist id="dict-groups">
+            {[
+              ...new Set(
+                Object.keys(ctx.dict).map((k) => k.split('.')[0]),
+              ),
+            ].map((g) => (
+              <option key={g} value={g} />
+            ))}
+          </datalist>
+        </>
+      )}
       <details className="text-content-secondary">
         <summary className="cursor-pointer">props (JSON)</summary>
         <textarea

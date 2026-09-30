@@ -1,4 +1,5 @@
 'use client';
+import { buildMessages, defaultLocaleOf } from '@experiment-hub/engine/i18n';
 import type { ScreenComponent } from '@experiment-hub/engine/components';
 import { resolveValuesInString } from '@experiment-hub/engine/resolve';
 import type { ContextData, ExperimentFlow } from '@experiment-hub/engine/types';
@@ -97,6 +98,11 @@ export default function ScreenEditor({
     [draft, screen, screenSlug, overrides],
   );
   const resolve = (s: string) => resolveValuesInString(s, labelCtx);
+  // Flattened dictionary — feeds [[key]] hints + autocomplete in fields.
+  const dict = useMemo(
+    () => buildMessages(draft, defaultLocaleOf(draft)) ?? undefined,
+    [draft],
+  );
 
   const handlers: EditHandlers = {
     selectedKey: pathKey(selectedPath),
@@ -319,6 +325,7 @@ export default function ScreenEditor({
           <ComponentInspector
             component={selected}
             refs={refs}
+            ctx={{ resolve, dict }}
             dataKey={
               typeof (selected.props as Record<string, unknown>).dataKey ===
               'string'

@@ -84,8 +84,11 @@ test('answers persist across screens ($$ refs resolve to them)', async ({
   ).toBeVisible();
 
   // The downstream screen's for-each iterates $$psychoactive-options.* —
-  // it should render ONLY the checked substance.
+  // it should render ONLY the checked substance (scope to the preview form —
+  // the inspector's dict datalist also contains 'Marihuana').
   await page.goto('/screens/experiment/psychoactive-quarantine-change');
-  await expect(page.getByText('Alcohol').first()).toBeVisible();
-  await expect(page.getByText('Marihuana')).toHaveCount(0);
+  await expect(
+    page.locator('form').getByText('Alcohol').first(),
+  ).toBeVisible();
+  await expect(page.locator('form').getByText('Marihuana')).toHaveCount(0);
 });
