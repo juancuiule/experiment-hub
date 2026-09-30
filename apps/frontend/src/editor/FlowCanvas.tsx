@@ -39,10 +39,14 @@ import {
   removeArm,
   setNodeName,
   setParent,
+  setComputations,
+  setDataMap,
   setScreenSlug,
   updateArm,
 } from './mutations';
 import ConditionEditor from './ConditionEditor';
+import ComputeEditor from './ComputeEditor';
+import DataEditor from './DataEditor';
 import { refSuggestions } from './ref-suggestions';
 import {
   CONTAINER_COLORS,
@@ -227,6 +231,14 @@ export default function FlowCanvas({
 
   const issues = useMemo(() => validateExperiment(draft), [draft]);
   const refs = useMemo(() => refSuggestions(draft), [draft]);
+  const loopIds = useMemo(
+    () => draft.nodes.filter((n) => n.type === 'loop').map((n) => n.id),
+    [draft],
+  );
+  const screenSlugs = useMemo(
+    () => (draft.screens ?? []).map((s) => s.slug),
+    [draft],
+  );
 
   // Live positions — updated on every position change so draft edits rebuild
   // nodes without losing where the user put things.
@@ -813,6 +825,35 @@ export default function FlowCanvas({
                             </div>
                           ))}
                         </div>
+                      </div>
+                    )}
+                    {selected.type === 'compute' && (
+                      <div className="flex flex-col gap-1.5 text-xxs">
+                        <span className="text-content-secondary">
+                          computations
+                        </span>
+                        <ComputeEditor
+                          computations={selected.props.computations}
+                          refs={refs}
+                          loopIds={loopIds}
+                          screenSlugs={screenSlugs}
+                          onChange={(computations) =>
+                            mutate((f) =>
+                              setComputations(f, selected.id, computations),
+                            )
+                          }
+                        />
+                      </div>
+                    )}
+                    {selected.type === 'data' && (
+                      <div className="flex flex-col gap-1.5 text-xxs">
+                        <span className="text-content-secondary">data</span>
+                        <DataEditor
+                          data={selected.props.data}
+                          onChange={(data) =>
+                            mutate((f) => setDataMap(f, selected.id, data))
+                          }
+                        />
                       </div>
                     )}
                   </div>

@@ -1,6 +1,10 @@
 import type { Condition } from '@experiment-hub/engine/conditions';
 import { isPathEdge, type FrameworkEdge } from '@experiment-hub/engine/edges';
-import type { FrameworkNode, NodeType } from '@experiment-hub/engine/nodes';
+import type {
+  Computation,
+  FrameworkNode,
+  NodeType,
+} from '@experiment-hub/engine/nodes';
 import type { ExperimentFlow } from '@experiment-hub/engine/types';
 import { HANDLE_NEXT, branchHandle, forkHandle } from './adapter';
 
@@ -397,6 +401,36 @@ export function setNodeName(
     nodes: flow.nodes.map((n) =>
       n.id === id && 'props' in n
         ? ({ ...n, props: { ...n.props, name } } as FrameworkNode)
+        : n,
+    ),
+  };
+}
+
+export function setComputations(
+  flow: ExperimentFlow,
+  id: string,
+  computations: Computation[],
+): ExperimentFlow {
+  return {
+    ...flow,
+    nodes: flow.nodes.map((n) =>
+      n.id === id && n.type === 'compute'
+        ? { ...n, props: { ...n.props, computations } }
+        : n,
+    ),
+  };
+}
+
+export function setDataMap(
+  flow: ExperimentFlow,
+  id: string,
+  data: Record<string, unknown>,
+): ExperimentFlow {
+  return {
+    ...flow,
+    nodes: flow.nodes.map((n) =>
+      n.id === id && n.type === 'data'
+        ? { ...n, props: { ...n.props, data } }
         : n,
     ),
   };
