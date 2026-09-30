@@ -60,6 +60,8 @@ export type ContainerNodeData = {
   kind: 'path' | 'loop';
   /** Declared member position inside the parent container (layout ordering). */
   memberIndex?: number;
+  /** Size computed by layoutFlow — the floor for runtime frame resizing. */
+  layoutSize?: { width: number; height: number };
 };
 
 export type EditorNode = Node<EditorNodeData | ContainerNodeData, string>;
@@ -699,6 +701,10 @@ export function layoutFlow(
         node.type === 'container'
           ? { width: size.width, height: size.height }
           : undefined,
+      data:
+        node.type === 'container'
+          ? { ...node.data, layoutSize: size }
+          : node.data,
     };
   });
 }

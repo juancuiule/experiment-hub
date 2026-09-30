@@ -331,8 +331,13 @@ export default function FlowCanvas({
   const fitFrames = (list: EditorNode[]): EditorNode[] =>
     list.map((n) => {
       if (n.type !== 'container') return n;
-      const curW = Number(n.style?.width ?? 0);
-      const curH = Number(n.style?.height ?? 0);
+      // Layout size is the floor — frames grow to cover members and shrink
+      // back to it; the current style may be a previously-grown value.
+      const base = (n.data as ContainerNodeData).layoutSize;
+      const minW = Number(base?.width ?? n.style?.width ?? 0);
+      const minH = Number(base?.height ?? n.style?.height ?? 0);
+      const curW = Number(n.style?.width ?? minW);
+      const curH = Number(n.style?.height ?? minH);
       const kids = list.filter((k) => {
         if (k.parentId !== n.id) return false;
         const kw = k.measured?.width ?? k.width ?? 240;
@@ -342,7 +347,6 @@ export default function FlowCanvas({
         const cy = k.position.y + kh / 2;
         return cx >= 0 && cx <= curW && cy >= 0 && cy <= curH;
       });
-      if (!kids.length) return n;
       const maxX = Math.max(
         ...kids.map(
           (k) =>
@@ -355,8 +359,8 @@ export default function FlowCanvas({
             k.position.y + (k.measured?.height ?? k.height ?? 90),
         ),
       );
-      const w = Math.max(curW, maxX + CONTAINER_PAD);
-      const h = Math.max(curH, maxY + CONTAINER_PAD);
+      const w = Math.max(minW, maxX + CONTAINER_PAD);
+      const h = Math.max(minH, maxY + CONTAINER_PAD);
       return w === curW && h === curH
         ? n
         : { ...n, style: { ...n.style, width: w, height: h } };
