@@ -308,9 +308,17 @@ function buildDataEdges(flow: ExperimentFlow): EditorEdge[] {
 
   // producer -> consumer -> refs seen
   const deps = new Map<string, Set<string>>();
+  // A member reading its own loop via @loopId is implicit — the frame
+  // already says it; don't draw a wire into the container's own member.
+  const parentOf = new Map<string, string>();
+  for (const e of flow.edges) {
+    if (e.type === 'path-contains' || e.type === 'loop-template')
+      parentOf.set(e.to, e.from);
+  }
 
   const record = (consumerId: string, producerId: string, ref: string) => {
     if (producerId === consumerId) return;
+    if (parentOf.get(consumerId) === producerId) return;
     const key = `${producerId}->${consumerId}`;
     if (!deps.has(key)) deps.set(key, new Set());
     deps.get(key)!.add(ref);
