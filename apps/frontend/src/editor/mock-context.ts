@@ -200,6 +200,71 @@ export function buildMockContext(
     return cur;
   };
 
+  /** `$$computeId.outputKey` — chase `sample`/`split` inputs into real data so
+   *  computed loops/for-eaches iterate real items (real img names → real
+   *  image URLs); evaluate plain aggregates over resolved inputs. */
+  const computeValue = (ref: string, depth = 0): unknown => {
+    if (depth > 3) return undefined;
+    const segs = ref.slice(2).split('.');
+    const node = nodesById.get(segs[0]);
+    if (node?.type !== 'compute') return undefined;
+    const comp = node.props.computations.find((c) => c.outputKey === segs[1]);
+    if (!comp) return undefined;
+    const f = comp.formula;
+    const resolveInput = (input: unknown): unknown =>
+      typeof input === 'string' && input.startsWith('$$')
+        ? (getData(input) ?? dataNodeValue(input) ?? computeValue(input, depth + 1))
+        : input;
+    if (f.type === 'sample' || f.type === 'split') {
+      const pool = resolveInput(f.input);
+      if (!Array.isArray(pool)) return undefined;
+      const n =
+        typeof f.n === 'number'
+          ? f.n
+          : Number(resolveInput(f.n as string)) || 3;
+      if (f.type === 'sample') return pool.slice(0, n);
+      // split: into=n bins (last absorbs remainder), size=bins of n.
+      const bins: unknown[][] = [];
+      if (f.mode === 'into') {
+        const k = Math.max(1, Math.min(n, pool.length));
+        const base = Math.floor(pool.length / k);
+        for (let i = 0; i < k; i++) {
+          const from = i * base;
+          bins.push(
+            i === k - 1 ? pool.slice(from) : pool.slice(from, from + base),
+          );
+        }
+      } else {
+        for (let i = 0; i < pool.length; i += Math.max(1, n))
+          bins.push(pool.slice(i, i + Math.max(1, n)));
+      }
+      return bins;
+    }
+    if ('inputs' in f) {
+      const vals = (f.inputs as string[]).map(
+        (i) => Number(resolveInput(i)) || 0,
+      );
+      switch (f.type) {
+        case 'sum':
+          return vals.reduce((a, b) => a + b, 0);
+        case 'mean':
+          return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
+        case 'min':
+          return vals.length ? Math.min(...vals) : 0;
+        case 'max':
+          return vals.length ? Math.max(...vals) : 0;
+        case 'count':
+          return vals.filter((v) => v !== 0).length;
+      }
+    }
+    return undefined;
+  };
+
+  /** Real authored/computable value for a `$$` ref — data node value first,
+   *  then a chaseable compute formula, else undefined. */
+  const realValue = (ref: string): unknown =>
+    dataNodeValue(ref) ?? computeValue(ref);
+
   const feItems = new Map<string, unknown[]>();
   const loopItems = new Map<string, unknown[]>();
 
@@ -215,7 +280,7 @@ export function buildMockContext(
         p.id,
       );
       if (p.dataKey.startsWith('$$')) {
-        const real = dataNodeValue(p.dataKey);
+        const real = realValue(p.dataKey);
         // Producer is a checkboxes/multi-select field → its real option values.
         const producer = producerField(screensBySlug, p.dataKey.slice(2));
         const fromProducer =
@@ -248,10 +313,10 @@ export function buildMockContext(
     }
     const options = p.options;
     if (typeof options === 'string' && options.startsWith('$$'))
-      setData(options, dataNodeValue(options) ?? FAKE_OPTION_VALUES);
+      setData(options, realValue(options) ?? FAKE_OPTION_VALUES);
     if (typeof options === 'object' && options !== null) {
       const src = (options as { source?: string }).source;
-      if (src?.startsWith('$$')) setData(src, dataNodeValue(src) ?? FAKE_OPTION_VALUES);
+      if (src?.startsWith('$$')) setData(src, realValue(src) ?? FAKE_OPTION_VALUES);
     }
   });
 
@@ -260,19 +325,35 @@ export function buildMockContext(
     if (node.type !== 'loop' || node.props.type !== 'dynamic') continue;
     const key = node.props.dataKey;
     if (!key.startsWith('$$')) continue;
-    const real = dataNodeValue(key);
+    const real = realValue(key);
     const { props, bare } = usedItemProps(json, '@', node.id);
     const items = Array.isArray(real) ? real : fakeItems(props, bare);
     if (getData(key) === undefined) setData(key, items);
     loopItems.set(node.id, items);
   }
 
+  // Refs that ARE the whole url of an image component → a real placeholder
+  // asset; a fake string would fail resolveInterpolatedImageUrl or 404.
+  const imageUrlRefs = new Set<string>();
+  walkComponents(screen.components, (c) => {
+    const p = c.props as WalkProps & { url?: string };
+    if (c.template !== 'image' || typeof p.url !== 'string') return;
+    const m = p.url.match(/^\{\{\s*(\$\$[\w.-]+)\s*\}\}$/);
+    if (m?.[1]) imageUrlRefs.add(m[1]);
+  });
+
   // Pass 2 — every other $$ ref: real data-node value, else a scalar fake
   // derived from the producing screen's field type.
   for (const m of json.matchAll(/\$\$[\w-]+(?:\.[\w-]+)*/g)) {
     if (getData(m[0]) !== undefined) continue;
-    const real = dataNodeValue(m[0]);
-    setData(m[0], real ?? fakeScalarFor(flow, screensBySlug, m[0].slice(2)));
+    const real = realValue(m[0]);
+    setData(
+      m[0],
+      real ??
+        (imageUrlRefs.has(m[0])
+          ? '/editor-placeholder.svg'
+          : fakeScalarFor(flow, screensBySlug, m[0].slice(2))),
+    );
   }
 
   // Pass 3 — @loop refs: value is the first resolved item when we know the
