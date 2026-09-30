@@ -243,6 +243,16 @@ export function deleteEdgeIds(
 
 // ─── Container membership ────────────────────────────────────────────────────
 
+/** Would `setParent(flow, nodeId, parentId)` change anything? Used to decide
+ *  whether a drop target is valid before the user releases. */
+export function canParent(
+  flow: ExperimentFlow,
+  nodeId: string,
+  parentId: string,
+): boolean {
+  return setParent(flow, nodeId, parentId) !== flow;
+}
+
 /**
  * Move `nodeId` into container `parentId` (or out when null). Adds a
  * `path-contains` edge (order appended) or `loop-template` edge. Rejects

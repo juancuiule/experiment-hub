@@ -24,9 +24,20 @@ import { validateExperiment } from '@experiment-hub/engine/experiment-validation
 import type { NodeType } from '@experiment-hub/engine/nodes';
 import type { ExperimentFlow } from '@experiment-hub/engine/types';
 import { useTheme } from 'next-themes';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  createContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import LiveScreenPreview from './LiveScreenPreview';
-import { clearPositions, loadPositions, savePositions } from './positions';
+import {
+  clearPositions,
+  loadPositions,
+  removePositions,
+  savePositions,
+} from './positions';
 import {
   addArm,
   addNode,
@@ -35,6 +46,7 @@ import {
   deleteEdgeIds,
   deleteNodes,
   duplicateNodes,
+  canParent,
   reconnect,
   removeArm,
   setNodeName,
@@ -102,6 +114,72 @@ const minimapColor = (node: EditorNode) =>
   node.type === 'container'
     ? CONTAINER_COLORS[(node.data as ContainerNodeData).kind]
     : TYPE_COLORS[node.type as NodeType];
+
+/** Which container id is a live drop target (for frame highlighting). */
+export const DropTargetContext = createContext<string | null>(null);
+
+/** Absolute canvas position of a node, walking its parentId chain. */
+const nodeAbs = (n: Node, byId: Map<string, Node>): XYPosition => {
+  let { x, y } = n.position;
+  for (let p = n.parentId; p; ) {
+    const par = byId.get(p);
+    if (!par) break;
+    x += par.position.x;
+    y += par.position.y;
+    p = par.parentId;
+  }
+  return { x, y };
+};
+
+const nodeCenter = (n: Node, byId: Map<string, Node>): XYPosition => {
+  const a = nodeAbs(n, byId);
+  const w = n.measured?.width ?? n.width ?? 240;
+  const h = n.measured?.height ?? n.height ?? 90;
+  return { x: a.x + w / 2, y: a.y + h / 2 };
+};
+
+const containerRect = (
+  c: Node,
+  byId: Map<string, Node>,
+): { x: number; y: number; w: number; h: number } => {
+  const p = nodeAbs(c, byId);
+  return {
+    x: p.x,
+    y: p.y,
+    w: Number(c.style?.width ?? 0),
+    h: Number(c.style?.height ?? 0),
+  };
+};
+
+const inside = (p: XYPosition, r: { x: number; y: number; w: number; h: number }) =>
+  p.x >= r.x && p.x <= r.x + r.w && p.y >= r.y && p.y <= r.y + r.h;
+
+/** Deepest container whose rect contains the point (excluding `skipId`). */
+const deepestHit = (
+  nodes: Node[],
+  byId: Map<string, Node>,
+  point: XYPosition,
+  skipId: string,
+): Node | null => {
+  const depth = (c: Node): number => {
+    let d = 0;
+    for (let p = c.parentId; p; ) {
+      d++;
+      p = byId.get(p)?.parentId;
+    }
+    return d;
+  };
+  return (
+    nodes
+      .filter(
+        (n) =>
+          n.type === 'container' &&
+          n.id !== skipId &&
+          inside(point, containerRect(n, byId)),
+      )
+      .sort((a, b) => depth(b) - depth(a))[0] ?? null
+  );
+};
 
 /** Re-runs dagre (clears saved manual positions) then refits the view. */
 function TidyButton({ onTidy }: { onTidy: () => void }) {
@@ -318,81 +396,65 @@ export default function FlowCanvas({
     if (deleted.length) mutate((f) => deleteEdgeIds(f, deleted.map((e) => e.id)));
   };
 
-  const onNodeDragStop: OnNodeDrag = (_e, node) => {
-    posRef.current[node.id] = node.position;
-    savePositions(slug, posRef.current);
+  // Live drop-target highlight while dragging over a container.
+  const [dropTargetId, setDropTargetId] = useState<string | null>(null);
 
-    // ── Container drop / escape ──────────────────────────────────────────────
-    // Center of the dragged node inside a container's frame → member.
-    // Member dragged so its center leaves the frame (+ a small margin) →
-    // unparented back to the top level.
+  const onNodeDrag: OnNodeDrag = (_e, node) => {
     const byId = new Map(nodes.map((n) => [n.id, n]));
-    const absPos = (n: Node): XYPosition => {
-      let { x, y } = n.position;
-      for (let p = n.parentId; p; ) {
-        const par = byId.get(p);
-        if (!par) break;
-        x += par.position.x;
-        y += par.position.y;
-        p = par.parentId;
-      }
-      return { x, y };
-    };
+    const hit = deepestHit(nodes, byId, nodeCenter(node, byId), node.id);
+    setDropTargetId(
+      hit && hit.id !== node.parentId && canParent(draft, node.id, hit.id)
+        ? hit.id
+        : null,
+    );
+  };
+
+  const onNodeDragStop: OnNodeDrag = (_e, node) => {
+    setDropTargetId(null);
+    const byId = new Map(nodes.map((n) => [n.id, n]));
     const dragged = byId.get(node.id);
     if (!dragged) return;
-    const a = absPos(dragged);
-    const w = dragged.measured?.width ?? dragged.width ?? 240;
-    const h = dragged.measured?.height ?? dragged.height ?? 90;
-    const center = { x: a.x + w / 2, y: a.y + h / 2 };
 
-    const containers = nodes.filter((n) => n.type === 'container');
-    const depthOf = (c: Node): number => {
-      let d = 0;
-      for (let p = c.parentId; p; ) {
-        d++;
-        p = byId.get(p)?.parentId;
-      }
-      return d;
-    };
-    const MARGIN = 12; // must cross the frame edge by this much to escape
-    const hit = containers
-      .filter((c) => c.id !== node.id)
-      .map((c) => {
-        const p = absPos(c);
-        const cw = Number(c.style?.width ?? 0);
-        const ch = Number(c.style?.height ?? 0);
-        const inside =
-          center.x >= p.x &&
-          center.x <= p.x + cw &&
-          center.y >= p.y &&
-          center.y <= p.y + ch;
-        // outside with margin — only counts when clearly past the border
-        const outside =
-          center.x < p.x - MARGIN ||
-          center.x > p.x + cw + MARGIN ||
-          center.y < p.y - MARGIN ||
-          center.y > p.y + ch + MARGIN;
-        return { id: c.id, inside, outside, depth: depthOf(c) };
-      })
-      .sort((x, y) => y.depth - x.depth);
-
-    const target = hit.find((c) => c.inside);
+    const center = nodeCenter(node, byId);
+    const target = deepestHit(nodes, byId, center, node.id);
     const currentParent = dragged.parentId;
+    const MARGIN = 12; // must cross the frame edge by this much to escape
 
-    if (target && target.id !== currentParent) {
-      // Dropped into a container — let inner dagre position it inside.
+    // Drop into a container that can take it → member; inner dagre seats it.
+    if (
+      target &&
+      target.id !== currentParent &&
+      canParent(draft, node.id, target.id)
+    ) {
       delete posRef.current[node.id];
+      removePositions(slug, [node.id]);
       mutate((f) => setParent(f, node.id, target.id));
       return;
     }
-    const parentOutside = currentParent
-      ? hit.find((c) => c.id === currentParent)
-      : undefined;
-    if (currentParent && parentOutside?.outside) {
-      // Dragged out — keep it where the drop happened (absolute coords).
-      posRef.current[node.id] = a;
-      mutate((f) => setParent(f, node.id, null));
+
+    // Member dragged clearly out of its parent frame → unparent, keep the
+    // drop position in absolute coords.
+    if (currentParent) {
+      const par = byId.get(currentParent);
+      if (par) {
+        const r = containerRect(par, byId);
+        const escaped =
+          center.x < r.x - MARGIN ||
+          center.x > r.x + r.w + MARGIN ||
+          center.y < r.y - MARGIN ||
+          center.y > r.y + r.h + MARGIN;
+        if (escaped) {
+          posRef.current[node.id] = nodeAbs(node, byId);
+          savePositions(slug, posRef.current);
+          mutate((f) => setParent(f, node.id, null));
+          return;
+        }
+      }
     }
+
+    // Plain move.
+    posRef.current[node.id] = node.position;
+    savePositions(slug, posRef.current);
   };
 
   const tidy = () => {
@@ -530,6 +592,7 @@ export default function FlowCanvas({
   return (
     <div className="border-border-default bg-background h-[75vh] w-full overflow-hidden rounded-xl border">
       <ViewOptionsContext.Provider value={view}>
+        <DropTargetContext.Provider value={dropTargetId}>
         <ReactFlow
           nodes={nodes}
           edges={edges}
@@ -550,6 +613,7 @@ export default function FlowCanvas({
           deleteKeyCode={['Backspace', 'Delete']}
           multiSelectionKeyCode={['Shift', 'Meta', 'Control']}
           selectionKeyCode="Shift"
+          onNodeDrag={onNodeDrag}
           onNodeDragStop={onNodeDragStop}
           onSelectionChange={onSelectionChange}
           colorMode={resolvedTheme === 'dark' ? 'dark' : 'light'}
@@ -929,6 +993,7 @@ export default function FlowCanvas({
             </Panel>
           )}
         </ReactFlow>
+        </DropTargetContext.Provider>
       </ViewOptionsContext.Provider>
     </div>
   );

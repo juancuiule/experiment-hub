@@ -28,6 +28,15 @@ export function savePositions(
   localStorage.setItem(KEY, JSON.stringify(store));
 }
 
+export function removePositions(slug: string, ids: string[]) {
+  if (typeof window === 'undefined') return;
+  const store = readStore();
+  const cur = store[slug] ?? {};
+  for (const id of ids) delete cur[id];
+  store[slug] = cur;
+  localStorage.setItem(KEY, JSON.stringify(store));
+}
+
 export function clearPositions(slug: string) {
   if (typeof window === 'undefined') return;
   const store = readStore();
