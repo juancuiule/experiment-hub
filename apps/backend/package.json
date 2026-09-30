@@ -7,7 +7,7 @@
     "dist"
   ],
   "scripts": {
-    "dev": "PORT=3100 NODE_ENV=development tsx watch src/server.ts",
+    "dev": "PORT=3100 NODE_ENV=development tsx watch --env-file-if-exists=../../.env src/server.ts",
     "build": "esbuild src/server.ts --bundle --platform=node --format=esm --outfile=dist/server.js --external:effect --external:'effect/*' --external:'@effect/*'",
     "start": "node dist/server.js",
     "seed": "tsx scripts/seed.ts",

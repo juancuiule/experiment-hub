@@ -1,4 +1,3 @@
-import { validateExperiment } from '@experiment-hub/engine/experiment-validation';
 import { fetchExperiment } from '@/src/data/fetch-experiment';
 import FlowCanvasLoader from '@/src/editor/FlowCanvasLoader';
 import { notFound } from 'next/navigation';
@@ -17,10 +16,6 @@ export default async function NodeGraphPage({ params }: Props) {
 
   const { config: experiment, version } = loaded;
 
-  // Render regardless — the canvas is also the debugging surface for
-  // misconfigured graphs; issues surface in the canvas problems panel.
-  const issues = validateExperiment(experiment);
-
   return (
     <div className="flex w-full flex-1 flex-col gap-3">
       <div className="flex items-baseline gap-3">
@@ -30,7 +25,7 @@ export default async function NodeGraphPage({ params }: Props) {
           {experiment.edges.length} edges
         </span>
       </div>
-      <FlowCanvasLoader slug={slug} experiment={experiment} issues={issues} />
+      <FlowCanvasLoader slug={slug} experiment={experiment} />
     </div>
   );
 }

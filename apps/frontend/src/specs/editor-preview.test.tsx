@@ -148,4 +148,27 @@ describe('real configs', () => {
       ).not.toThrow();
     }
   }, 15000);
+
+  it('chases sample-formula inputs into real data so image urls resolve', () => {
+    // emociones: loop-miradas iterates $$compute-sample-items.selected-items,
+    // a `sample` formula over an inline array with real `img` names.
+    const em = EXPERIMENTS.emociones;
+    const mirada = em.screens!.find((s) => s.slug === 'mirada')!;
+    const ctx = buildMockContext(em, mirada);
+    const item = ctx.loopData?.['loop-miradas']?.value as { img: string };
+    expect(typeof item.img).toBe('string');
+    expect(item.img.length).toBeLessThan(4); // '1'..'36', not 'img 1'
+  });
+
+  it('uses a placeholder asset for whole-ref image urls', () => {
+    // emociones `end` screen: url is exactly {{$$compute-correct.feedback-image}}
+    // whose formula is conditional (not chaseable) → placeholder asset.
+    const em = EXPERIMENTS.emociones;
+    const end = em.screens!.find((s) => s.slug === 'end')!;
+    const ctx = buildMockContext(em, end);
+    const data = ctx.data as Record<string, Record<string, string>>;
+    expect(data['compute-correct']['feedback-image']).toBe(
+      '/editor-placeholder.svg',
+    );
+  });
 });

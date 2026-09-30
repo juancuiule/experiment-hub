@@ -2,7 +2,9 @@
 import { Handle, Position, type Node, type NodeProps } from '@xyflow/react';
 import type { LoopNode, PathNode } from '@experiment-hub/engine/nodes';
 import { Layers, Repeat } from 'lucide-react';
+import { useContext } from 'react';
 import { HANDLE_IN, HANDLE_NEXT, type ContainerNodeData } from './adapter';
+import { DropTargetContext } from './FlowCanvas';
 import { Row, handleClass } from './FlowNode';
 import { useViewOptions } from './view-options';
 
@@ -78,22 +80,32 @@ function ContainerCard({ node, kind }: { node: PathNode | LoopNode; kind: 'path'
  * containment edges never render.
  */
 export default function ContainerNode({
+  id,
   data,
 }: NodeProps<Node<ContainerNodeData>>) {
   const accent = CONTAINER_ACCENTS[data.kind];
+  const isDropTarget = useContext(DropTargetContext) === id;
 
   return (
     <div className="relative flex h-full w-full flex-col">
       <ContainerCard node={data.node} kind={data.kind} />
       <div
-        className="relative mt-2 min-h-0 flex-1 rounded-2xl border-2 border-dashed"
-        style={{ borderColor: `${accent}55`, backgroundColor: `${accent}0a` }}
+        className="relative mt-2 min-h-0 flex-1 rounded-2xl border-2 border-dashed transition-colors"
+        style={{
+          borderColor: isDropTarget ? accent : `${accent}55`,
+          backgroundColor: isDropTarget ? `${accent}22` : `${accent}0a`,
+          boxShadow: isDropTarget ? `0 0 0 4px ${accent}26` : undefined,
+        }}
       >
         <span
           className="bg-background-surface absolute -top-2.5 left-3 rounded-full border px-1.5 font-mono text-xxs"
           style={{ borderColor: `${accent}66`, color: accent }}
         >
-          {data.kind === 'loop' ? 'each' : 'steps'}
+          {isDropTarget
+            ? 'drop to add'
+            : data.kind === 'loop'
+              ? 'each'
+              : 'steps'}
         </span>
       </div>
     </div>
