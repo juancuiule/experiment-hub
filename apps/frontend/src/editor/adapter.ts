@@ -419,7 +419,9 @@ export function toFlowGraph(flow: ExperimentFlow): {
     .sort((a, b) => depth(a.id) - depth(b.id))
     .map((node) => {
       const parent = childToParent.get(node.id);
-      const isContainer = members.has(node.id);
+      // Every path/loop is a container — even with zero members it keeps an
+      // empty frame so nodes can be dropped back in.
+      const isContainer = node.type === 'path' || node.type === 'loop';
       const base = {
         id: node.id,
         position: { x: 0, y: 0 }, // replaced by layoutFlow
@@ -629,13 +631,14 @@ export function layoutFlow(
     }
     return n;
   };
-  const containersByDepth = [...members.keys()].sort(
-    (a, b) => depth(b) - depth(a),
-  );
+  const containersByDepth = nodes
+    .filter((n) => n.type === 'container')
+    .map((n) => n.id)
+    .sort((a, b) => depth(b) - depth(a));
 
   const childPositions = new Map<string, { x: number; y: number }>();
   for (const containerId of containersByDepth) {
-    const children = members.get(containerId)!;
+    const children = members.get(containerId) ?? [];
     // Order children: path members keep their edge order (children were
     // appended in `order` sequence); internal flow edges feed dagre.
     const innerEdges = edges
@@ -666,8 +669,10 @@ export function layoutFlow(
       h = Math.max(h, p.y + s.height);
     }
     // Top inset (GAP + PAD_Y) mirrors the bottom inset for symmetric framing.
+    // Width never shrinks below the card — an empty frame should still be
+    // card-wide, not a sliver.
     sizes.set(containerId, {
-      width: w + CONTAINER_PAD * 2,
+      width: Math.max(NODE_WIDTH, w + CONTAINER_PAD * 2),
       height: cardH + (CONTAINER_GAP + FRAME_PAD_Y) * 2 + h,
     });
   }

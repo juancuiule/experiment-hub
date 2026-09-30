@@ -147,19 +147,31 @@ const containerRect = (
   return {
     x: p.x,
     y: p.y,
-    w: Number(c.style?.width ?? 0),
-    h: Number(c.style?.height ?? 0),
+    // measured = rendered DOM size (the card can be wider than layout);
+    // style = the layout/grown size. Prefer measured for hit-testing.
+    w: c.measured?.width ?? Number(c.style?.width ?? 0),
+    h: c.measured?.height ?? Number(c.style?.height ?? 0),
   };
 };
 
-const inside = (p: XYPosition, r: { x: number; y: number; w: number; h: number }) =>
-  p.x >= r.x && p.x <= r.x + r.w && p.y >= r.y && p.y <= r.y + r.h;
+type Rect = { x: number; y: number; w: number; h: number };
 
-/** Deepest container whose rect contains the point (excluding `skipId`). */
+const rectsOverlap = (a: Rect, b: Rect) =>
+  a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+
+const nodeRect = (n: Node, byId: Map<string, Node>): Rect => ({
+  ...nodeAbs(n, byId),
+  w: n.measured?.width ?? n.width ?? 240,
+  h: n.measured?.height ?? n.height ?? 90,
+});
+
+/** Deepest container the rect overlaps (excluding `skipId`). Dropping a node
+ *  so it touches the frame joins it — center-inside was too strict: a tall
+ *  node dropped on a shallow frame lands center-outside and silently misses. */
 const deepestHit = (
   nodes: Node[],
   byId: Map<string, Node>,
-  point: XYPosition,
+  rect: Rect,
   skipId: string,
 ): Node | null => {
   const depth = (c: Node): number => {
@@ -176,7 +188,7 @@ const deepestHit = (
         (n) =>
           n.type === 'container' &&
           n.id !== skipId &&
-          inside(point, containerRect(n, byId)),
+          rectsOverlap(rect, containerRect(n, byId)),
       )
       .sort((a, b) => depth(b) - depth(a))[0] ?? null
   );
@@ -325,14 +337,16 @@ export default function FlowCanvas({
   const selRef = useRef<Set<string>>(new Set());
   const clipboard = useRef<string[]>([]);
 
-  /** Grow container styles so members never poke past the frame edge.
-   *  Only children whose center is still inside count — a member dragged
-   *  fully out does NOT grow the frame (that's the escape gesture). */
+  /** Grow/shrink container styles so members are always covered with padding.
+   *  Floors at the dagre layout size; only runs on drop/rebuild — fitting
+   *  during the drag would chase the dragged member and make the escape
+   *  gesture unreachable. A member whose center sits within ESCAPE_MARGIN of
+   *  the border still counts (dropped colliding → frame covers it); beyond
+   *  that it's treated as escaping. */
+  const ESCAPE_MARGIN = 12;
   const fitFrames = (list: EditorNode[]): EditorNode[] =>
     list.map((n) => {
       if (n.type !== 'container') return n;
-      // Layout size is the floor — frames grow to cover members and shrink
-      // back to it; the current style may be a previously-grown value.
       const base = (n.data as ContainerNodeData).layoutSize;
       const minW = Number(base?.width ?? n.style?.width ?? 0);
       const minH = Number(base?.height ?? n.style?.height ?? 0);
@@ -342,22 +356,26 @@ export default function FlowCanvas({
         if (k.parentId !== n.id) return false;
         const kw = k.measured?.width ?? k.width ?? 240;
         const kh = k.measured?.height ?? k.height ?? 90;
-        // center still inside the *current* rect → the frame must cover it
         const cx = k.position.x + kw / 2;
         const cy = k.position.y + kh / 2;
-        return cx >= 0 && cx <= curW && cy >= 0 && cy <= curH;
+        return (
+          cx >= -ESCAPE_MARGIN &&
+          cx <= curW + ESCAPE_MARGIN &&
+          cy >= -ESCAPE_MARGIN &&
+          cy <= curH + ESCAPE_MARGIN
+        );
       });
       const maxX = Math.max(
         ...kids.map(
-          (k) =>
-            k.position.x + (k.measured?.width ?? k.width ?? 240),
+          (k) => k.position.x + (k.measured?.width ?? k.width ?? 240),
         ),
+        0,
       );
       const maxY = Math.max(
         ...kids.map(
-          (k) =>
-            k.position.y + (k.measured?.height ?? k.height ?? 90),
+          (k) => k.position.y + (k.measured?.height ?? k.height ?? 90),
         ),
+        0,
       );
       const w = Math.max(minW, maxX + CONTAINER_PAD);
       const h = Math.max(minH, maxY + CONTAINER_PAD);
@@ -370,7 +388,6 @@ export default function FlowCanvas({
     for (const c of changes)
       if (c.type === 'position' && c.position) posRef.current[c.id] = c.position;
     onNodesChange(changes);
-    setNodes((prev) => fitFrames(prev));
   };
 
   // Rebuild nodes only when the graph changes (draft edits, layout re-runs).
@@ -446,7 +463,7 @@ export default function FlowCanvas({
 
   const onNodeDrag: OnNodeDrag = (_e, node) => {
     const byId = new Map(nodes.map((n) => [n.id, n]));
-    const hit = deepestHit(nodes, byId, nodeCenter(node, byId), node.id);
+    const hit = deepestHit(nodes, byId, nodeRect(node, byId), node.id);
     setDropTargetId(
       hit && hit.id !== node.parentId && canParent(draft, node.id, hit.id)
         ? hit.id
@@ -461,9 +478,9 @@ export default function FlowCanvas({
     if (!dragged) return;
 
     const center = nodeCenter(node, byId);
-    const target = deepestHit(nodes, byId, center, node.id);
+    const target = deepestHit(nodes, byId, nodeRect(node, byId), node.id);
     const currentParent = dragged.parentId;
-    const MARGIN = 12; // must cross the frame edge by this much to escape
+    const MARGIN = ESCAPE_MARGIN;
 
     // Drop into a container that can take it → member; inner dagre seats it.
     if (
@@ -497,9 +514,11 @@ export default function FlowCanvas({
       }
     }
 
-    // Plain move.
+    // Plain move — refit frames so a member dropped near the border gets
+    // covered (and an inward move shrinks the frame back to fit).
     posRef.current[node.id] = node.position;
     savePositions(slug, posRef.current);
+    setNodes((prev) => fitFrames(prev));
   };
 
   const tidy = () => {
@@ -564,6 +583,14 @@ export default function FlowCanvas({
     const onKey = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement).tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      if (e.key === 'Escape') {
+        selRef.current = new Set();
+        setSelectedId(null);
+        setNodes((prev) =>
+          prev.map((n) => (n.selected ? { ...n, selected: false } : n)),
+        );
+        return;
+      }
       if (!(e.metaKey || e.ctrlKey)) return;
       const k = e.key.toLowerCase();
       if (k === 'z') {
