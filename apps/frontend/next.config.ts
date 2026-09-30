@@ -2,6 +2,16 @@ import type { NextConfig } from "next";
 import path from "path";
 
 const nextConfig: NextConfig = {
+  // Dev server is reached over LAN/Tailscale (raspberrypi hostname, LAN IP,
+  // tailnet IP/FQDN) — Next blocks cross-origin dev resources (HMR websocket)
+  // unless the host is listed here. Dev-only; has no effect on prod builds.
+  allowedDevOrigins: [
+    "raspberrypi",
+    "raspberrypi.local",
+    "raspberrypi.tailf8ca0e.ts.net",
+    "192.168.1.2",
+    "100.103.190.70",
+  ],
   output: "standalone",
   outputFileTracingRoot: path.join(import.meta.dirname, "../.."),
   transpilePackages: ["@experiment-hub/engine"],
